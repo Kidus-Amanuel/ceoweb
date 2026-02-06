@@ -1,0 +1,17 @@
+#!/bin/bash
+
+local_branch_name="$(git rev-parse --abbrev-ref HEAD)"
+
+valid_branch_regex="^(feat|fix|chore|docs|style|refactor|test|hotfix)\/|^(CEO|ceo)-[0-9]+"
+
+if [[ ! $local_branch_name =~ $valid_branch_regex ]]; then
+    echo "❌ Error: Branch name '$local_branch_name' does not match the valid pattern."
+    echo "   Branch names must start with one of:"
+    echo "     - Conventional: feat/, fix/, chore/, docs/, style/, refactor/, test/, hotfix/"
+    echo "     - Project Ticket: CEO-123- or ceo-123-"
+    echo "   Example: feat/user-authentication or CEO-16-Set-Up-Application-Environments"
+    exit 1
+fi
+
+echo "✅ Branch name check passed."
+exit 0
