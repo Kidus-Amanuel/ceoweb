@@ -1,4 +1,5 @@
 # Summary: Foundation & Infrastructure Setup
+
 Description: Set up the foundational infrastructure, development environment, and core technology stack for the multi-tenant business management platform.
 
 # Goals:
