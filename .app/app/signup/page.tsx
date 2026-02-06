@@ -6,7 +6,7 @@ export default function SignUpPage() {
       <div className="w-full max-w-md space-y-8 rounded-2xl bg-white p-8 shadow-xl dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700">
         <div className="text-center">
           <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Create your account
+            Create your accounts
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Join us today and get started
