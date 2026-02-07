@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loginSchema } from "@/validators/auth";
 import { authService } from "@/services/auth.service";
+import logger from "@/utils/logger";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +13,8 @@ export async function POST(request: NextRequest) {
     // 2. Call Service
     const data = await authService.login(email, password);
 
+    logger.info({ email, context: "auth-api" }, "User login successful");
+
     // 3. Return Success
     return NextResponse.json(
       { message: "Login successful", user: data.user },
@@ -19,13 +22,17 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: any) {
     if (error.name === "ZodError") {
+      logger.warn(
+        { errors: error.errors, context: "auth-api" },
+        "Login validation failed",
+      );
       return NextResponse.json(
         { message: "Validation failed", errors: error.errors },
         { status: 400 },
       );
     }
 
-    console.error("[Login API Error]:", error);
+    logger.error({ error, context: "auth-api" }, "Login API failure");
 
     return NextResponse.json(
       {

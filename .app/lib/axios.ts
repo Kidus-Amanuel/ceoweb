@@ -1,5 +1,6 @@
 import axios from "axios";
 import { handleAxiosError } from "@/utils/error-handler";
+import logger from "@/utils/logger";
 
 const axiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api",
@@ -27,10 +28,15 @@ axiosInstance.interceptors.response.use(
   (error) => {
     const formattedError = handleAxiosError(error);
 
-    // Global error logging (optional: send to Sentry, etc.)
-    if (process.env.NODE_ENV === "development") {
-      console.error("[API Error]:", formattedError);
-    }
+    // Global error logging using centralized logger
+    logger.error(
+      {
+        context: "axios-interceptor",
+        path: error.config?.url,
+        status: formattedError.status,
+      },
+      formattedError.message,
+    );
 
     return Promise.reject(formattedError);
   },
