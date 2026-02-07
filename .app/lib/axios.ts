@@ -1,4 +1,5 @@
 import axios from "axios";
+import { handleAxiosError } from "@/utils/error-handler";
 
 const axiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api",
@@ -14,7 +15,7 @@ axiosInstance.interceptors.request.use(
     return config;
   },
   (error) => {
-    return Promise.reject(error);
+    return Promise.reject(handleAxiosError(error));
   },
 );
 
@@ -24,9 +25,14 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Global error handling
-    console.error("Axios Error:", error.response?.data || error.message);
-    return Promise.reject(error);
+    const formattedError = handleAxiosError(error);
+
+    // Global error logging (optional: send to Sentry, etc.)
+    if (process.env.NODE_ENV === "development") {
+      console.error("[API Error]:", formattedError);
+    }
+
+    return Promise.reject(formattedError);
   },
 );
 
