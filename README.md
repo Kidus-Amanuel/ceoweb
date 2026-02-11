@@ -1,10 +1,11 @@
 # 🚀 CEO Web Project V1
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js" alt="Next.js" />
+  <img src="https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js" alt="Next.js" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react" alt="React" />
   <img src="https://img.shields.io/badge/Supabase-Auth%20%26%20DB-blueviolet?style=for-the-badge&logo=supabase" alt="Supabase" />
   <img src="https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css" alt="Tailwind CSS" />
-  <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/TypeScript-5.4-3178C6?style=for-the-badge&logo=typescript" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Zustand-State-orange?style=for-the-badge" alt="Zustand" />
   <img src="https://img.shields.io/badge/PNPM-Workspaces-f69220?style=for-the-badge&logo=pnpm" alt="PNPM" />
 </p>
@@ -17,7 +18,7 @@ A comprehensive **multi-tenant SaaS platform** designed for modern business mana
 
 | Component          | Technology                  | Description                                                    |
 | :----------------- | :-------------------------- | :------------------------------------------------------------- |
-| **Core Framework** | **Next.js 14 (App Router)** | Used for both high-performance Frontend and Backend API logic. |
+| **Core Framework** | **Next.js 16 (App Router)** | Used for both high-performance Frontend and Backend API logic. |
 | **Authentication** | **Supabase SSR**            | Secure, cookie-based session management across the stack.      |
 | **Database**       | **Supabase PostgREST**      | Real-time PostgreSQL management with automatic API generation. |
 | **State**          | **Zustand**                 | Lightweight, scalable client-side logic management.            |
@@ -44,8 +45,9 @@ ceo_web_project_v1/
 │   │   └── shared/       # Reusable complex components
 │   ├── services/         # 🧠 The "Specialists": Pure business logic & Supabase interaction
 │   ├── lib/
-│   │   ├── supabase/     # ☁️ Multi-client config (Client, Server, Middleware)
+│   │   ├── supabase/     # ☁️ Multi-client config (Client, Server, Proxy)
 │   │   └── axios.ts      # 🛠️ Centralized API client with interceptors
+│   ├── proxy.ts          # 🚦 Next.js Proxy: Request interception and session handling.
 │   ├── store/            # 📦 Zustand: Localized state stores (e.g., AuthStore)
 │   ├── utils/            # 🔧 Utility Layer (Logger, Error Handlers)
 │   └── validators/       # 🛡️ Zod: Source of truth for all data schemas
@@ -59,7 +61,7 @@ ceo_web_project_v1/
 
 ### 1️⃣ Prerequisites
 
-- **Node.js**: `v18+`
+- **Node.js**: `v20.9+` (Required for Next.js 16)
 - **PNPM**: `v9+`
 
 ### 2️⃣ Installation
@@ -133,8 +135,8 @@ All tests have access to custom matchers like `toBeInTheDocument()` thanks to `@
 ## 📅 Compatibility & Status
 
 > [!NOTE]
-> **Last Compatibility Audit:** 2026-02-07  
-> **Framework:** Next.js 14.1.0 (LTS Target)  
+> **Last Compatibility Audit:** 2026-02-11  
+> **Framework:** Next.js 16.0.0 & React 19.2.0  
 > **Ecosystem:** Fully compatible with Windows, macOS, and Linux.
 
 ---
