@@ -9,7 +9,7 @@
     "test": "pnpm -r run test",
     "format": "prettier --write .",
     "lint:prettier:fix": "prettier --write .",
-    "lint:eslint:fix": "pnpm --filter app exec eslint --fix .",
+    "lint:eslint:fix": "pnpm --filter app run lint",
     "test:tsc:filtered": "pnpm --filter app exec tsc --noEmit",
     "test:regular": "pnpm --filter app run test",
     "test:utilities": "echo 'No utility tests yet' && exit 0"

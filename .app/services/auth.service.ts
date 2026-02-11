@@ -3,7 +3,7 @@ import { SignupFormValues } from "@/lib/validation/auth";
 
 export const authService = {
   async signup(data: SignupFormValues) {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
@@ -18,7 +18,7 @@ export const authService = {
   },
 
   async login(email: string, password: string) {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -33,7 +33,7 @@ export const authService = {
   },
 
   async logout() {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { error } = await supabase.auth.signOut();
     if (error) {
       throw error;

@@ -104,7 +104,6 @@ export function MessageList() {
   }
 
   // Render messages with date separators
-  let lastDate: Date | null = null;
 
   return (
     <div
@@ -114,14 +113,13 @@ export function MessageList() {
       <div className="max-w-4xl mx-auto space-y-2">
         {conversationMessages.map((message, index) => {
           const messageDate = new Date(message.createdAt);
-          const showDateSeparator =
-            !lastDate || !isSameDay(lastDate, messageDate);
           const prevMessage =
             index > 0 ? conversationMessages[index - 1] : null;
+          const showDateSeparator =
+            !prevMessage ||
+            !isSameDay(new Date(prevMessage.createdAt), messageDate);
           const showAvatar =
             !prevMessage || prevMessage.senderId !== message.senderId;
-
-          lastDate = messageDate;
 
           const isMe = message.senderId === "me";
           const sender = activeConversation?.participants.find(
