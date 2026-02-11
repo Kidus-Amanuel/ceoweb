@@ -1,0 +1,13 @@
+﻿Token,Light Mode,Dark Mode
+background.page,neutral.50,neutral.950
+background.surface,neutral.0,neutral.900
+border.default,neutral.200,neutral.700
+border.divider,neutral.300,neutral.800
+text.primary,neutral.900,neutral.50
+text.secondary,neutral.600,neutral.300
+text.muted,neutral.500,neutral.400
+interactive.primary,brand.500,brand.400
+interactive.hover,brand.400,brand.300
+status.success,success.500,success.400
+status.warning,warning.500,warning.400
+status.danger,danger.500,danger.400

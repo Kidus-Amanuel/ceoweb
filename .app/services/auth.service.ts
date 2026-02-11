@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { SignupFormValues } from "@/validators/auth";
+import { SignupFormValues } from "@/lib/validation/auth";
 
 export const authService = {
   async signup(data: SignupFormValues) {

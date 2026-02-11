@@ -1,0 +1,1227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Company Onboarding Flow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        font-family: "Plus Jakarta Sans", sans-serif;
+      }
+
+      .gradient-bg {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+
+      .glass-effect {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+      }
+
+      .input-group {
+        position: relative;
+        transition: all 0.3s ease;
+      }
+
+      .input-field:focus + .input-label,
+      .input-field:not(:placeholder-shown) + .input-label {
+        transform: translateY(-24px) scale(0.85);
+        color: #667eea;
+      }
+
+      .input-label {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        transition: all 0.3s ease;
+        pointer-events: none;
+        color: #9ca3af;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        transition: all 0.3s ease;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+      }
+
+      .step-indicator {
+        transition: all 0.5s ease;
+      }
+
+      .step-active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        transform: scale(1.1);
+      }
+
+      .fade-in {
+        animation: fadeIn 0.5s ease-in;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .slide-in-right {
+        animation: slideInRight 0.5s ease-out;
+      }
+
+      @keyframes slideInRight {
+        from {
+          opacity: 0;
+          transform: translateX(50px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      .shake {
+        animation: shake 0.5s ease-in-out;
+      }
+
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+
+        25% {
+          transform: translateX(-10px);
+        }
+
+        75% {
+          transform: translateX(10px);
+        }
+      }
+
+      .onboarding-card {
+        transition: all 0.4s ease;
+      }
+
+      .onboarding-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      }
+
+      .progress-bar {
+        transition: width 0.5s ease;
+      }
+    </style>
+  </head>
+
+  <body class="gradient-bg min-h-screen flex items-center justify-center p-4">
+    <!-- Main Container -->
+    <div class="w-full max-w-md">
+      <!-- Progress Steps (visible during onboarding) -->
+      <div id="progressContainer" class="hidden mb-8">
+        <div class="flex justify-between items-center mb-4">
+          <div
+            class="step-indicator w-10 h-10 rounded-full bg-white flex items-center justify-center font-bold text-gray-400 step-active"
+            id="step1"
+          >
+            1
+          </div>
+          <div class="h-1 flex-1 mx-2 bg-white/30 rounded">
+            <div
+              class="progress-bar h-full bg-white rounded"
+              id="progressBar"
+              style="width: 0%"
+            ></div>
+          </div>
+          <div
+            class="step-indicator w-10 h-10 rounded-full bg-white flex items-center justify-center font-bold text-gray-400"
+            id="step2"
+          >
+            2
+          </div>
+          <div class="h-1 flex-1 mx-2 bg-white/30 rounded"></div>
+          <div
+            class="step-indicator w-10 h-10 rounded-full bg-white flex items-center justify-center font-bold text-gray-400"
+            id="step3"
+          >
+            3
+          </div>
+        </div>
+        <div class="flex justify-between text-white text-sm font-medium">
+          <span>Account</span>
+          <span>Company</span>
+          <span>Complete</span>
+        </div>
+      </div>
+
+      <!-- Login Page -->
+      <div
+        id="loginPage"
+        class="glass-effect rounded-2xl p-8 shadow-2xl fade-in"
+      >
+        <div class="text-center mb-8">
+          <div
+            class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+          >
+            <svg
+              class="w-8 h-8 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+          </div>
+          <h1 class="text-2xl font-bold text-gray-800">Welcome Back</h1>
+          <p class="text-gray-500 mt-2">Sign in to your account</p>
+        </div>
+
+        <form id="loginForm" class="space-y-6">
+          <div class="input-group">
+            <input
+              type="email"
+              id="loginEmail"
+              class="input-field w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors bg-transparent"
+              placeholder=" "
+              required
+            />
+            <label for="loginEmail" class="input-label">Email Address</label>
+          </div>
+
+          <div class="input-group">
+            <input
+              type="password"
+              id="loginPassword"
+              class="input-field w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors bg-transparent"
+              placeholder=" "
+              required
+            />
+            <label for="loginPassword" class="input-label">Password</label>
+            <button
+              type="button"
+              onclick="togglePassword('loginPassword', this)"
+              class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between text-sm">
+            <label class="flex items-center text-gray-600">
+              <input
+                type="checkbox"
+                class="mr-2 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Remember me
+            </label>
+            <a
+              href="#"
+              class="text-indigo-600 hover:text-indigo-800 font-medium"
+              >Forgot password?</a
+            >
+          </div>
+
+          <button
+            type="submit"
+            class="btn-primary w-full py-4 rounded-xl text-white font-semibold text-lg shadow-lg"
+          >
+            Sign In
+          </button>
+        </form>
+
+        <div class="mt-6 text-center">
+          <p class="text-gray-600">
+            Don't have an account?
+            <button
+              onclick="showSignup()"
+              class="text-indigo-600 font-semibold hover:text-indigo-800 ml-1"
+            >
+              Sign up
+            </button>
+          </p>
+        </div>
+
+        <div class="mt-6">
+          <div class="relative">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-gray-300"></div>
+            </div>
+            <div class="relative flex justify-center text-sm">
+              <span class="px-2 bg-white text-gray-500">Or continue with</span>
+            </div>
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-3">
+            <button
+              class="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                />
+                <path
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+              <span class="ml-2 text-gray-600 font-medium">Google</span>
+            </button>
+            <button
+              class="flex items-center justify-center px-4 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              <svg
+                class="w-5 h-5 text-gray-800"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+                />
+              </svg>
+              <span class="ml-2 text-gray-600 font-medium">GitHub</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Signup Page -->
+      <div
+        id="signupPage"
+        class="glass-effect rounded-2xl p-8 shadow-2xl hidden"
+      >
+        <div class="text-center mb-8">
+          <div
+            class="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+          >
+            <svg
+              class="w-8 h-8 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+              />
+            </svg>
+          </div>
+          <h1 class="text-2xl font-bold text-gray-800">Create Account</h1>
+          <p class="text-gray-500 mt-2">Start your journey with us</p>
+        </div>
+
+        <form id="signupForm" class="space-y-5">
+          <div class="grid grid-cols-2 gap-4">
+            <div class="input-group">
+              <input
+                type="text"
+                id="firstName"
+                class="input-field w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 transition-colors bg-transparent"
+                placeholder=" "
+                required
+              />
+              <label for="firstName" class="input-label">First Name</label>
+            </div>
+            <div class="input-group">
+              <input
+                type="text"
+                id="lastName"
+                class="input-field w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 transition-colors bg-transparent"
+                placeholder=" "
+                required
+              />
+              <label for="lastName" class="input-label">Last Name</label>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <input
+              type="email"
+              id="signupEmail"
+              class="input-field w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 transition-colors bg-transparent"
+              placeholder=" "
+              required
+            />
+            <label for="signupEmail" class="input-label">Email Address</label>
+          </div>
+
+          <div class="input-group">
+            <input
+              type="password"
+              id="signupPassword"
+              class="input-field w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 transition-colors bg-transparent"
+              placeholder=" "
+              required
+            />
+            <label for="signupPassword" class="input-label">Password</label>
+            <button
+              type="button"
+              onclick="togglePassword('signupPassword', this)"
+              class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div class="input-group">
+            <input
+              type="password"
+              id="confirmPassword"
+              class="input-field w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 transition-colors bg-transparent"
+              placeholder=" "
+              required
+            />
+            <label for="confirmPassword" class="input-label"
+              >Confirm Password</label
+            >
+          </div>
+
+          <div class="flex items-start">
+            <input
+              type="checkbox"
+              id="terms"
+              class="mt-1 mr-2 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              required
+            />
+            <label for="terms" class="text-sm text-gray-600">
+              I agree to the
+              <a href="#" class="text-purple-600 hover:underline"
+                >Terms of Service</a
+              >
+              and
+              <a href="#" class="text-purple-600 hover:underline"
+                >Privacy Policy</a
+              >
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            class="btn-primary w-full py-4 rounded-xl text-white font-semibold text-lg shadow-lg bg-gradient-to-r from-purple-500 to-pink-600"
+          >
+            Create Account
+          </button>
+        </form>
+
+        <div class="mt-6 text-center">
+          <p class="text-gray-600">
+            Already have an account?
+            <button
+              onclick="showLogin()"
+              class="text-purple-600 font-semibold hover:text-purple-800 ml-1"
+            >
+              Sign in
+            </button>
+          </p>
+        </div>
+      </div>
+
+      <!-- Onboarding: Create Company -->
+      <div id="onboardingPage" class="hidden w-full max-w-2xl">
+        <!-- Step 1: Company Basics -->
+        <div
+          id="onboardingStep1"
+          class="glass-effect rounded-2xl p-8 shadow-2xl slide-in-right"
+        >
+          <div class="mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">
+              Let's set up your company
+            </h2>
+            <p class="text-gray-500 mt-2">Tell us about your organization</p>
+          </div>
+
+          <form id="companyForm1" class="space-y-6">
+            <div class="input-group">
+              <input
+                type="text"
+                id="companyName"
+                class="input-field w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors bg-transparent"
+                placeholder=" "
+                required
+              />
+              <label for="companyName" class="input-label">Company Name</label>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div class="input-group">
+                <select
+                  id="companySize"
+                  class="input-field w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors bg-transparent appearance-none"
+                  required
+                >
+                  <option value="" disabled selected></option>
+                  <option value="1-10">1-10 employees</option>
+                  <option value="11-50">11-50 employees</option>
+                  <option value="51-200">51-200 employees</option>
+                  <option value="201-500">201-500 employees</option>
+                  <option value="500+">500+ employees</option>
+                </select>
+                <label for="companySize" class="input-label"
+                  >Company Size</label
+                >
+                <div
+                  class="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none"
+                >
+                  <svg
+                    class="w-5 h-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              <div class="input-group">
+                <select
+                  id="industry"
+                  class="input-field w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors bg-transparent appearance-none"
+                  required
+                >
+                  <option value="" disabled selected></option>
+                  <option value="tech">Technology</option>
+                  <option value="finance">Finance</option>
+                  <option value="healthcare">Healthcare</option>
+                  <option value="retail">Retail</option>
+                  <option value="manufacturing">Manufacturing</option>
+                  <option value="other">Other</option>
+                </select>
+                <label for="industry" class="input-label">Industry</label>
+                <div
+                  class="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none"
+                >
+                  <svg
+                    class="w-5 h-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <input
+                type="url"
+                id="website"
+                class="input-field w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors bg-transparent"
+                placeholder=" "
+              />
+              <label for="website" class="input-label"
+                >Company Website (Optional)</label
+              >
+            </div>
+
+            <div class="input-group">
+              <textarea
+                id="description"
+                rows="3"
+                class="input-field w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors bg-transparent resize-none"
+                placeholder=" "
+              ></textarea>
+              <label for="description" class="input-label" style="top: 24px"
+                >Brief Description</label
+              >
+            </div>
+
+            <div class="flex gap-4">
+              <button
+                type="button"
+                onclick="showLogin()"
+                class="flex-1 py-4 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                class="flex-1 btn-primary py-4 rounded-xl text-white font-semibold shadow-lg"
+              >
+                Continue
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Step 2: Brand & Preferences -->
+        <div
+          id="onboardingStep2"
+          class="glass-effect rounded-2xl p-8 shadow-2xl hidden"
+        >
+          <div class="mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">
+              Brand your workspace
+            </h2>
+            <p class="text-gray-500 mt-2">Customize your company profile</p>
+          </div>
+
+          <form id="companyForm2" class="space-y-6">
+            <!-- Logo Upload -->
+            <div class="flex items-center space-x-4">
+              <div
+                class="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center border-2 border-dashed border-gray-300 cursor-pointer hover:border-indigo-500 transition-colors"
+                onclick="document.getElementById('logoUpload').click()"
+              >
+                <svg
+                  class="w-8 h-8 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <p class="font-semibold text-gray-800">Company Logo</p>
+                <p class="text-sm text-gray-500">
+                  Recommended: 400x400px, PNG or JPG
+                </p>
+                <input
+                  type="file"
+                  id="logoUpload"
+                  class="hidden"
+                  accept="image/*"
+                />
+              </div>
+            </div>
+
+            <!-- Color Theme -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-3"
+                >Brand Color</label
+              >
+              <div class="flex gap-3 flex-wrap">
+                <button
+                  type="button"
+                  onclick="selectColor(this, '#667eea')"
+                  class="w-10 h-10 rounded-full bg-indigo-500 ring-2 ring-offset-2 ring-indigo-500 transition-all color-btn"
+                ></button>
+                <button
+                  type="button"
+                  onclick="selectColor(this, '#ec4899')"
+                  class="w-10 h-10 rounded-full bg-pink-500 hover:ring-2 hover:ring-offset-2 hover:ring-pink-500 transition-all color-btn"
+                ></button>
+                <button
+                  type="button"
+                  onclick="selectColor(this, '#10b981')"
+                  class="w-10 h-10 rounded-full bg-emerald-500 hover:ring-2 hover:ring-offset-2 hover:ring-emerald-500 transition-all color-btn"
+                ></button>
+                <button
+                  type="button"
+                  onclick="selectColor(this, '#f59e0b')"
+                  class="w-10 h-10 rounded-full bg-amber-500 hover:ring-2 hover:ring-offset-2 hover:ring-amber-500 transition-all color-btn"
+                ></button>
+                <button
+                  type="button"
+                  onclick="selectColor(this, '#3b82f6')"
+                  class="w-10 h-10 rounded-full bg-blue-500 hover:ring-2 hover:ring-offset-2 hover:ring-blue-500 transition-all color-btn"
+                ></button>
+                <input
+                  type="color"
+                  id="customColor"
+                  class="w-10 h-10 rounded-full overflow-hidden cursor-pointer"
+                  value="#667eea"
+                  onchange="updateCustomColor(this)"
+                />
+              </div>
+            </div>
+
+            <!-- Workspace URL -->
+            <div class="input-group">
+              <div class="flex items-center">
+                <span class="absolute left-4 text-gray-500">app.com/</span>
+                <input
+                  type="text"
+                  id="workspaceUrl"
+                  class="input-field w-full pl-20 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors bg-transparent"
+                  placeholder=" "
+                  required
+                />
+              </div>
+              <label for="workspaceUrl" class="input-label" style="left: 80px"
+                >workspace-name</label
+              >
+            </div>
+
+            <!-- Notification Preferences -->
+            <div class="space-y-3">
+              <label
+                class="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
+              >
+                <div>
+                  <p class="font-semibold text-gray-800">Email Notifications</p>
+                  <p class="text-sm text-gray-500">
+                    Receive updates about your team
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked
+                  class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
+                />
+              </label>
+
+              <label
+                class="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors"
+              >
+                <div>
+                  <p class="font-semibold text-gray-800">Weekly Reports</p>
+                  <p class="text-sm text-gray-500">
+                    Get summary of team activity
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked
+                  class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
+                />
+              </label>
+            </div>
+
+            <div class="flex gap-4">
+              <button
+                type="button"
+                onclick="prevStep(1)"
+                class="flex-1 py-4 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                class="flex-1 btn-primary py-4 rounded-xl text-white font-semibold shadow-lg"
+              >
+                Continue
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Step 3: Invite Team -->
+        <div
+          id="onboardingStep3"
+          class="glass-effect rounded-2xl p-8 shadow-2xl hidden"
+        >
+          <div class="mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">Invite your team</h2>
+            <p class="text-gray-500 mt-2">
+              Collaborate better together (Optional)
+            </p>
+          </div>
+
+          <form id="companyForm3" class="space-y-6">
+            <div id="inviteList" class="space-y-3">
+              <div class="flex gap-3">
+                <input
+                  type="email"
+                  placeholder="colleague@company.com"
+                  class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+                <select
+                  class="px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 bg-white"
+                >
+                  <option>Admin</option>
+                  <option>Editor</option>
+                  <option>Viewer</option>
+                </select>
+                <button
+                  type="button"
+                  onclick="removeInvite(this)"
+                  class="px-3 text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <svg
+                    class="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onclick="addInviteField()"
+              class="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 font-medium hover:border-indigo-500 hover:text-indigo-600 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Add Another Member
+            </button>
+
+            <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+              <div class="flex items-start gap-3">
+                <svg
+                  class="w-5 h-5 text-indigo-600 mt-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <div>
+                  <p class="text-sm font-medium text-indigo-900">Pro Tip</p>
+                  <p class="text-sm text-indigo-700">
+                    You can skip this step and invite team members later from
+                    settings.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex gap-4">
+              <button
+                type="button"
+                onclick="prevStep(2)"
+                class="flex-1 py-4 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                class="flex-1 btn-primary py-4 rounded-xl text-white font-semibold shadow-lg flex items-center justify-center gap-2"
+              >
+                <span>Complete Setup</span>
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Success Page -->
+        <div
+          id="successPage"
+          class="glass-effect rounded-2xl p-8 shadow-2xl text-center hidden"
+        >
+          <div
+            class="w-20 h-20 bg-green-100 rounded-full mx-auto mb-6 flex items-center justify-center animate-bounce"
+          >
+            <svg
+              class="w-10 h-10 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+          <h2 class="text-3xl font-bold text-gray-800 mb-2">You're all set!</h2>
+          <p class="text-gray-500 mb-8">
+            Your company workspace has been created successfully.
+          </p>
+
+          <div class="bg-gray-50 rounded-xl p-6 mb-8 text-left">
+            <div class="flex items-center gap-4 mb-4">
+              <div
+                class="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold text-xl"
+                id="successLogo"
+              >
+                A
+              </div>
+              <div>
+                <h3 class="font-bold text-gray-800" id="successCompanyName">
+                  Acme Inc.
+                </h3>
+                <p class="text-sm text-gray-500" id="successUrl">
+                  app.com/acme
+                </p>
+              </div>
+            </div>
+            <div class="space-y-2 text-sm text-gray-600">
+              <div class="flex justify-between">
+                <span>Team Size:</span>
+                <span class="font-medium" id="successSize"
+                  >11-50 employees</span
+                >
+              </div>
+              <div class="flex justify-between">
+                <span>Industry:</span>
+                <span class="font-medium" id="successIndustry">Technology</span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onclick="goToDashboard()"
+            class="btn-primary w-full py-4 rounded-xl text-white font-semibold text-lg shadow-lg"
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // State Management
+      let currentStep = 1;
+      let companyData = {};
+
+      // Navigation Functions
+      function showLogin() {
+        hideAllPages();
+        document.getElementById("loginPage").classList.remove("hidden");
+        document.getElementById("loginPage").classList.add("fade-in");
+        document.getElementById("progressContainer").classList.add("hidden");
+      }
+
+      function showSignup() {
+        hideAllPages();
+        document.getElementById("signupPage").classList.remove("hidden");
+        document.getElementById("signupPage").classList.add("fade-in");
+        document.getElementById("progressContainer").classList.add("hidden");
+      }
+
+      function showOnboarding() {
+        hideAllPages();
+        document.getElementById("onboardingPage").classList.remove("hidden");
+        document.getElementById("progressContainer").classList.remove("hidden");
+        showStep(1);
+      }
+
+      function hideAllPages() {
+        ["loginPage", "signupPage", "onboardingPage"].forEach((id) => {
+          document.getElementById(id).classList.add("hidden");
+        });
+      }
+
+      // Step Management
+      function showStep(step) {
+        currentStep = step;
+
+        // Hide all steps
+        [
+          "onboardingStep1",
+          "onboardingStep2",
+          "onboardingStep3",
+          "successPage",
+        ].forEach((id) => {
+          document.getElementById(id).classList.add("hidden");
+        });
+
+        // Show current step
+        document
+          .getElementById(`onboardingStep${step}`)
+          .classList.remove("hidden");
+        document
+          .getElementById(`onboardingStep${step}`)
+          .classList.add("slide-in-right");
+
+        // Update progress
+        updateProgress(step);
+      }
+
+      function updateProgress(step) {
+        const progressBar = document.getElementById("progressBar");
+        const percentage = step === 1 ? 0 : step === 2 ? 50 : 100;
+        progressBar.style.width = percentage + "%";
+
+        // Update step indicators
+        document
+          .getElementById("step1")
+          .classList.toggle("step-active", step >= 1);
+        document
+          .getElementById("step2")
+          .classList.toggle("step-active", step >= 2);
+        document
+          .getElementById("step3")
+          .classList.toggle("step-active", step >= 3);
+      }
+
+      function nextStep() {
+        if (currentStep < 3) {
+          showStep(currentStep + 1);
+        }
+      }
+
+      function prevStep(step) {
+        showStep(step);
+      }
+
+      // Form Handlers
+      document
+        .getElementById("loginForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          // Simulate login
+          const btn = this.querySelector('button[type="submit"]');
+          btn.innerHTML =
+            '<svg class="animate-spin h-5 w-5 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+
+          setTimeout(() => {
+            showOnboarding();
+          }, 1500);
+        });
+
+      document
+        .getElementById("signupForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const password = document.getElementById("signupPassword").value;
+          const confirm = document.getElementById("confirmPassword").value;
+
+          if (password !== confirm) {
+            const confirmInput =
+              document.getElementById("confirmPassword").parentElement;
+            confirmInput.classList.add("shake");
+            setTimeout(() => confirmInput.classList.remove("shake"), 500);
+            return;
+          }
+
+          // Simulate signup
+          const btn = this.querySelector('button[type="submit"]');
+          btn.innerHTML =
+            '<svg class="animate-spin h-5 w-5 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+
+          setTimeout(() => {
+            showOnboarding();
+          }, 1500);
+        });
+
+      document
+        .getElementById("companyForm1")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          companyData.name = document.getElementById("companyName").value;
+          companyData.size = document.getElementById("companySize").value;
+          companyData.industry = document.getElementById("industry").value;
+          companyData.website = document.getElementById("website").value;
+          companyData.description =
+            document.getElementById("description").value;
+          nextStep();
+        });
+
+      document
+        .getElementById("companyForm2")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          companyData.workspaceUrl =
+            document.getElementById("workspaceUrl").value;
+          nextStep();
+        });
+
+      document
+        .getElementById("companyForm3")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          showSuccess();
+        });
+
+      // Helper Functions
+      function togglePassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const type = input.type === "password" ? "text" : "password";
+        input.type = type;
+
+        // Update icon
+        btn.innerHTML =
+          type === "password"
+            ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>'
+            : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>';
+      }
+
+      function selectColor(btn, color) {
+        // Remove ring from all buttons
+        document.querySelectorAll(".color-btn").forEach((b) => {
+          b.classList.remove("ring-2", "ring-offset-2");
+          const currentColor = b.classList[4]
+            .replace("bg-", "")
+            .replace("-500", "");
+          b.classList.add(
+            `hover:ring-2`,
+            `hover:ring-offset-2`,
+            `hover:ring-${currentColor}`,
+          );
+        });
+
+        // Add ring to selected
+        btn.classList.remove("hover:ring-2", "hover:ring-offset-2");
+        const selectedColor = color.replace("#", "");
+        btn.classList.add("ring-2", "ring-offset-2");
+      }
+
+      function updateCustomColor(input) {
+        document.querySelectorAll(".color-btn").forEach((b) => {
+          b.classList.remove("ring-2", "ring-offset-2");
+        });
+      }
+
+      function addInviteField() {
+        const container = document.getElementById("inviteList");
+        const div = document.createElement("div");
+        div.className = "flex gap-3 fade-in";
+        div.innerHTML = `
+                <input type="email" placeholder="colleague@company.com" class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 transition-colors">
+                <select class="px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 bg-white">
+                    <option>Admin</option>
+                    <option>Editor</option>
+                    <option>Viewer</option>
+                </select>
+                <button type="button" onclick="removeInvite(this)" class="px-3 text-gray-400 hover:text-red-500 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            `;
+        container.appendChild(div);
+      }
+
+      function removeInvite(btn) {
+        btn.parentElement.remove();
+      }
+
+      function showSuccess() {
+        document.getElementById("onboardingStep3").classList.add("hidden");
+        document.getElementById("successPage").classList.remove("hidden");
+        document.getElementById("successPage").classList.add("fade-in");
+
+        // Populate success data
+        document.getElementById("successCompanyName").textContent =
+          companyData.name;
+        document.getElementById("successUrl").textContent =
+          `app.com/${companyData.workspaceUrl}`;
+        document.getElementById("successLogo").textContent = companyData.name
+          .charAt(0)
+          .toUpperCase();
+        document.getElementById("successSize").textContent =
+          document.getElementById("companySize").options[
+            document.getElementById("companySize").selectedIndex
+          ].text;
+        document.getElementById("successIndustry").textContent =
+          document.getElementById("industry").options[
+            document.getElementById("industry").selectedIndex
+          ].text;
+
+        // Update progress to complete
+        document.getElementById("progressBar").style.width = "100%";
+        document.getElementById("step3").classList.add("step-active");
+      }
+
+      function goToDashboard() {
+        // Simulate navigation to dashboard
+        alert("Redirecting to dashboard...");
+      }
+
+      // Initialize
+      showLogin();
+    </script>
+  </body>
+</html>

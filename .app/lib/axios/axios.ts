@@ -1,6 +1,6 @@
 import axios from "axios";
-import { handleAxiosError } from "@/utils/error-handler";
-import logger from "@/utils/logger";
+import { handleAxiosError } from "@/lib/utils/error-handler";
+import logger from "@/lib/utils/logger";
 
 const axiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api",

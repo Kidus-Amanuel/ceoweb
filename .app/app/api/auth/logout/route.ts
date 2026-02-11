@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { authService } from "@/services/auth.service";
-import logger from "@/utils/logger";
+import logger from "@/lib/utils/logger";
 
 export async function POST() {
   try {
