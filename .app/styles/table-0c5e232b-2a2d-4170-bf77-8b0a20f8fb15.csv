@@ -1,0 +1,7 @@
+﻿Usage,Class,Visual Spec
+Page Title,text-page-title,"32px, Semibold, -0.5px tracking"
+Section Title,text-section-title,"24px, Semibold"
+Card Title,text-card-title,"18px, Semibold"
+Body Text,text-body,"16px, Regular"
+Labels (forms),text-label,"14px, Medium"
+Muted (captions),text-muted,"14px, Regular, low opacity"

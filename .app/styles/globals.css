@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 98%; /* neutral.50 */
+    --foreground: 240 10% 3.9%; /* neutral.900 */
+
+    --card: 240 10% 100%; /* neutral.0 */
+    --card-foreground: 240 10% 3.9%;
+    --surface: 240 10% 100%; /* same as card by default */
+
+    --popover: 240 10% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 204 100% 47%; /* brand.500 → hsl(204, 100%, 47%) */
+    --primary-foreground: 210 20% 98%;
+
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 10% 3.9%;
+
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 10% 3.9%;
+
+    --destructive: 0 84.2% 60.2%; /* danger.500 */
+    --destructive-foreground: 210 20% 98%;
+
+    --success: 142 76% 36%; /* success.500 */
+    --success-foreground: 210 20% 98%;
+
+    --warning: 36 93% 44%; /* warning.500 */
+    --warning-foreground: 210 20% 98%;
+
+    --error: 0 84.2% 60.2%;
+    --error-foreground: 210 20% 98%;
+
+    --border: 240 5.9% 90%; /* neutral.200 */
+    --input: 240 5.9% 90%;
+    --ring: 204 100% 47%; /* matches primary */
+
+    --radius: 6px;
+
+    --chart-1: 204 100% 47%;
+    --chart-2: 221 83% 53%;
+    --chart-3: 350 70% 50%;
+    --chart-4: 47 95% 53%;
+    --chart-5: 26 83% 57%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%; /* neutral.950 */
+    --foreground: 210 20% 98%; /* neutral.50 */
+
+    --card: 240 10% 6.7%; /* neutral.900 */
+    --card-foreground: 210 20% 98%;
+    --surface: 240 10% 6.7%;
+
+    --popover: 240 10% 6.7%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 198 93% 60%; /* brand.400 in dark */
+    --primary-foreground: 210 20% 98%;
+
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 210 20% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
+
+    --success: 142 70% 42%;
+    --success-foreground: 210 20% 98%;
+
+    --warning: 36 85% 48%;
+    --warning-foreground: 210 20% 98%;
+
+    --error: 0 62.8% 30.6%;
+    --error-foreground: 210 20% 98%;
+
+    --border: 240 3.7% 15.9%; /* neutral.700 */
+    --input: 240 3.7% 15.9%;
+    --ring: 198 93% 60%;
+  }
+}

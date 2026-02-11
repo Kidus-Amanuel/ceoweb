@@ -1,6 +1,6 @@
 import { expect, test, describe, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
-import LoginPage from "../../app/page";
+import LoginPage from "../../app/(auth)/login/page";
 
 describe("LoginPage", () => {
   afterEach(() => {

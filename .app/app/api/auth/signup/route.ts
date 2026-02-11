@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { signupSchema } from "@/validators/auth";
+import { signupSchema } from "@/lib/validation/auth";
 import { authService } from "@/services/auth.service";
-import logger from "@/utils/logger";
+import logger from "@/lib/utils/logger";
 
 export async function POST(request: NextRequest) {
   try {

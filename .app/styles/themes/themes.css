@@ -1,0 +1,19 @@
+/* Light Theme (default) */
+:root {
+  --bg-page: var(--color-neutral-50);
+  --bg-surface: var(--color-neutral-0);
+  --border-default: var(--color-neutral-200);
+  --text-primary: var(--color-neutral-900);
+  --interactive-primary: var(--color-brand-500);
+  /* ... all semantic tokens */
+}
+
+/* Dark Theme */
+html.dark {
+  --bg-page: var(--color-neutral-950);
+  --bg-surface: var(--color-neutral-900);
+  --border-default: var(--color-neutral-700);
+  --text-primary: var(--color-neutral-50);
+  --interactive-primary: var(--color-brand-400);
+  /* ... */
+}

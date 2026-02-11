@@ -1,0 +1,16 @@
+:root {
+  /* Neutral */
+  --color-neutral-0: #ffffff;
+  --color-neutral-50: #fafafa;
+  /* ... up to 950 */
+
+  /* Brand */
+  --color-brand-50: #ecf5ff;
+  --color-brand-500: #0077b6;
+  /* ... */
+
+  /* Status */
+  --color-success-500: #10b981;
+  --color-warning-500: #f59e0b;
+  --color-danger-500: #ef4444;
+}
