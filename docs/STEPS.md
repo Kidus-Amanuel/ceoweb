@@ -51,6 +51,7 @@ This allows running `pnpm dev` from the root to start the frontend application s
 A responsive, dark-mode ready Login Page was implemented in `.app/app/page.tsx` using **Tailwind CSS**.
 
 - Replaced the default Next.js boilerplate.
+
 ## 6. Next.js 16 & React 19 Migration (2026-02-11)
 
 We upgraded the project to the latest stable versions of Next.js and React:
