@@ -96,7 +96,7 @@ export function SidebarNav() {
   return (
     <motion.aside
       className={cn(
-        "relative flex flex-col bg-[#F7F7F7] border-r border-border h-screen shrink-0 z-30",
+        "relative flex flex-col bg-muted/20 border-r border-border/50 h-screen shrink-0 z-30 backdrop-blur-xl",
         isResizing && "select-none",
       )}
       initial={false}
@@ -112,8 +112,10 @@ export function SidebarNav() {
       {/* Header - Company Logo */}
       <div className="p-4 border-b border-border/50">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center shrink-0">
-            <span className="text-white font-bold text-xs">CEO</span>
+          <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
+            <span className="text-primary-foreground font-bold text-xs">
+              CEO
+            </span>
           </div>
           <AnimatePresence>
             {leftSidebarOpen && (
@@ -162,11 +164,11 @@ export function SidebarNav() {
       <div className="px-3 py-2">
         <button
           className={cn(
-            "flex items-center gap-2 w-full p-2 rounded-md bg-white/50 hover:bg-white transition-colors text-muted-foreground",
+            "flex items-center gap-2 w-full p-2.5 rounded-xl bg-background/50 border border-border/50 hover:bg-background hover:border-primary/30 transition-all text-muted-foreground shadow-sm",
             !leftSidebarOpen && "justify-center",
           )}
         >
-          <Search className="w-4 h-4 shrink-0" />
+          <Search className="w-4 h-4 shrink-0 text-muted-foreground/60" />
           <AnimatePresence>
             {leftSidebarOpen && (
               <motion.div
@@ -197,15 +199,18 @@ export function SidebarNav() {
               href={item.href}
               onClick={() => setCurrentModule(item.id as any)}
               className={cn(
-                "flex items-center gap-3 w-full p-2.5 rounded-lg text-sm font-medium transition-all relative group",
+                "flex items-center gap-3 w-full p-2.5 rounded-xl text-sm font-medium transition-all relative group",
                 isActive
-                  ? "bg-white text-primary shadow-sm border border-border/50"
-                  : "text-muted-foreground hover:bg-white/50 hover:text-foreground",
+                  ? "bg-background text-primary shadow-sm border border-border/80"
+                  : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
                 !leftSidebarOpen && "justify-center px-2",
               )}
             >
               <Icon
-                className={cn("w-4 h-4 shrink-0", isActive && "text-primary")}
+                className={cn(
+                  "w-4 h-4 shrink-0 transition-transform group-hover:scale-110",
+                  isActive && "text-primary",
+                )}
               />
               <AnimatePresence>
                 {leftSidebarOpen && (
@@ -244,11 +249,11 @@ export function SidebarNav() {
       <div className="p-3 border-t border-border/50">
         <div
           className={cn(
-            "flex items-center gap-3 p-2 rounded-xl hover:bg-white/50 transition-colors cursor-pointer",
+            "flex items-center gap-3 p-2 rounded-xl hover:bg-background/80 transition-colors cursor-pointer",
             !leftSidebarOpen && "justify-center",
           )}
         >
-          <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center text-white text-xs font-bold shrink-0">
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0 shadow-md">
             {user?.email?.charAt(0).toUpperCase() || "U"}
           </div>
           <AnimatePresence>

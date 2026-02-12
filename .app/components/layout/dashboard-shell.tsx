@@ -21,7 +21,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-[#F7F7F7] overflow-hidden relative font-sans text-foreground">
+    <div className="flex h-screen bg-background overflow-hidden relative font-sans text-foreground">
       {/* Sidebar - Desktop (Left) */}
       <SidebarNav />
 
@@ -50,12 +50,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       </AnimatePresence>
 
       {/* Main Content Area - Middle Column */}
-      <div className="flex flex-1 flex-col min-w-0 bg-white transition-all duration-300 ease-in-out relative border-r border-border/40">
+      <div className="flex flex-1 flex-col min-w-0 bg-background transition-all duration-300 ease-in-out relative border-r border-border/40">
         <DashboardHeader
           onMobileMenuToggle={() => setIsMobileSidebarOpen(true)}
         />
 
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-[#F7F7F7]/30 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/20 custom-scrollbar">
           <div className="mx-auto w-full p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {children}
           </div>
