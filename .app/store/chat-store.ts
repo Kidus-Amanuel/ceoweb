@@ -61,6 +61,54 @@ const MOCK_CONVERSATIONS: Conversation[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: "ch-hr",
+    type: "channel",
+    name: "HR & People",
+    participants: [],
+    unreadCount: 5,
+    lastMessage: {
+      id: "m4",
+      senderId: "u2",
+      content: "New onboarding documents uploaded.",
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+      type: "text",
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "ch-inv",
+    type: "channel",
+    name: "Inventory Operations",
+    participants: [],
+    unreadCount: 0,
+    lastMessage: {
+      id: "m5",
+      senderId: "u3",
+      content: "Stock alert: Low on Engine Oil X1.",
+      createdAt: new Date(Date.now() - 7200000).toISOString(),
+      type: "erp_record",
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "ch-fin",
+    type: "channel",
+    name: "Finance & Accounting",
+    participants: [],
+    unreadCount: 1,
+    lastMessage: {
+      id: "m6",
+      senderId: "sys",
+      content: "Weekly financial summary available.",
+      createdAt: new Date(Date.now() - 10800000).toISOString(),
+      type: "text",
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 const MOCK_MESSAGES: Record<string, Message[]> = {
@@ -69,7 +117,7 @@ const MOCK_MESSAGES: Record<string, Message[]> = {
       id: "m0",
       senderId: "me",
       content: "Hey Alice, how's the report coming along?",
-      createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+      createdAt: new Date(Date.now() - 86400000).toISOString(),
       type: "text",
       readBy: ["u2"],
     },
@@ -81,18 +129,37 @@ const MOCK_MESSAGES: Record<string, Message[]> = {
       type: "text",
     },
     {
-      id: "m2",
+      id: "call-1",
       senderId: "u2",
-      content: "Can you review the Q3 report?",
-      createdAt: new Date().toISOString(),
+      content: "Voice Call: 4m 12s",
+      createdAt: new Date(Date.now() - 20000).toISOString(),
+      type: "call",
+    },
+  ],
+  "ch-hr": [
+    {
+      id: "ch-m1",
+      senderId: "u2",
+      content: "Has everyone signed the new policy document?",
+      createdAt: new Date(Date.now() - 7200000).toISOString(),
       type: "text",
+    },
+  ],
+  "ch-inv": [
+    {
+      id: "ch-m2",
+      senderId: "u3",
+      content: "Engine Oil X1 is below safety stock levels.",
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+      type: "erp_record",
     },
   ],
   "ai-1": [
     {
       id: "ai-m1",
       senderId: "ai",
-      content: "Hello! How can I assist you with your business today?",
+      content:
+        "Hello! Strategic overview: Your fleet efficiency is high, but inventory turnover in North Hub is lagging. Want a detailed drill-down?",
       createdAt: new Date(Date.now() - 100000).toISOString(),
       type: "text",
     },

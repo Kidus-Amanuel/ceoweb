@@ -1,11 +1,12 @@
 // Layout components
-export { ChatContainer } from "./layout/ChatContainer";
+export { ChatLayout } from "./layout/ChatLayout";
 export { ChatSidebar } from "./layout/ChatSidebar";
 export { ChatHeader } from "./layout/ChatHeader";
 
 // View components
-export { MessageList } from "./view/MessageList";
-export { MessageBubble } from "./view/MessageBubble";
+export { ChatMessages } from "./view/ChatMessages";
+export { MessageItem } from "./view/MessageItem";
+export { AIDashboardCard } from "./view/AIDashboardCard";
 
 // Input components
 export { ChatInput } from "./input/ChatInput";

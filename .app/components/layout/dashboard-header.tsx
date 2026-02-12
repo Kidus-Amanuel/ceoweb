@@ -21,11 +21,11 @@ export function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderProps) {
   };
 
   return (
-    <header className="h-16 border-b border-border/40 bg-white/80 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-6">
+    <header className="h-16 border-b border-border/40 bg-background/80 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-6">
       <div className="flex items-center gap-4">
         <button
           onClick={onMobileMenuToggle}
-          className="lg:hidden p-2 hover:bg-black/5 rounded-lg transition-colors"
+          className="lg:hidden p-2 hover:bg-muted/50 rounded-lg transition-colors"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -41,21 +41,21 @@ export function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderProps) {
 
       <div className="flex items-center gap-4">
         {/* Search Bar - Minimalist */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-[#F7F7F7] border border-border/40 rounded-xl text-muted-foreground hover:border-border/80 transition-all cursor-text group">
+        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-muted/30 border border-border/40 rounded-xl text-muted-foreground hover:border-border/80 transition-all cursor-text group">
           <Search className="w-3.5 h-3.5 group-hover:text-foreground transition-colors" />
           <span className="text-[11px] font-medium pr-8">
             Search intelligence...
           </span>
-          <div className="flex items-center gap-0.5 px-1 py-0.5 bg-white border border-border/60 rounded text-[9px] font-bold shadow-sm">
+          <div className="flex items-center gap-0.5 px-1 py-0.5 bg-background border border-border/60 rounded text-[9px] font-bold shadow-sm">
             <Command className="w-2 h-2" />
             <span>K</span>
           </div>
         </div>
 
         {/* Notifications */}
-        <button className="relative p-2 hover:bg-black/5 rounded-xl transition-colors text-muted-foreground hover:text-foreground">
+        <button className="relative p-2 hover:bg-muted/50 rounded-xl transition-colors text-muted-foreground hover:text-foreground">
           <Bell className="w-4 h-4" />
-          <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-primary rounded-full border-2 border-white" />
+          <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-primary rounded-full border-2 border-background" />
         </button>
       </div>
     </header>

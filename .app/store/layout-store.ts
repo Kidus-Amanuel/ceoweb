@@ -5,31 +5,52 @@ import { LayoutState, ModuleType } from "@/types/layout";
 export const useLayoutStore = create<LayoutState>()(
   persist(
     (set) => ({
-      leftSidebarOpen: true,
+      leftSidebarOpen: false,
       rightSidebarOpen: false,
       leftSidebarWidth: 260,
-      rightSidebarWidth: 320,
+      rightSidebarWidth: 520,
       currentModule: "dashboard",
+      selectedCompanyId: null,
       toggleLeftSidebar: () =>
-        set((state) => ({ leftSidebarOpen: !state.leftSidebarOpen })),
+        set((state) => ({
+          leftSidebarOpen: !state.leftSidebarOpen,
+          rightSidebarOpen: !state.leftSidebarOpen
+            ? false
+            : state.rightSidebarOpen,
+        })),
       toggleRightSidebar: () =>
-        set((state) => ({ rightSidebarOpen: !state.rightSidebarOpen })),
-      setLeftSidebarOpen: (open) => set({ leftSidebarOpen: open }),
-      setRightSidebarOpen: (open) => set({ rightSidebarOpen: open }),
+        set((state) => ({
+          rightSidebarOpen: !state.rightSidebarOpen,
+          leftSidebarOpen: !state.rightSidebarOpen
+            ? false
+            : state.leftSidebarOpen,
+        })),
+      setLeftSidebarOpen: (open) =>
+        set((state) => ({
+          leftSidebarOpen: open,
+          rightSidebarOpen: open ? false : state.rightSidebarOpen,
+        })),
+      setRightSidebarOpen: (open) =>
+        set((state) => ({
+          rightSidebarOpen: open,
+          leftSidebarOpen: open ? false : state.leftSidebarOpen,
+        })),
       setLeftSidebarWidth: (width) =>
         set({ leftSidebarWidth: Math.max(70, Math.min(400, width)) }),
       setRightSidebarWidth: (width) =>
-        set({ rightSidebarWidth: Math.max(280, Math.min(500, width)) }),
+        set({ rightSidebarWidth: Math.max(400, Math.min(1000, width)) }),
       setCurrentModule: (module) => set({ currentModule: module }),
+      setSelectedCompanyId: (id) => set({ selectedCompanyId: id }),
     }),
     {
-      name: "ceo-layout-storage",
+      name: "ceo-layout-storage-v2",
       partialize: (state) => ({
         leftSidebarOpen: state.leftSidebarOpen,
         rightSidebarOpen: state.rightSidebarOpen,
         leftSidebarWidth: state.leftSidebarWidth,
         rightSidebarWidth: state.rightSidebarWidth,
         currentModule: state.currentModule,
+        selectedCompanyId: state.selectedCompanyId,
       }),
     },
   ),
