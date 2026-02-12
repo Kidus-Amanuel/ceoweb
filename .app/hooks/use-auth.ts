@@ -1,21 +1,22 @@
 import { createContext, useContext } from "react";
 
-export type UserRole =
-  | "superadmin"
-  | "admin"
-  | "hr_manager"
-  | "crm_manager"
-  | "finance_manager"
-  | "inventory_clerk"
-  | "driver";
+export type UserType = "super_admin" | "company_user";
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  userType: UserType;
+  companyId?: string; // For company_user
+  roleId?: string; // For company_user
+  companyScope?: "full" | "limited"; // For super_admin
+  companyIds?: string[]; // For super_admin
+}
 
 export interface AuthContextType {
-  user: {
-    name: string;
-    email: string;
-    role: UserRole;
-  } | null;
+  user: User | null;
   isLoading: boolean;
+  signOut: () => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(

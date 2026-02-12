@@ -20,6 +20,7 @@ export interface LayoutState {
   leftSidebarWidth: number;
   rightSidebarWidth: number;
   currentModule: ModuleType;
+  selectedCompanyId: string | null;
   toggleLeftSidebar: () => void;
   toggleRightSidebar: () => void;
   setLeftSidebarOpen: (open: boolean) => void;
@@ -27,4 +28,5 @@ export interface LayoutState {
   setLeftSidebarWidth: (width: number) => void;
   setRightSidebarWidth: (width: number) => void;
   setCurrentModule: (module: ModuleType) => void;
+  setSelectedCompanyId: (id: string | null) => void;
 }

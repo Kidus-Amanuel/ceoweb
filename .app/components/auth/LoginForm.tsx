@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,12 +37,7 @@ export function LoginForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="space-y-2"
-        >
+        <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-medium">
             Email
           </label>
@@ -61,14 +55,9 @@ export function LoginForm() {
               required
             />
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="space-y-2"
-        >
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label htmlFor="password" className="text-sm font-medium">
               Password
@@ -102,14 +91,9 @@ export function LoginForm() {
               )}
             </button>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="flex items-center gap-2 pt-2"
-        >
+        <div className="flex items-center gap-2 pt-2">
           <input
             id="remember-me"
             type="checkbox"
@@ -121,13 +105,9 @@ export function LoginForm() {
           >
             Remember me for 30 days
           </label>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
+        <div>
           <Button
             type="submit"
             className="w-full h-11 text-base font-semibold"
@@ -145,14 +125,9 @@ export function LoginForm() {
               </span>
             )}
           </Button>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="relative py-4"
-        >
+        <div className="relative py-4">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-border" />
           </div>
@@ -161,13 +136,9 @@ export function LoginForm() {
               Or continue with
             </span>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-        >
+        <div>
           <Button
             type="button"
             variant="outline"
@@ -193,7 +164,7 @@ export function LoginForm() {
             </svg>
             Google
           </Button>
-        </motion.div>
+        </div>
 
         <p className="text-center text-sm text-muted-foreground pt-4">
           Don&apos;t have an account?{" "}

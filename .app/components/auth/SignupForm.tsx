@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -40,12 +39,7 @@ export function SignupForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="space-y-2"
-        >
+        <div className="space-y-2">
           <label htmlFor="fullname" className="text-sm font-medium">
             Full Name
           </label>
@@ -63,14 +57,9 @@ export function SignupForm() {
               required
             />
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="space-y-2"
-        >
+        <div className="space-y-2">
           <label htmlFor="signup-email" className="text-sm font-medium">
             Email
           </label>
@@ -88,14 +77,9 @@ export function SignupForm() {
               required
             />
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="space-y-2"
-        >
+        <div className="space-y-2">
           <label htmlFor="signup-password" className="text-sm font-medium">
             Password
           </label>
@@ -124,14 +108,9 @@ export function SignupForm() {
               )}
             </button>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="space-y-2"
-        >
+        <div className="space-y-2">
           <label htmlFor="confirm-password" className="text-sm font-medium">
             Confirm Password
           </label>
@@ -149,13 +128,9 @@ export function SignupForm() {
               required
             />
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
+        <div>
           <Button
             type="submit"
             className="w-full h-11 text-base font-semibold"
@@ -173,14 +148,9 @@ export function SignupForm() {
               </span>
             )}
           </Button>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="relative py-4"
-        >
+        <div className="relative py-4">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-border" />
           </div>
@@ -189,13 +159,9 @@ export function SignupForm() {
               Or continue with
             </span>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-        >
+        <div>
           <Button
             type="button"
             variant="outline"
@@ -221,7 +187,7 @@ export function SignupForm() {
             </svg>
             Google
           </Button>
-        </motion.div>
+        </div>
 
         <p className="text-center text-sm text-muted-foreground pt-4">
           Already have an account?{" "}

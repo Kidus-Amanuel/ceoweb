@@ -10,6 +10,7 @@ export const useLayoutStore = create<LayoutState>()(
       leftSidebarWidth: 260,
       rightSidebarWidth: 520,
       currentModule: "dashboard",
+      selectedCompanyId: null,
       toggleLeftSidebar: () =>
         set((state) => ({
           leftSidebarOpen: !state.leftSidebarOpen,
@@ -39,6 +40,7 @@ export const useLayoutStore = create<LayoutState>()(
       setRightSidebarWidth: (width) =>
         set({ rightSidebarWidth: Math.max(400, Math.min(1000, width)) }),
       setCurrentModule: (module) => set({ currentModule: module }),
+      setSelectedCompanyId: (id) => set({ selectedCompanyId: id }),
     }),
     {
       name: "ceo-layout-storage-v2",
@@ -48,6 +50,7 @@ export const useLayoutStore = create<LayoutState>()(
         leftSidebarWidth: state.leftSidebarWidth,
         rightSidebarWidth: state.rightSidebarWidth,
         currentModule: state.currentModule,
+        selectedCompanyId: state.selectedCompanyId,
       }),
     },
   ),
