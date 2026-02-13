@@ -11,6 +11,7 @@ export interface User {
   roleId?: string; // For company_user
   companyScope?: "full" | "limited"; // For super_admin
   companyIds?: string[]; // For super_admin
+  permissions?: { module: string; action: string }[];
 }
 
 export interface AuthContextType {

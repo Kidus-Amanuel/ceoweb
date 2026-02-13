@@ -12,9 +12,11 @@ import {
   Plus,
 } from "lucide-react";
 import { useLayoutStore } from "@/store/layout-store";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuthStore } from "@/store/authStore";
 import { useNavigation } from "@/hooks/use-navigation";
 import { useCompanies } from "@/hooks/use-companies";
+import { useUser } from "@/app/context/UserContext";
+import { NavItem, NavSubItem } from "@/lib/constants/nav-config";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -29,7 +31,8 @@ export function SidebarNav() {
     setCurrentModule,
   } = useLayoutStore();
 
-  const { user, signOut } = useAuth();
+  const { logout } = useUser();
+  const { user } = useAuthStore();
   const navItems = useNavigation();
   const { availableCompanies, selectedCompany, setSelectedCompany } =
     useCompanies();
@@ -233,7 +236,7 @@ export function SidebarNav() {
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1.5 overflow-y-auto custom-scrollbar">
-        {navItems.map((item) => {
+        {navItems.map((item: NavItem) => {
           const Icon = item.icon;
           const isActive =
             currentModule === item.id || pathname.startsWith(item.href);
@@ -308,7 +311,7 @@ export function SidebarNav() {
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden pl-9 space-y-1"
                   >
-                    {item.subItems?.map((sub) => (
+                    {item.subItems?.map((sub: NavSubItem) => (
                       <Link
                         key={sub.id}
                         href={sub.href}
@@ -362,7 +365,7 @@ export function SidebarNav() {
           </AnimatePresence>
           {leftSidebarOpen && (
             <button
-              onClick={() => signOut()}
+              onClick={() => logout()}
               className="p-1.5 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors border border-transparent hover:border-red-100"
               title="Logout"
             >
