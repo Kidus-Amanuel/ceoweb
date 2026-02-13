@@ -16,65 +16,76 @@ import {
   Palette,
   Users as UsersIcon,
   ChevronRight,
-  ChevronLeft,
   Upload,
-  PackagePlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import axios from "axios";
+import { useUser } from "@/app/context/UserContext";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { refreshUser } = useUser();
   const [step, setStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     companyName: "",
     industry: "",
     companySize: "",
     brandColor: "#2383e2",
-    workspaceUrl: "",
-    plan: "professional",
+    workspaceUrl: "ceo.et",
   });
+  const [invites, setInvites] = useState([
+    { email: "", role: "General Manager" },
+  ]);
 
-  const nextStep = () => setStep((prev) => Math.min(prev + 1, 5));
+  const nextStep = () => setStep((prev) => Math.min(prev + 1, 4));
   const prevStep = () => setStep((prev) => Math.max(prev - 1, 1));
 
   const steps = [
     { id: 1, name: "Basics", icon: Building2 },
-    { id: 2, name: "Plan", icon: PackagePlus },
-    { id: 3, name: "Branding", icon: Palette },
-    { id: 4, name: "Team", icon: UsersIcon },
+    { id: 2, name: "Branding", icon: Palette },
+    { id: 3, name: "Team", icon: UsersIcon },
   ];
 
-  const plans = [
-    {
-      id: "starter",
-      name: "Starter",
-      price: "$49",
-      features: ["Up to 5 vehicles", "Basic CRM", "1 Admin account"],
-    },
-    {
-      id: "professional",
-      name: "Professional",
-      price: "$149",
-      features: [
-        "Up to 50 vehicles",
-        "Full CRM & HR",
-        "5 Admin accounts",
-        "AI Assistant",
-      ],
-      popular: true,
-    },
-    {
-      id: "enterprise",
-      name: "Enterprise",
-      price: "Custom",
-      features: [
-        "Unlimited vehicles",
-        "Dedicated support",
-        "Custom integrations",
-        "Full API access",
-      ],
-    },
-  ];
+  const handleFinishOnboarding = async () => {
+    setIsLoading(true);
+    try {
+      // 1. Create Company and finalize Profile
+      const response = await axios.post("/api/company/onboarding", {
+        ...formData,
+        slug: formData.companyName.toLowerCase().replace(/\s+/g, "-"),
+      });
+
+      if (response.data.success) {
+        // 2. Send Invites
+        const validInvites = invites.filter((i) => i.email.trim() !== "");
+        if (validInvites.length > 0) {
+          // Sequential invites for simplicity in MVP
+          for (const invite of validInvites) {
+            try {
+              await axios.post("/api/auth/invite", {
+                email: invite.email,
+                role: invite.role,
+              });
+            } catch (inviteErr) {
+              console.error(`Failed to invite ${invite.email}:`, inviteErr);
+            }
+          }
+        }
+
+        // 2. Refresh local user state to get new company-linked role
+        await refreshUser();
+
+        // 3. Move to success step
+        setStep(4);
+      }
+    } catch (error) {
+      console.error("Onboarding failed:", error);
+      alert("Failed to complete onboarding. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-background flex flex-col items-center justify-center p-4 py-12">
@@ -175,7 +186,11 @@ export default function OnboardingPage() {
                   </select>
                 </div>
               </div>
-              <Button onClick={nextStep} className="w-full gap-2">
+              <Button
+                onClick={nextStep}
+                className="w-full gap-2"
+                disabled={!formData.companyName}
+              >
                 Continue <ChevronRight className="h-4 w-4" />
               </Button>
             </CardContent>
@@ -183,70 +198,6 @@ export default function OnboardingPage() {
         )}
 
         {step === 2 && (
-          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className="text-center mb-10">
-              <h2 className="text-section-title text-foreground">
-                Choose your subscription
-              </h2>
-              <p className="text-muted-foreground mt-2">
-                Pick a plan that grows with your business.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {plans.map((plan) => (
-                <Card
-                  key={plan.id}
-                  className={cn(
-                    "relative cursor-pointer transition-all hover:border-primary/50",
-                    formData.plan === plan.id
-                      ? "border-primary ring-1 ring-primary"
-                      : "border-border",
-                  )}
-                  onClick={() => setFormData({ ...formData, plan: plan.id })}
-                >
-                  {plan.popular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                      Most Popular
-                    </div>
-                  )}
-                  <CardHeader>
-                    <CardTitle className="text-card-title">
-                      {plan.name}
-                    </CardTitle>
-                    <div className="mt-2 text-2xl font-bold">
-                      {plan.price}
-                      <span className="text-sm font-normal text-muted-foreground">
-                        /mo
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <ul className="space-y-2">
-                      {plan.features.map((f) => (
-                        <li
-                          key={f}
-                          className="flex items-center gap-2 text-sm text-muted-foreground"
-                        >
-                          <Check className="h-4 w-4 text-primary" /> {f}
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <div className="flex gap-3 mt-10 max-w-md mx-auto">
-              <Button variant="outline" onClick={prevStep} className="flex-1">
-                Back
-              </Button>
-              <Button onClick={nextStep} className="flex-1 gap-2">
-                Continue <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
           <Card className="max-w-2xl mx-auto animate-in fade-in slide-in-from-right-4 duration-300">
             <CardHeader>
               <CardTitle className="text-section-title">
@@ -281,6 +232,7 @@ export default function OnboardingPage() {
                     (color) => (
                       <button
                         key={color}
+                        type="button"
                         onClick={() =>
                           setFormData({ ...formData, brandColor: color })
                         }
@@ -294,14 +246,6 @@ export default function OnboardingPage() {
                       />
                     ),
                   )}
-                  <input
-                    type="color"
-                    className="h-8 w-8 rounded-full bg-transparent overflow-hidden cursor-pointer"
-                    value={formData.brandColor}
-                    onChange={(e) =>
-                      setFormData({ ...formData, brandColor: e.target.value })
-                    }
-                  />
                 </div>
               </div>
 
@@ -314,14 +258,14 @@ export default function OnboardingPage() {
                     app.ceo/
                   </span>
                   <Input
-                    className="rounded-l-none"
-                    placeholder="my-company"
+                    className="rounded-l-none bg-slate-50 cursor-not-allowed"
                     value={formData.workspaceUrl}
-                    onChange={(e) =>
-                      setFormData({ ...formData, workspaceUrl: e.target.value })
-                    }
+                    readOnly
                   />
                 </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Workspace URL is automatically set to default.
+                </p>
               </div>
 
               <div className="flex gap-3">
@@ -336,7 +280,7 @@ export default function OnboardingPage() {
           </Card>
         )}
 
-        {step === 4 && (
+        {step === 3 && (
           <Card className="max-w-2xl mx-auto animate-in fade-in slide-in-from-right-4 duration-300">
             <CardHeader>
               <CardTitle className="text-section-title">
@@ -348,22 +292,45 @@ export default function OnboardingPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
-                {[1, 2].map((i) => (
-                  <div key={i} className="flex gap-2">
+                {invites.map((invite, index) => (
+                  <div key={index} className="flex gap-2">
                     <Input
                       className="flex-1"
                       placeholder="colleague@company.com"
+                      value={invite.email}
+                      onChange={(e) => {
+                        const newInvites = [...invites];
+                        newInvites[index].email = e.target.value;
+                        setInvites(newInvites);
+                      }}
                     />
-                    <select className="w-32 h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                      <option>Admin</option>
-                      <option>Member</option>
+                    <select
+                      className="w-40 h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      value={invite.role}
+                      onChange={(e) => {
+                        const newInvites = [...invites];
+                        newInvites[index].role = e.target.value;
+                        setInvites(newInvites);
+                      }}
+                    >
+                      <option value="General Manager">General Manager</option>
+                      <option value="HR Manager">HR Manager</option>
+                      <option value="CRM Manager">CRM Manager</option>
+                      <option value="Sales Executive">Sales Executive</option>
                     </select>
                   </div>
                 ))}
               </div>
               <Button
                 variant="ghost"
+                type="button"
                 className="w-full border-2 border-dashed border-border py-6 h-auto text-muted-foreground hover:text-primary hover:border-primary/50"
+                onClick={() =>
+                  setInvites([
+                    ...invites,
+                    { email: "", role: "General Manager" },
+                  ])
+                }
               >
                 + Add Another Member
               </Button>
@@ -371,15 +338,19 @@ export default function OnboardingPage() {
                 <Button variant="outline" onClick={prevStep} className="flex-1">
                   Back
                 </Button>
-                <Button onClick={nextStep} className="flex-1">
-                  Finish Setup
+                <Button
+                  onClick={handleFinishOnboarding}
+                  className="flex-1"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Setting up..." : "Finish Setup"}
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {step === 5 && (
+        {step === 4 && (
           <Card className="max-w-2xl mx-auto animate-in zoom-in duration-500 text-center">
             <CardContent className="pt-12 pb-12 space-y-6">
               <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">

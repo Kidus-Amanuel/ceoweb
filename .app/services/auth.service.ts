@@ -1,42 +1,43 @@
-import { createClient } from "@/lib/supabase/server";
-import { SignupFormValues } from "@/lib/validation/auth";
+import { createClient } from "@/lib/supabase/client";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 export const authService = {
-  async signup(data: SignupFormValues) {
-    const supabase = await createClient();
-
-    const { data: authData, error } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
+  async signUp(
+    email: string,
+    password: string,
+    fullName: string,
+    supabase?: SupabaseClient,
+  ) {
+    const client = supabase || createClient();
+    const deployUrl =
+      process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    return client.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: `${deployUrl}/auth/callback`,
+      },
     });
-
-    if (error) {
-      throw error;
-    }
-
-    return authData;
   },
 
-  async login(email: string, password: string) {
-    const supabase = await createClient();
-
-    const { data, error } = await supabase.auth.signInWithPassword({
+  async login(email: string, password: string, supabase?: SupabaseClient) {
+    const client = supabase || createClient();
+    return client.auth.signInWithPassword({
       email,
       password,
     });
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
   },
 
-  async logout() {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      throw error;
-    }
+  async logout(supabase?: SupabaseClient) {
+    const client = supabase || createClient();
+    return client.auth.signOut();
+  },
+
+  async resetPassword(email: string) {
+    const supabase = createClient();
+    return supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${location.origin}/auth/reset-password`,
+    });
   },
 };

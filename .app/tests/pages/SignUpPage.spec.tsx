@@ -1,6 +1,14 @@
 import { expect, test, describe, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import SignUpPage from "../../app/(auth)/signup/page";
+import { vi } from "vitest";
+
+vi.mock("@/app/context/UserContext", () => ({
+  useUser: () => ({
+    refreshUser: vi.fn(),
+    logout: vi.fn(),
+  }),
+}));
 
 describe("SignUpPage", () => {
   afterEach(() => {
@@ -15,8 +23,8 @@ describe("SignUpPage", () => {
   test("renders form inputs", () => {
     render(<SignUpPage />);
     expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^email$/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/confirm password/i)).toBeInTheDocument();
   });
 

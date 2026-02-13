@@ -1,28 +1,91 @@
 "use client";
 
+import axios from "axios";
 import { useState } from "react";
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/shared/ui/button/Button";
 import { Input } from "@/components/shared/ui/input/Input";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/shared/ui/alert";
+import { useUser } from "@/app/context/UserContext";
 
 export function LoginForm() {
   const router = useRouter();
+  const { refreshUser } = useUser();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsLoading(false);
-    router.push("/dashboard");
+    setErrors({});
+    setServerError(null);
+
+    try {
+      const response = await axios.post("/api/auth/login", {
+        email: formData.email,
+        password: formData.password,
+      });
+
+      const { profile } = response.data;
+
+      // Refresh global user state immediately after login
+      await refreshUser();
+
+      if (!profile) {
+        // Fallback if profile is missing
+        router.push("/dashboard");
+        return;
+      }
+
+      // Check onboarding status
+      if (profile.onboarding === false) {
+        router.push("/onboarding");
+        return;
+      }
+
+      // Role based redirect
+      if (profile.user_type === "super_admin") {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (err: any) {
+      console.error("Login error:", err);
+
+      if (err.response?.status === 400 && err.response?.data?.errors) {
+        const newErrors: Record<string, string> = {};
+        const apiErrors = err.response.data.errors;
+
+        if (Array.isArray(apiErrors)) {
+          apiErrors.forEach((error: any) => {
+            const field = error.path?.[0];
+            if (field) {
+              newErrors[field] = error.message;
+            }
+          });
+        }
+        setErrors(newErrors);
+      } else {
+        setServerError(
+          err.response?.data?.message ||
+            "An unexpected error occurred during sign in.",
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -37,6 +100,14 @@ export function LoginForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {serverError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{serverError}</AlertDescription>
+          </Alert>
+        )}
+
         <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-medium">
             Email
@@ -51,10 +122,13 @@ export function LoginForm() {
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
               }
-              className="pl-10 h-11 bg-white"
+              className={`pl-10 h-11 bg-white ${errors.email ? "border-red-500" : ""}`}
               required
             />
           </div>
+          {errors.email && (
+            <p className="text-sm text-red-500 mt-1">{errors.email}</p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -76,7 +150,7 @@ export function LoginForm() {
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
               }
-              className="pl-10 pr-10 h-11 bg-white"
+              className={`pl-10 pr-10 h-11 bg-white ${errors.password ? "border-red-500" : ""}`}
               required
             />
             <button
@@ -91,6 +165,9 @@ export function LoginForm() {
               )}
             </button>
           </div>
+          {errors.password && (
+            <p className="text-sm text-red-500 mt-1">{errors.password}</p>
+          )}
         </div>
 
         <div className="flex items-center gap-2 pt-2">

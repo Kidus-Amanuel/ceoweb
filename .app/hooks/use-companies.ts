@@ -1,10 +1,10 @@
-import { useAuth } from "@/hooks/use-auth";
+import { useAuthStore } from "@/store/authStore";
 import { MOCK_COMPANIES, Company } from "@/lib/constants/nav-config";
 import { useLayoutStore } from "@/store/layout-store";
 import { useEffect, useMemo } from "react";
 
 export function useCompanies() {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const { selectedCompanyId, setSelectedCompanyId } = useLayoutStore();
 
   const availableCompanies = useMemo(() => {

@@ -1,38 +1,32 @@
-import { useAuth } from "@/hooks/use-auth";
+import { useAuthStore } from "@/store/authStore";
 import { NAV_CONFIG, NavItem } from "@/lib/constants/nav-config";
 import { useMemo } from "react";
 
-// Mock permissions mapping based on erp_mock_data.md
-const ROLE_PERMISSIONS: Record<string, string[]> = {
-  role_1: ["CRM", "HR", "Fleet", "Finance", "Inventory"], // General Manager
-  role_2: ["HR"], // HR Manager
-  role_3: ["CRM"], // CRM Manager
-  role_5: ["HR"], // HR Manager (XYZ)
-  role_6: ["HR"], // HR Supervisor
-  role_7: ["Fleet"], // Driver
-  role_8: ["CRM"], // Sales Executive
-  role_9: ["Fleet"], // Fleet Manager
-  role_10: ["HR"], // HR Supervisor
-  role_11: ["Fleet"], // Driver
-  role_12: ["CRM"], // Sales Executive
-};
-
 export function useNavigation() {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
 
   const filteredNav = useMemo(() => {
     if (!user) return [];
 
-    return NAV_CONFIG.filter((item) => {
-      // 1. Check User Type (Super Admin vs Company User)
+    return NAV_CONFIG.filter((item: NavItem) => {
+      // 1. Super admins always see everything
+      if (user.userType === "super_admin") return true;
+
+      // 2. Check User Type roles in config
       if (item.roles && !item.roles.includes(user.userType)) {
         return false;
       }
 
-      // 2. Check Module Permissions for Company Users
-      if (user.userType === "company_user" && item.module) {
-        const userPermissions = ROLE_PERMISSIONS[user.roleId || ""] || [];
-        if (!userPermissions.includes(item.module)) {
+      // 3. Check Module Permissions for Company Users
+      if (item.module) {
+        const userPermissions = user.permissions || [];
+        // Check if any permission module matches (case-insensitive)
+        const hasModuleAccess = userPermissions.some(
+          (p: { module: string; action: string }) =>
+            p.module.toLowerCase() === item.module?.toLowerCase(),
+        );
+
+        if (!hasModuleAccess) {
           return false;
         }
       }

@@ -53,6 +53,13 @@ export const NAV_CONFIG: NavItem[] = [
     roles: ["super_admin", "company_user"],
   },
   {
+    id: "admin",
+    label: "Platform Admin",
+    icon: Building2,
+    href: "/admin",
+    roles: ["super_admin"],
+  },
+  {
     id: "fleet",
     label: "Fleet Management",
     icon: Truck,
