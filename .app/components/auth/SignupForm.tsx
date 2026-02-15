@@ -12,7 +12,7 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/shared/ui/alert";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 
 export function SignupForm() {
   const router = useRouter();
@@ -68,6 +68,28 @@ export function SignupForm() {
       } else {
         setIsSuccess(true);
       }
+    } catch (err: any) {
+      console.error("Signup error:", err);
+
+      if (err.response?.status === 400 && err.response?.data?.errors) {
+        const newErrors: Record<string, string> = {};
+        const apiErrors = err.response.data.errors;
+
+        if (Array.isArray(apiErrors)) {
+          apiErrors.forEach((error: any) => {
+            const field = error.path?.[0];
+            if (field) {
+              newErrors[field] = error.message;
+            }
+          });
+        }
+        setErrors(newErrors);
+      } else {
+        setServerError(
+          err.response?.data?.message ||
+            "An unexpected error occurred during sign up.",
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -86,9 +108,12 @@ export function SignupForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {serverError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
+          <Alert
+            variant="destructive"
+            className="animate-in fade-in duration-300"
+          >
+            <XCircle className="h-4 w-4" />
+            <AlertTitle>Registration Failed</AlertTitle>
             <AlertDescription>{serverError}</AlertDescription>
           </Alert>
         )}
