@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       .from("companies")
       .insert({
         name: companyName,
-        slug: slug, // simplified slug generation
+        slug: slug,
         owner_id: user.id,
         status: "active",
       })
@@ -73,42 +73,87 @@ export async function POST(request: Request) {
     }
 
     // 3. Update User Profile
+    // We keep super_admin status for direct signups
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("user_type")
+      .eq("id", user.id)
+      .single();
+
+    const isSuperAdmin = profile?.user_type === "super_admin";
+
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
-        company_id: company.id,
         onboarding: true,
-        // user_type is handled by handle_new_user trigger on signup
-        // and should remain super_admin for direct signups
+        // Only set company_id for regular users. Super admins stay NULL in profiles
+        ...(isSuperAdmin
+          ? {}
+          : { company_id: company.id, user_type: "company_user" }),
       })
       .eq("id", user.id);
 
     if (profileError) throw profileError;
 
     // 4. Link User to Company in company_users
-    const { data: gmRole } = await supabase
-      .from("roles")
-      .select("id")
-      .eq("company_id", company.id)
-      .eq("name", "General Manager")
-      .single();
+    let gmRoleId = gmRecord?.id;
+    if (!gmRoleId) {
+      const { data: gmRole } = await supabase
+        .from("roles")
+        .select("id")
+        .eq("company_id", company.id)
+        .eq("name", "General Manager")
+        .single();
+      gmRoleId = gmRole?.id;
+    }
 
-    if (gmRole) {
+    if (gmRoleId) {
       await supabase.from("company_users").insert({
         user_id: user.id,
         company_id: company.id,
-        role_id: gmRole.id,
+        role_id: gmRoleId,
         status: "active",
-        position: "Founder/CEO",
+        position: isSuperAdmin ? "Owner" : "Founder/CEO",
       });
     }
 
     // 5. Update Company counts/size if provided
-    if (body.companySize) {
+    if (companySize) {
       await supabase
         .from("companies")
-        .update({ companysize: { size: body.companySize } })
+        .update({ status: "active" })
         .eq("id", company.id);
+    }
+
+    // 6. Sync Metadata to Supabase Auth
+    const supabaseAdmin = await createAdminClient();
+
+    // Get existing companyIds array or initialize it
+    const existingCompanyIds = Array.isArray(user.user_metadata?.companyIds)
+      ? user.user_metadata.companyIds
+      : user.user_metadata?.companyId
+        ? [user.user_metadata.companyId]
+        : [];
+
+    // Check if new company.id is already in the array
+    const updatedCompanyIds = Array.from(
+      new Set([...existingCompanyIds, company.id]),
+    );
+
+    const { error: metadataError } =
+      await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        user_metadata: {
+          ...user.user_metadata,
+          userType: isSuperAdmin ? "super_admin" : "company_user",
+          companyId: company.id, // Set as current active company
+          companyIds: updatedCompanyIds, // Array of all companies
+          roleId: gmRoleId,
+          onboardingCompleted: true,
+        },
+      });
+
+    if (metadataError) {
+      console.error("Failed to sync onboarding metadata:", metadataError);
     }
 
     // Return success

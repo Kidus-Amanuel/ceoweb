@@ -3,7 +3,7 @@ import { signupSchema } from "@/lib/validation/auth";
 import { authService } from "@/services/auth.service";
 import logger from "@/lib/utils/logger";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,16 +14,7 @@ export async function POST(request: NextRequest) {
     const validatedData = signupSchema.parse(body);
 
     // 2. Initialize Admin Client
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing");
-    }
-    const { createClient: createAdminClient } =
-      await import("@supabase/supabase-js");
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-    );
+    const supabaseAdmin = await createAdminClient();
 
     // 3. Check if user already exists (Invited Flow)
     const {
@@ -34,8 +25,10 @@ export async function POST(request: NextRequest) {
       (u) => u.email?.toLowerCase() === validatedData.email.toLowerCase(),
     );
 
-    // Check if they were invited (have company_id in metadata)
-    const companyId = existingUser?.user_metadata?.company_id;
+    // Check if they were invited (have companyId or company_id in metadata)
+    const companyId =
+      existingUser?.user_metadata?.companyId ||
+      existingUser?.user_metadata?.company_id;
     const isInvited = !!companyId;
 
     if (isInvited && existingUser) {
@@ -50,7 +43,12 @@ export async function POST(request: NextRequest) {
           email_confirm: true,
           user_metadata: {
             ...existingUser.user_metadata,
-            full_name: validatedData.fullName,
+            userType: "company_user",
+            companyId: companyId,
+            roleId:
+              existingUser.user_metadata?.roleId ||
+              existingUser.user_metadata?.role_id,
+            fullName: validatedData.fullName,
           },
         });
 
@@ -68,6 +66,7 @@ export async function POST(request: NextRequest) {
       validatedData.email,
       validatedData.password,
       validatedData.fullName,
+      { userType: "super_admin" },
       supabase,
     );
 

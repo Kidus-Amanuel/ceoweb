@@ -6,6 +6,7 @@ export const authService = {
     email: string,
     password: string,
     fullName: string,
+    metadata: Record<string, any> = {},
     supabase?: SupabaseClient,
   ) {
     const client = supabase || createClient();
@@ -15,7 +16,10 @@ export const authService = {
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: {
+          full_name: fullName,
+          ...metadata,
+        },
         emailRedirectTo: `${deployUrl}/auth/callback`,
       },
     });

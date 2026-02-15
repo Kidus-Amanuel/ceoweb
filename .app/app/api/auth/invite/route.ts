@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -62,22 +61,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      console.error(
-        "SUPABASE_SERVICE_ROLE_KEY is missing from environment variables",
-      );
-      return NextResponse.json(
-        { error: "Service Role Key Missing" },
-        { status: 500 },
-      );
-    }
-
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-    );
-
+    // 4. Send Invitation using our Admin Client
+    const supabaseAdmin = await createAdminClient();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
@@ -85,10 +70,11 @@ export async function POST(request: Request) {
       {
         redirectTo: `${appUrl}/signup`, // Ensure users land on our signup page
         data: {
-          company_id: companyId,
-          role_id: role?.id,
-          role_name: roleName,
-          invited_by: user.id,
+          userType: "company_user", // Standard user type for invited users
+          companyId: companyId,
+          roleId: role?.id,
+          roleName: roleName,
+          invitedBy: user.id,
         },
       },
     );

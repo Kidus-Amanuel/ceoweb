@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { loginSchema } from "@/lib/validation/auth";
 import { authService } from "@/services/auth.service";
 import logger from "@/lib/utils/logger";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     logger.info({ email, context: "auth-api" }, "User login successful");
 
-    // 3. Fetch User Profile for redirection logic
+    // 3. Fetch User Profile for metadata and redirection logic
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("onboarding, user_type, company_id")
@@ -50,7 +50,55 @@ export async function POST(request: NextRequest) {
       // We still return success but without profile, client handles fallback
     }
 
-    // 4. Return Success
+    // 4. Update user metadata for auth guard system
+    if (profile) {
+      const metadata: Record<string, any> = {
+        userType: profile.user_type,
+        name: authData.user.email?.split("@")[0] || "User",
+      };
+
+      // Add company-specific metadata for company users
+      if (profile.user_type === "company_user") {
+        metadata.companyId = profile.company_id;
+
+        // Fetch roleId from company_users table
+        const { data: companyUser } = await supabase
+          .from("company_users")
+          .select("role_id")
+          .eq("user_id", authData.user.id)
+          .eq("company_id", profile.company_id)
+          .single();
+
+        if (companyUser) {
+          metadata.roleId = companyUser.role_id;
+        }
+      }
+
+      // Update user metadata in Supabase Auth using Admin Client
+      const supabaseAdmin = await createAdminClient();
+      const { error: updateError } =
+        await supabaseAdmin.auth.admin.updateUserById(authData.user.id, {
+          user_metadata: metadata,
+        });
+
+      if (updateError) {
+        logger.error(
+          {
+            error: updateError,
+            userId: authData.user.id,
+            context: "auth-api",
+          },
+          "Failed to update user metadata",
+        );
+      } else {
+        logger.info(
+          { userId: authData.user.id, metadata, context: "auth-api" },
+          "User metadata updated successfully",
+        );
+      }
+    }
+
+    // 5. Return Success
     return NextResponse.json(
       {
         message: "Login successful",
