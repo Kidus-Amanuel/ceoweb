@@ -1,621 +1,615 @@
-// "use client";
+"use client";
 
-// import { useState, useMemo, useEffect } from 'react';
-// import {
-//     useReactTable,
-//     getCoreRowModel,
-//     getSortedRowModel,
-//     getFilteredRowModel,
-//     getPaginationRowModel,
-//     flexRender,
-// } from '@tanstack/react-table';
-// import type { ColumnDef, SortingState, ColumnResizeMode } from '@tanstack/react-table';
-// import { motion, AnimatePresence } from 'framer-motion';
-// import {
-//     ChevronDown,
-//     ChevronUp,
-//     Search,
-//     Filter,
-//     Download,
-//     Plus,
-//     ChevronLeft,
-//     ChevronRight,
-//     Settings2,
-//     Eye,
-//     EyeOff,
-//     GripVertical,
-//     MoreHorizontal,
-//     X,
-// } from 'lucide-react';
-// import { cn } from '@/lib/utils';
-// import { Button } from '@/components/shared/ui/button';
-// import { Input } from '@/components/shared/ui/input';
-// import {
-//     DropdownMenu,
-//     DropdownMenuContent,
-//     DropdownMenuItem,
-//     DropdownMenuTrigger,
-//     DropdownMenuSeparator,
-//     DropdownMenuCheckboxItem,
-//     DropdownMenuLabel,
-// } from '@/components/shared/ui/dropdown-menu';
+import { useState, useEffect, useRef, useMemo } from "react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  flexRender,
+} from "@tanstack/react-table";
+import type { ColumnDef, SortingState, RowData } from "@tanstack/react-table";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ChevronDown,
+  ChevronUp,
+  Search,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  Check,
+  X,
+  Filter,
+  Settings2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/shared/ui/button/Button";
+import { Input } from "@/components/shared/ui/input/Input";
+import { Checkbox } from "@/components/shared/ui/checkbox/Checkbox";
+import { Label } from "@/components/shared/ui/label/Label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/ui/select/Select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/shared/ui/popover/Popover";
 
-// import {
-//     Dialog,
-//     DialogContent,
-//     DialogHeader,
-//     DialogTitle,
-// } from '@/components/shared/ui/dialog';
+// --- Types ---
+export interface VirtualColumn {
+  id: string;
+  label: string;
+  key: string;
+  type: "text" | "number" | "select" | "boolean" | "json";
+  options?: { label: string; value: string | number }[];
+}
 
-// interface ColumnConfig {
-//     id: string;
-//     header: string;
-//     visible: boolean;
-// }
+declare module "@tanstack/react-table" {
+  interface ColumnMeta<TData extends RowData, TValue> {
+    type?: "text" | "number" | "select" | "boolean" | "json";
+    options?: { label: string; value: string | number }[];
+    isVirtual?: boolean;
+  }
+}
 
-// interface EditableTableProps<T extends { id: string }> {
-//     data: T[];
-//     columns: ColumnDef<T, any>[];
-//     title: string;
-//     description?: string;
-//     metrics?: { label: string; value: string | number; trend?: number }[];
-//     onAdd?: (data: Omit<T, 'id'>) => void;
-//     onUpdate?: (id: string, data: Partial<T>) => void;
-//     onDelete?: (id: string) => void;
-//     onColumnsChange?: (columns: ColumnDef<T, any>[]) => void;
-//     searchable?: boolean;
-//     filterable?: boolean;
-//     exportable?: boolean;
-//     pagination?: boolean;
-//     columnManagement?: boolean;
-// }
+interface EditableTableProps<
+  T extends { id: string; costimize?: Record<string, any> },
+> {
+  data: T[];
+  columns: ColumnDef<T, any>[];
+  virtualColumns?: VirtualColumn[];
+  title: string;
+  description?: string;
+  onAdd?: (data: Partial<T>) => void;
+  onUpdate?: (id: string, data: Partial<T>) => void;
+  onDelete?: (id: string) => void;
+  onColumnAdd?: (column: Omit<VirtualColumn, "id">) => void;
+  searchable?: boolean;
+  pagination?: boolean;
+}
 
-// export function EditableTable<T extends { id: string }>({
-//     data,
-//     columns: initialColumns,
-//     title,
-//     description,
-//     metrics,
-//     onAdd,
-//     onUpdate,
-//     onColumnsChange,
-//     searchable = true,
-//     filterable = true,
-//     exportable = true,
-//     pagination = true,
-//     columnManagement = true,
-// }: EditableTableProps<T>) {
-//     const [localColumns, setLocalColumns] = useState<ColumnDef<T, any>[]>(initialColumns);
+// --- Smart Editor Component (extracted to prevent re-creation on renders) ---
+interface SmartEditorProps {
+  value: any;
+  onChange: (val: any) => void;
+  onCommit?: () => void;
+  onCancel?: () => void;
+  meta?: any;
+  placeholder?: string;
+  isAddMode?: boolean;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+}
 
-//     // Update local columns when initialColumns change
-//     useEffect(() => {
-//         setLocalColumns(initialColumns);
-//     }, [initialColumns]);
+const SmartEditor = ({
+  value,
+  onChange,
+  onCommit,
+  onCancel,
+  meta,
+  placeholder,
+  isAddMode = false,
+  inputRef,
+}: SmartEditorProps) => {
+  const type = meta?.type || "text";
 
-//     const [sorting, setSorting] = useState<SortingState>([]);
-//     const [globalFilter, setGlobalFilter] = useState('');
-//     const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
-//     const [editingCell, setEditingCell] = useState<{ rowId: string; columnId: string } | null>(null);
-//     const [editValue, setEditValue] = useState('');
-//     const [newRow, setNewRow] = useState<Record<string, any> | null>(null);
-//     const [newColumn, setNewColumn] = useState<{ id: string; header: string } | null>(null);
-//     const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
-//     // State for column renaming
-//     const [renamingColumn, setRenamingColumn] = useState<string | null>(null);
-//     const [newColumnName, setNewColumnName] = useState('');
-//     const [showColumnManager, setShowColumnManager] = useState(false);
+  if (type === "boolean") {
+    return (
+      <div className="flex items-center h-full px-1">
+        <Checkbox
+          checked={!!value}
+          onCheckedChange={(checked) => {
+            onChange(checked);
+            if (!isAddMode) onCommit?.();
+          }}
+        />
+      </div>
+    );
+  }
 
-//     // Initialize column visibility
-//     const visibleColumns = useMemo(() => {
-//         return localColumns.filter((col: any) => {
-//             const colId = col.id || col.accessorKey;
-//             return columnVisibility[colId] !== false;
-//         });
-//     }, [localColumns, columnVisibility]);
+  if (type === "select" && meta?.options) {
+    return (
+      <Select
+        value={String(value ?? "")}
+        onValueChange={(val) => {
+          onChange(val);
+          if (!isAddMode) onCommit?.();
+        }}
+      >
+        <SelectTrigger className="h-9 w-full rounded-[10px] border-[#2383E2]/20 bg-white ring-blue-500/10 shadow-2xl">
+          <SelectValue placeholder={placeholder || "Select..."} />
+        </SelectTrigger>
+        <SelectContent>
+          {meta.options.map((opt: any) => (
+            <SelectItem key={opt.value} value={String(opt.value)}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
 
-//     const table = useReactTable({
-//         data,
-//         columns: visibleColumns,
-//         state: {
-//             sorting,
-//             globalFilter,
-//         },
-//         onSortingChange: setSorting,
-//         onGlobalFilterChange: setGlobalFilter,
-//         getCoreRowModel: getCoreRowModel(),
-//         getSortedRowModel: getSortedRowModel(),
-//         getFilteredRowModel: getFilteredRowModel(),
-//         getPaginationRowModel: getPaginationRowModel(),
-//         columnResizeMode,
-//         enableColumnResizing: true,
-//     });
+  if (type === "json") {
+    return (
+      <Input
+        ref={!isAddMode && inputRef ? inputRef : undefined}
+        placeholder={placeholder}
+        value={
+          typeof value === "object" ? JSON.stringify(value) : (value ?? "")
+        }
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => {
+          try {
+            const parsed = JSON.parse(value);
+            onChange(parsed);
+          } catch (e) {}
+          if (!isAddMode) onCommit?.();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onCommit?.();
+          if (e.key === "Escape") onCancel?.();
+        }}
+        className="h-10 -my-1 rounded-[12px] border-[#2383E2] bg-white ring-[6px] ring-blue-500/10 shadow-2xl font-mono text-[11px]"
+      />
+    );
+  }
 
-//     const handleCellClick = (rowId: string, columnId: string, value: any) => {
-//         if (onUpdate && columnId !== 'actions') {
-//             setEditingCell({ rowId, columnId });
-//             setEditValue(String(value ?? ''));
-//         }
-//     };
+  return (
+    <Input
+      ref={!isAddMode && inputRef ? inputRef : undefined}
+      type={type === "number" ? "number" : "text"}
+      placeholder={placeholder}
+      value={value ?? ""}
+      onChange={(e) =>
+        onChange(type === "number" ? Number(e.target.value) : e.target.value)
+      }
+      onBlur={() => !isAddMode && onCommit?.()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onCommit?.();
+        if (e.key === "Escape") onCancel?.();
+      }}
+      className="h-10 -my-1 rounded-[12px] border-[#2383E2] bg-white ring-[6px] ring-blue-500/10 shadow-2xl relative font-semibold text-[#37352F]"
+    />
+  );
+};
 
-//     const handleCellSave = () => {
-//         if (editingCell && onUpdate) {
-//             onUpdate(editingCell.rowId, { [editingCell.columnId]: editValue } as Partial<T>);
-//             setEditingCell(null);
-//         }
-//     };
+export function EditableTable<
+  T extends { id: string; costimize?: Record<string, any> },
+>({
+  data,
+  columns: baseColumns,
+  virtualColumns = [],
+  title,
+  description,
+  onAdd,
+  onUpdate,
+  onDelete,
+  onColumnAdd,
+  searchable = true,
+  pagination = true,
+}: EditableTableProps<T>) {
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [editingCell, setEditingCell] = useState<{
+    id: string;
+    columnId: string;
+  } | null>(null);
+  const [editValue, setEditValue] = useState<any>("");
+  const [isAdding, setIsAdding] = useState(false);
+  const [newRowData, setNewRowData] = useState<Record<string, any>>({});
 
-//     const handleExport = () => {
-//         const headers = visibleColumns.map((col: any) => {
-//             if (typeof col.header === 'string') return col.header;
-//             return '';
-//         }).join(',');
-//         const rows = data.map((row) =>
-//             visibleColumns
-//                 .map((col: any) => {
-//                     const accessor = col.accessorKey as string;
-//                     return accessor ? String((row as any)[accessor] ?? '') : '';
-//                 })
-//                 .join(',')
-//         );
-//         const csv = [headers, ...rows].join('\n');
-//         const blob = new Blob([csv], { type: 'text/csv' });
-//         const url = URL.createObjectURL(blob);
-//         const a = document.createElement('a');
-//         a.href = url;
-//         a.download = `${title.toLowerCase().replace(/\s+/g, '-')}.csv`;
-//         a.click();
-//         URL.revokeObjectURL(url);
-//     };
+  // Virtual Column Builder State
+  const [newColLabel, setNewColLabel] = useState("");
+  const [newColType, setNewColType] = useState<VirtualColumn["type"]>("text");
+  const [isColPopoverOpen, setIsColPopoverOpen] = useState(false);
 
-//     const toggleColumn = (columnId: string) => {
-//         setColumnVisibility((prev) => ({
-//             ...prev,
-//             [columnId]: prev[columnId] === false ? true : false,
-//         }));
-//     };
+  const inputRef = useRef<HTMLInputElement>(null);
 
-//     const handleAddRow = () => {
-//         const emptyRow: Record<string, any> = {};
-//         visibleColumns.forEach((col: any) => {
-//             if (col.id && col.id !== 'actions') {
-//                 emptyRow[col.id] = '';
-//             }
-//         });
-//         setNewRow(emptyRow);
-//     };
+  // Merge base columns with virtual columns
+  const finalColumns = useMemo(() => {
+    const vCols: ColumnDef<T, any>[] = virtualColumns.map((vc) => ({
+      id: vc.key,
+      header: vc.label,
+      accessorFn: (row) => row.costimize?.[vc.key],
+      meta: {
+        type: vc.type,
+        options: vc.options,
+        isVirtual: true,
+      },
+      cell: (info) => {
+        const val = info.getValue();
+        if (vc.type === "boolean")
+          return (
+            <Checkbox
+              checked={!!val}
+              disabled
+              className="scale-75 cursor-default"
+            />
+          );
+        if (vc.type === "json")
+          return (
+            <span className="text-[10px] font-mono opacity-50 truncate max-w-[80px]">
+              {JSON.stringify(val)}
+            </span>
+          );
+        return <span>{val ?? "-"}</span>;
+      },
+    }));
 
-//     const handleSaveNewRow = () => {
-//         if (newRow && onAdd) {
-//             // Convert the newRow object to match the expected format
-//             const newRowData: Omit<T, 'id'> = {} as Omit<T, 'id'>;
-//             Object.keys(newRow).forEach(key => {
-//                 (newRowData as any)[key] = newRow[key];
-//             });
-//             onAdd(newRowData);
-//             setNewRow(null);
-//         }
-//     };
+    return [...baseColumns, ...vCols];
+  }, [baseColumns, virtualColumns]);
 
-//     const handleCancelNewRow = () => {
-//         setNewRow(null);
-//     };
+  useEffect(() => {
+    if (editingCell && inputRef.current) {
+      inputRef.current.focus();
+      if (inputRef.current.type === "text") inputRef.current.select();
+    }
+  }, [editingCell]);
 
-//     const handleNewRowChange = (field: string, value: any) => {
-//         if (newRow) {
-//             setNewRow({
-//                 ...newRow,
-//                 [field]: value,
-//             });
-//         }
-//     };
+  const table = useReactTable({
+    data,
+    columns: finalColumns,
+    state: {
+      sorting,
+      globalFilter,
+    },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    enableGlobalFilter: true,
+    globalFilterFn: "auto",
+  });
 
-//     const handleNewRowKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, field: string) => {
-//         if (e.key === 'Enter') {
-//             e.preventDefault();
-//             handleSaveNewRow();
-//         } else if (e.key === 'Escape') {
-//             handleCancelNewRow();
-//         }
-//     };
+  const handleSave = (
+    id: string,
+    columnId: string,
+    value: any,
+    isVirtual: boolean,
+  ) => {
+    if (!onUpdate) return;
 
-//     const handleAddColumn = () => {
-//         setNewColumn({ id: '', header: '' });
-//     };
+    const row = data.find((r) => r.id === id);
+    if (!row) return;
 
-//     const handleNewColumnChange = (field: 'id' | 'header', value: string) => {
-//         if (newColumn) {
-//             setNewColumn({
-//                 ...newColumn,
-//                 [field]: value
-//             });
-//         }
-//     };
+    if (isVirtual) {
+      const updatedCostimize = { ...(row.costimize || {}), [columnId]: value };
+      onUpdate(id, { costimize: updatedCostimize } as Partial<T>);
+    } else {
+      // Use the column's internal ID which matches accessorKey for base columns
+      onUpdate(id, { [columnId]: value } as Partial<T>);
+    }
+    setEditingCell(null);
+  };
 
-//     const handleSaveNewColumn = () => {
-//         if (newColumn && newColumn.id && newColumn.header) {
-//             const newColumnDef: ColumnDef<T, any> = {
-//                 id: newColumn.id,
-//                 header: newColumn.header,
-//                 accessorKey: newColumn.id,
-//                 cell: ({ getValue }: any) => getValue() || '',
-//                 size: 150,
-//             };
+  const handleAddCommit = () => {
+    if (onAdd) {
+      onAdd(newRowData as Partial<T>);
+    }
+    setIsAdding(false);
+    setNewRowData({});
+  };
 
-//             const updatedColumns = [...localColumns, newColumnDef];
-//             setLocalColumns(updatedColumns);
+  const handleAddColumn = () => {
+    if (onColumnAdd && newColLabel) {
+      const key = newColLabel.toLowerCase().replace(/\s+/g, "_");
+      onColumnAdd({
+        label: newColLabel,
+        key,
+        type: newColType,
+      });
+      setNewColLabel("");
+      setIsColPopoverOpen(false);
+    }
+  };
 
-//             if (onColumnsChange) {
-//                 onColumnsChange(updatedColumns);
-//             }
+  return (
+    <div className="flex flex-col h-full bg-white rounded-[24px] border border-[#E9E9E7] shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden transition-all duration-500 hover:shadow-[0_12px_50px_rgba(0,0,0,0.06)]">
+      {/* Header */}
+      <div className="px-10 py-8 border-b border-[#F1F1F0] bg-white">
+        <div className="flex items-center justify-between mb-8">
+          <div className="space-y-1.5">
+            <h3 className="text-2xl font-bold text-[#37352F] tracking-tight antialiased">
+              {title}
+            </h3>
+            {description && (
+              <p className="text-[14px] text-[#787774] font-medium leading-relaxed max-w-xl">
+                {description}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => setIsAdding(true)}
+              aria-label="New Record"
+              className="bg-[#2383E2] hover:bg-[#1A6FB0] text-white rounded-[14px] px-6 h-11 font-bold flex items-center gap-2 shadow-xl shadow-blue-500/20"
+            >
+              <Plus className="w-5 h-5" />
+              New Record
+            </Button>
+          </div>
+        </div>
 
-//             setNewColumn(null);
-//         }
-//     };
+        <div className="flex items-center gap-5">
+          {searchable && (
+            <div className="relative flex-1 group max-w-lg">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#91918E] group-focus-within:text-[#2383E2]" />
+              <Input
+                placeholder="Search workspace..."
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="pl-12 h-12 bg-[#F7F7F5] border-transparent focus:bg-white focus:border-[#2383E2] rounded-[16px] transition-all"
+              />
+            </div>
+          )}
+        </div>
+      </div>
 
-//     const handleCancelNewColumn = () => {
-//         setNewColumn(null);
-//     };
+      {/* Content */}
+      <div className="flex-1 overflow-auto custom-scrollbar">
+        <table className="w-full text-sm border-separate border-spacing-0">
+          <thead className="sticky top-0 z-30 bg-white/90 backdrop-blur-md">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header, index) => (
+                  <th
+                    key={header.id}
+                    className={cn(
+                      "h-[52px] text-left align-middle font-bold text-[11px] uppercase tracking-[0.14em] text-[#91918E] border-b border-[#F1F1F0]",
+                      index === 0 ? "pl-10" : "px-8",
+                    )}
+                  >
+                    <div
+                      className="flex items-center gap-2 cursor-pointer py-1"
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      {flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )}
+                      {header.column.getIsSorted() &&
+                        (header.column.getIsSorted() === "asc" ? (
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        ))}
+                    </div>
+                  </th>
+                ))}
+                <th className="w-12 border-b border-[#F1F1F0]">
+                  <Popover
+                    open={isColPopoverOpen}
+                    onOpenChange={setIsColPopoverOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <button className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[#F1F1F0] text-[#91918E] transition-colors translate-y-[2px]">
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="end"
+                      className="w-80 p-5 space-y-4 shadow-3xl rounded-[24px] border-[#F1F1F0] z-[100]"
+                    >
+                      <div className="space-y-2">
+                        <h4 className="font-bold text-[#37352F] flex items-center gap-2">
+                          <Settings2 className="w-4 h-4 opacity-40" />
+                          Add Custom Field
+                        </h4>
+                        <p className="text-xs text-[#787774]">
+                          Stored in the JSONB metadata layer.
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] uppercase tracking-widest font-bold text-[#91918E]">
+                            Field Name
+                          </Label>
+                          <Input
+                            placeholder="e.g. Blood Type"
+                            value={newColLabel}
+                            onChange={(e) => setNewColLabel(e.target.value)}
+                            className="h-10 rounded-[12px] border-[#E9E9E7] focus:border-[#2383E2] transition-all bg-[#F7F7F5]/50"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] uppercase tracking-widest font-bold text-[#91918E]">
+                            Data Type
+                          </Label>
+                          <Select
+                            value={newColType}
+                            onValueChange={(val: any) => setNewColType(val)}
+                          >
+                            <SelectTrigger className="h-10 rounded-[12px] border-[#E9E9E7] bg-[#F7F7F5]/50">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="z-[110]">
+                              <SelectItem value="text">Text</SelectItem>
+                              <SelectItem value="number">Number</SelectItem>
+                              <SelectItem value="boolean">
+                                Boolean (Checkbox)
+                              </SelectItem>
+                              <SelectItem value="select">
+                                Select (Dropdown)
+                              </SelectItem>
+                              <SelectItem value="json">JSON Object</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          onClick={handleAddColumn}
+                          className="w-full bg-[#37352F] hover:bg-black text-white rounded-[14px] h-11 font-bold mt-2 shadow-lg shadow-black/5"
+                        >
+                          Create Column
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </th>
+                <th className="w-24 px-4 border-b border-[#F1F1F0]" />
+              </tr>
+            ))}
+          </thead>
+          <tbody className="bg-white">
+            <AnimatePresence mode="wait">
+              {isAdding && (
+                <motion.tr
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  className="bg-blue-50/10"
+                >
+                  {table.getVisibleFlatColumns().map((column, index) => {
+                    const isVirtual = column.columnDef.meta?.isVirtual;
+                    const colId = column.id;
+                    return (
+                      <td
+                        key={column.id}
+                        className={cn(
+                          "py-5 border-b border-[#F1F1F0]",
+                          index === 0 ? "pl-10" : "px-8",
+                        )}
+                      >
+                        <SmartEditor
+                          isAddMode={true}
+                          meta={column.columnDef.meta}
+                          placeholder={`Set ${String(column.columnDef.header)}...`}
+                          value={
+                            isVirtual
+                              ? newRowData.costimize?.[colId]
+                              : newRowData[colId]
+                          }
+                          onChange={(val) => {
+                            setNewRowData((prev) => {
+                              if (isVirtual) {
+                                return {
+                                  ...prev,
+                                  costimize: {
+                                    ...(prev.costimize || {}),
+                                    [colId]: val,
+                                  },
+                                };
+                              } else {
+                                return { ...prev, [colId]: val };
+                              }
+                            });
+                          }}
+                        />
+                      </td>
+                    );
+                  })}
+                  <td className="px-1 py-5 border-b border-[#F1F1F0]" />
+                  <td className="px-6 py-5 border-b border-[#F1F1F0]">
+                    <div className="flex items-center gap-3">
+                      <Button
+                        size="icon"
+                        onClick={handleAddCommit}
+                        aria-label="Save new record"
+                        className="h-10 w-10 rounded-full bg-green-500 hover:bg-green-600 text-white shadow-lg"
+                      >
+                        <Check className="w-5 h-5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => {
+                          setIsAdding(false);
+                          setNewRowData({ costimize: {} });
+                        }}
+                        className="h-10 w-10 rounded-full text-red-400 hover:bg-red-50"
+                      >
+                        <X className="w-5 h-5" />
+                      </Button>
+                    </div>
+                  </td>
+                </motion.tr>
+              )}
+            </AnimatePresence>
 
-//     const handleNewColumnKeyDown = (e: React.KeyboardEvent) => {
-//         if (e.key === 'Enter') {
-//             e.preventDefault();
-//             handleSaveNewColumn();
-//         } else if (e.key === 'Escape') {
-//             handleCancelNewColumn();
-//         }
-//     };
-
-//     const startColumnRename = (columnId: string, currentHeader: string) => {
-//         setRenamingColumn(columnId);
-//         setNewColumnName(currentHeader);
-//     };
-
-//     const saveColumnRename = () => {
-//         if (renamingColumn && newColumnName.trim()) {
-//             setRenamingColumn(null);
-//         }
-//     };
-
-//     const cancelColumnRename = () => {
-//         setRenamingColumn(null);
-//     };
-
-//     const handleRenameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-//         if (e.key === 'Enter') {
-//             e.preventDefault();
-//             saveColumnRename();
-//         } else if (e.key === 'Escape') {
-//             cancelColumnRename();
-//         }
-//     };
-
-//     const columnConfigs: ColumnConfig[] = useMemo(() => {
-//         return initialColumns.map((col: any) => ({
-//             id: col.id || col.accessorKey,
-//             header: typeof col.header === 'string' ? col.header : col.id || col.accessorKey,
-//             visible: columnVisibility[col.id || col.accessorKey] !== false,
-//         })).filter((col) => col.id !== 'actions');
-//     }, [initialColumns, columnVisibility]);
-
-//     return (
-//         <div className="flex flex-col h-full bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden">
-//             {/* Header */}
-//             <div className="px-6 py-5 border-b border-border/50">
-//                 <div className="flex items-center justify-between">
-//                     <div>
-//                         <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-//                         {description && <p className="text-sm text-muted-foreground mt-1 font-medium">{description}</p>}
-//                     </div>
-//                     <div className="flex items-center gap-2">
-//                         {columnManagement && (
-//                             <Button variant="outline" size="sm" onClick={() => setShowColumnManager(true)} className="rounded-xl font-semibold">
-//                                 <Settings2 className="w-4 h-4 mr-2" />
-//                                 Columns
-//                             </Button>
-//                         )}
-//                         {exportable && (
-//                             <Button variant="outline" size="sm" onClick={handleExport} className="rounded-xl font-semibold">
-//                                 <Download className="w-4 h-4 mr-2" />
-//                                 Export
-//                             </Button>
-//                         )}
-//                     </div>
-//                 </div>
-//             </div>
-
-//             {/* Metrics */}
-//             {metrics && metrics.length > 0 && (
-//                 <div className="px-6 py-5 grid grid-cols-2 md:grid-cols-4 gap-4 border-b border-border/50 bg-[#F7F7F7]/50">
-//                     {metrics.map((metric, index) => (
-//                         <motion.div
-//                             key={metric.label}
-//                             initial={{ opacity: 0, y: 20 }}
-//                             animate={{ opacity: 1, y: 0 }}
-//                             transition={{ delay: index * 0.1 }}
-//                             className="p-4 rounded-xl bg-white border border-border/40 shadow-sm"
-//                         >
-//                             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{metric.label}</p>
-//                             <div className="flex items-end gap-2 mt-1.5">
-//                                 <span className="text-2xl font-bold tracking-tight">{metric.value}</span>
-//                                 {metric.trend !== undefined && (
-//                                     <span
-//                                         className={cn(
-//                                             'text-xs font-bold mb-1 px-1.5 py-0.5 rounded-md',
-//                                             metric.trend >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-//                                         )}
-//                                     >
-//                                         {metric.trend >= 0 ? '+' : ''}{metric.trend}%
-//                                     </span>
-//                                 )}
-//                             </div>
-//                         </motion.div>
-//                     ))}
-//                 </div>
-//             )}
-
-//             {/* Toolbar */}
-//             <div className="px-6 py-4 flex items-center justify-between gap-4 border-b border-border/50">
-//                 <div className="flex items-center gap-3 flex-1">
-//                     {searchable && (
-//                         <div className="relative max-w-sm group">
-//                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-foreground transition-colors" />
-//                             <Input
-//                                 placeholder="Search database..."
-//                                 value={globalFilter}
-//                                 onChange={(e) => setGlobalFilter(e.target.value)}
-//                                 className="pl-9 h-10 rounded-xl"
-//                             />
-//                         </div>
-//                     )}
-//                     {filterable && (
-//                         <DropdownMenu>
-//                             <DropdownMenuTrigger asChild>
-//                                 <Button variant="outline" size="sm" className="h-10 rounded-xl font-semibold">
-//                                     <Filter className="w-4 h-4 mr-2" />
-//                                     Filter
-//                                 </Button>
-//                             </DropdownMenuTrigger>
-//                             <DropdownMenuContent align="start" className="w-48">
-//                                 <DropdownMenuItem>All Status</DropdownMenuItem>
-//                                 <DropdownMenuItem>Active Only</DropdownMenuItem>
-//                                 <DropdownMenuItem>Inactive Only</DropdownMenuItem>
-//                                 <DropdownMenuSeparator />
-//                                 <DropdownMenuItem>Sort by Name</DropdownMenuItem>
-//                                 <DropdownMenuItem>Sort by Date</DropdownMenuItem>
-//                             </DropdownMenuContent>
-//                         </DropdownMenu>
-//                     )}
-//                 </div>
-//                 <div className="flex items-center gap-3">
-//                     <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest bg-secondary/50 px-2 py-1 rounded-md">
-//                         {table.getFilteredRowModel().rows.length} records
-//                     </span>
-//                     {columnManagement && (
-//                         <DropdownMenu>
-//                             <DropdownMenuTrigger asChild>
-//                                 <Button variant="ghost" size="sm" className="h-10 rounded-xl font-semibold">
-//                                     <Eye className="w-4 h-4 mr-2" />
-//                                     View
-//                                 </Button>
-//                             </DropdownMenuTrigger>
-//                             <DropdownMenuContent align="end" className="w-56">
-//                                 <DropdownMenuLabel>Column Visibility</DropdownMenuLabel>
-//                                 <DropdownMenuSeparator />
-//                                 {columnConfigs.map((col) => (
-//                                     <DropdownMenuCheckboxItem
-//                                         key={col.id}
-//                                         checked={col.visible}
-//                                         onCheckedChange={() => toggleColumn(col.id)}
-//                                     >
-//                                         {col.header}
-//                                     </DropdownMenuCheckboxItem>
-//                                 ))}
-//                             </DropdownMenuContent>
-//                         </DropdownMenu>
-//                     )}
-//                 </div>
-//             </div>
-
-//             {/* Table Content */}
-//             <div className="flex-1 overflow-auto custom-scrollbar">
-//                 <table className="w-full text-sm">
-//                     <thead className="sticky top-0 bg-white z-10 border-b border-border/50">
-//                         {table.getHeaderGroups().map((headerGroup) => (
-//                             <tr key={headerGroup.id}>
-//                                 {headerGroup.headers.map((header) => (
-//                                     <th
-//                                         key={header.id}
-//                                         className="h-12 px-6 text-left align-middle font-bold text-[11px] uppercase tracking-widest text-muted-foreground bg-[#F7F7F7]/50 relative group"
-//                                         style={{ width: header.getSize() }}
-//                                     >
-//                                         <div
-//                                             className={cn(
-//                                                 'flex items-center gap-1 cursor-pointer select-none transition-colors hover:text-foreground',
-//                                                 header.column.getCanSort() && 'cursor-pointer'
-//                                             )}
-//                                             onClick={renamingColumn === header.id ? undefined : header.column.getToggleSortingHandler()}
-//                                         >
-//                                             {renamingColumn === header.id ? (
-//                                                 <input
-//                                                     type="text"
-//                                                     value={newColumnName}
-//                                                     onChange={(e) => setNewColumnName(e.target.value)}
-//                                                     onBlur={saveColumnRename}
-//                                                     onKeyDown={handleRenameKeyDown}
-//                                                     autoFocus
-//                                                     className="px-2 py-1 text-xs bg-white border border-black rounded-lg outline-none w-full"
-//                                                 />
-//                                             ) : (
-//                                                 <div className="flex items-center gap-1.5">
-//                                                     <span>{flexRender(header.column.columnDef.header, header.getContext())}</span>
-//                                                     {header.column.getCanSort() && (
-//                                                         <span className="opacity-0 group-hover:opacity-100 transition-opacity">
-//                                                             {header.column.getIsSorted() === 'asc' && <ChevronUp className="w-3 h-3" />}
-//                                                             {header.column.getIsSorted() === 'desc' && <ChevronDown className="w-3 h-3" />}
-//                                                             {!header.column.getIsSorted() && <ChevronDown className="w-3 h-3 opacity-30" />}
-//                                                         </span>
-//                                                     )}
-//                                                 </div>
-//                                             )}
-//                                         </div>
-//                                         {header.column.getCanResize() && (
-//                                             <div
-//                                                 onMouseDown={header.getResizeHandler()}
-//                                                 onTouchStart={header.getResizeHandler()}
-//                                                 className={cn(
-//                                                     'absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 group-hover:opacity-100 transition-opacity z-20',
-//                                                     header.column.getIsResizing() && 'opacity-100 bg-black'
-//                                                 )}
-//                                             />
-//                                         )}
-//                                     </th>
-//                                 ))}
-//                                 <th className="w-12 bg-[#F7F7F7]/50 border-l border-border/20">
-//                                     <button onClick={handleAddColumn} className="w-full flex justify-center text-muted-foreground hover:text-foreground transition-colors">
-//                                         <Plus className="w-4 h-4" />
-//                                     </button>
-//                                 </th>
-//                             </tr>
-//                         ))}
-//                     </thead>
-//                     <tbody className="divide-y divide-border/30">
-//                         {table.getRowModel().rows.map((row) => (
-//                             <tr key={row.id} className="group hover:bg-[#F7F7F7]/30 transition-colors">
-//                                 {row.getVisibleCells().map((cell) => {
-//                                     const isEditing =
-//                                         editingCell?.rowId === row.original.id &&
-//                                         editingCell?.columnId === cell.column.id;
-
-//                                     return (
-//                                         <td
-//                                             key={cell.id}
-//                                             className="px-6 py-4 whitespace-nowrap align-middle"
-//                                             style={{ width: cell.column.getSize() }}
-//                                         >
-//                                             {isEditing ? (
-//                                                 <input
-//                                                     type="text"
-//                                                     value={editValue}
-//                                                     onChange={(e) => setEditValue(e.target.value)}
-//                                                     onBlur={handleCellSave}
-//                                                     onKeyDown={(e) => {
-//                                                         if (e.key === 'Enter') handleCellSave();
-//                                                         if (e.key === 'Escape') setEditingCell(null);
-//                                                     }}
-//                                                     autoFocus
-//                                                     className="w-full px-2 py-1.5 text-sm bg-white border border-black rounded-lg outline-none shadow-xl relative z-30"
-//                                                 />
-//                                             ) : (
-//                                                 <div
-//                                                     className="font-medium text-foreground/80 cursor-text"
-//                                                     onClick={() => handleCellClick(row.original.id, cell.column.id, cell.getValue())}
-//                                                 >
-//                                                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
-//                                                 </div>
-//                                             )}
-//                                         </td>
-//                                     );
-//                                 })}
-//                                 <td className="w-12 border-l border-border/10"></td>
-//                             </tr>
-//                         ))}
-//                     </tbody>
-//                 </table>
-
-//                 {table.getRowModel().rows.length === 0 && (
-//                     <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-[#F7F7F7]/30">
-//                         <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center mb-4 border border-border/40">
-//                             <Search className="w-5 h-5 opacity-20" />
-//                         </div>
-//                         <p className="text-sm font-bold uppercase tracking-widest opacity-40">No analytics found</p>
-//                     </div>
-//                 )}
-//             </div>
-
-//             {/* Pagination */}
-//             {pagination && (
-//                 <div className="px-6 py-4 border-t border-border/50 bg-[#F7F7F7]/50 flex items-center justify-between">
-//                     <div className="flex items-center gap-4">
-//                         <div className="flex items-center gap-2">
-//                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Page</span>
-//                             <span className="text-sm font-bold">{table.getState().pagination.pageIndex + 1} / {table.getPageCount()}</span>
-//                         </div>
-//                         <div className="h-4 w-px bg-border/40" />
-//                         <select
-//                             value={table.getState().pagination.pageSize}
-//                             onChange={(e) => table.setPageSize(Number(e.target.value))}
-//                             className="text-xs font-bold bg-transparent outline-none cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-//                             title="Items per page"
-//                         >
-//                             {[10, 20, 50, 100].map((size) => (
-//                                 <option key={size} value={size}>
-//                                     {size} per page
-//                                 </option>
-//                             ))}
-//                         </select>
-//                     </div>
-//                     <div className="flex items-center gap-1.5">
-//                         <Button
-//                             variant="outline"
-//                             size="sm"
-//                             onClick={() => table.previousPage()}
-//                             disabled={!table.getCanPreviousPage()}
-//                             className="h-9 w-9 p-0 rounded-xl"
-//                         >
-//                             <ChevronLeft className="w-4 h-4" />
-//                         </Button>
-//                         <Button
-//                             variant="outline"
-//                             size="sm"
-//                             onClick={() => table.nextPage()}
-//                             disabled={!table.getCanNextPage()}
-//                             className="h-9 w-9 p-0 rounded-xl"
-//                         >
-//                             <ChevronRight className="w-4 h-4" />
-//                         </Button>
-//                     </div>
-//                 </div>
-//             )}
-
-//             {/* Column Manager Dialog */}
-//             <Dialog open={showColumnManager} onOpenChange={setShowColumnManager}>
-//                 <DialogContent className="max-w-md rounded-2xl">
-//                     <DialogHeader>
-//                         <DialogTitle>Customize Data View</DialogTitle>
-//                     </DialogHeader>
-//                     <div className="space-y-4 pt-4">
-//                         <div className="space-y-2 max-h-96 overflow-y-auto px-1 custom-scrollbar">
-//                             {columnConfigs.map((col) => (
-//                                 <div
-//                                     key={col.id}
-//                                     className="flex items-center justify-between p-3.5 border border-border/40 rounded-xl bg-[#F7F7F7]/30 hover:bg-black/5 transition-all group"
-//                                 >
-//                                     <div className="flex items-center gap-3">
-//                                         <GripVertical className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
-//                                         <span className="text-sm font-bold text-foreground/80">{col.header}</span>
-//                                     </div>
-//                                     <button
-//                                         onClick={() => toggleColumn(col.id)}
-//                                         className={cn(
-//                                             'p-2 rounded-lg transition-all',
-//                                             col.visible
-//                                                 ? 'bg-black text-white hover:bg-black/80 shadow-lg shadow-black/10'
-//                                                 : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
-//                                         )}
-//                                     >
-//                                         {col.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-//                                     </button>
-//                                 </div>
-//                             ))}
-//                         </div>
-//                         <div className="flex justify-end pt-2">
-//                             <Button onClick={() => setShowColumnManager(false)} className="rounded-xl w-full h-11 font-bold">
-//                                 Done
-//                             </Button>
-//                         </div>
-//                     </div>
-//                 </DialogContent>
-//             </Dialog>
-//         </div>
-//     );
-// }
+            <AnimatePresence initial={false}>
+              {table.getRowModel().rows.map((row) => (
+                <motion.tr
+                  layout
+                  key={row.id}
+                  className="group hover:bg-[#F7F7F5]/60 transition-colors duration-300"
+                >
+                  {row.getVisibleCells().map((cell, index) => {
+                    const isEditing =
+                      editingCell?.id === row.original.id &&
+                      editingCell?.columnId === cell.column.id;
+                    return (
+                      <td
+                        key={cell.id}
+                        className={cn(
+                          "py-5 border-b border-[#F1F1F0] relative overflow-hidden",
+                          index === 0 ? "pl-10" : "px-8",
+                        )}
+                        onClick={() => {
+                          setEditingCell({
+                            id: row.original.id,
+                            columnId: cell.column.id,
+                          });
+                          setEditValue(cell.getValue());
+                        }}
+                      >
+                        {isEditing ? (
+                          <SmartEditor
+                            inputRef={inputRef}
+                            meta={cell.column.columnDef.meta}
+                            value={editValue}
+                            onChange={setEditValue}
+                            onCommit={() =>
+                              handleSave(
+                                row.original.id,
+                                cell.column.id,
+                                editValue,
+                                !!cell.column.columnDef.meta?.isVirtual,
+                              )
+                            }
+                            onCancel={() => setEditingCell(null)}
+                          />
+                        ) : (
+                          <div className="font-semibold text-[#37352F] cursor-text">
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="px-1 py-5 border-b border-[#F1F1F0]" />
+                  <td className="px-6 py-5 border-b border-[#F1F1F0]">
+                    <div className="flex justify-end transition-all duration-300">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label={`Delete ${row.original.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onDelete) onDelete(row.original.id);
+                        }}
+                        className="h-10 w-10 text-[#91918E] hover:text-red-500"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </Button>
+                    </div>
+                  </td>
+                </motion.tr>
+              ))}
+            </AnimatePresence>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
