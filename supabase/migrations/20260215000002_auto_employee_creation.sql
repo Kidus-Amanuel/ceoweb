@@ -7,6 +7,9 @@
 -- 1. Create a sequence for employee numbers if it doesn't exist
 CREATE SEQUENCE IF NOT EXISTS employee_number_seq START 10001;
 
+-- 1b. Ensure employees table has status column (needed for trigger)
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS status user_status DEFAULT 'active';
+
 -- 2. Refine the existing validate_employee_profile function
 -- Original function in 20260212000002_create_business_tables.sql
 -- was too restrictive for super_admin multi-tenancy.

@@ -20,7 +20,7 @@ export const authService = {
           full_name: fullName,
           ...metadata,
         },
-        emailRedirectTo: `${deployUrl}/auth/callback`,
+        emailRedirectTo: `${deployUrl}/api/auth/callback`,
       },
     });
   },
@@ -41,7 +41,7 @@ export const authService = {
   async resetPassword(email: string) {
     const supabase = createClient();
     return supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${location.origin}/auth/reset-password`,
+      redirectTo: `${location.origin}/reset-password`,
     });
   },
 };

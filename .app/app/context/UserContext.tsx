@@ -42,31 +42,60 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const fetchUserData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setUser(user);
+  const fetchUserData = useCallback(
+    async (sessionUser?: User | null) => {
+      try {
+        setIsLoading(true);
 
-      if (user) {
-        const { data, error } = await supabase.rpc("get_user_role_info");
-        if (error) {
-          console.error("Error fetching role info:", error);
-          setRoleInfo(null);
-        } else {
-          setRoleInfo(data as RoleInfo);
+        let currentUser = sessionUser;
+        if (currentUser === undefined) {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          currentUser = user;
         }
-      } else {
-        setRoleInfo(null);
+
+        setUser(currentUser);
+
+        if (currentUser) {
+          // 1. Synthesize partial role info from metadata for immediate UI response
+          const meta = currentUser.user_metadata || {};
+          const partialRole: RoleInfo = {
+            user_id: currentUser.id,
+            company_id: meta.company_id || meta.companyId || null,
+            company_name: meta.company_name || null,
+            role_id: meta.role_id || meta.roleId || null,
+            role_name: meta.role_name || null,
+            position: meta.position || null,
+            status: "active",
+            user_type: (meta.user_type ||
+              meta.userType ||
+              "company_user") as any,
+            permissions: meta.permissions || [],
+          };
+
+          // Only set partial if we don't already have roleInfo (to avoid flicker)
+          setRoleInfo((prev) => prev || partialRole);
+
+          // 2. Fetch fresh data from DB
+          const { data, error } = await supabase.rpc("get_user_role_info");
+          if (error) {
+            console.error("Error fetching role info:", error);
+            // If RPC fails, we still keep the partial metadata as fallback
+          } else if (data) {
+            setRoleInfo(data as RoleInfo);
+          }
+        } else {
+          setRoleInfo(null);
+        }
+      } catch (error) {
+        console.error("Error in fetchUserData:", error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Error in fetchUserData:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [supabase]);
+    },
+    [supabase],
+  );
 
   useEffect(() => {
     fetchUserData();
@@ -75,7 +104,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        fetchUserData();
+        // Pass session user directly to skip a server roundtrip
+        fetchUserData(session?.user);
       } else if (event === "SIGNED_OUT") {
         setUser(null);
         setRoleInfo(null);

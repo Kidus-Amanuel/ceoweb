@@ -28,17 +28,34 @@ export async function POST(request: Request) {
     const { email, role: roleName } = await request.json();
     const companyId = roleInfo?.company_id;
 
+    if (!roleInfo) {
+      console.error(
+        "Invite Error: get_user_role_info returned no data for user",
+        user.id,
+      );
+      return NextResponse.json(
+        {
+          error:
+            "Could not find your organization context. Please try logging out and back in.",
+        },
+        { status: 400 },
+      );
+    }
+
     console.log("Invitation Process Status:", {
-      inviter: user.email,
+      inviterId: user.id,
+      inviterEmail: user.email,
       target: email,
       roleName,
-      companyId,
+      companyId: roleInfo.company_id,
+      companyName: roleInfo.company_name,
       isSuperAdmin,
     });
 
     if (!companyId) {
       console.error(
-        "Invite Error: Inviter has no company_id linked to their profile",
+        "Invite Error: Inviter has no company_id linked to their roleInfo",
+        roleInfo,
       );
       return NextResponse.json(
         { error: "Your account is not linked to an organization" },
@@ -70,11 +87,11 @@ export async function POST(request: Request) {
       {
         redirectTo: `${appUrl}/signup`, // Ensure users land on our signup page
         data: {
-          userType: "company_user", // Standard user type for invited users
-          companyId: companyId,
-          roleId: role?.id,
-          roleName: roleName,
-          invitedBy: user.id,
+          user_type: "company_user",
+          company_id: companyId,
+          role_id: role?.id,
+          role_name: roleName,
+          invited_by: user.id,
         },
       },
     );

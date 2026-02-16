@@ -74,13 +74,13 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  // Get session
+  // Get verified user instead of session for security
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // No session - handle unauthorized access
-  if (!session) {
+  // No user - handle unauthorized access
+  if (!user) {
     // Return 401 for API routes instead of redirecting
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -91,8 +91,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Extract user type from session
-  let userType = session.user.user_metadata?.userType as UserType;
+  // Extract user type from user metadata
+  let userType = user.user_metadata?.userType as UserType;
 
   // Fallback: If userType is missing, try to get the latest user data from Supabase
   if (!userType) {
@@ -132,7 +132,7 @@ export async function proxy(request: NextRequest) {
 
   // Additional checks for company users
   if (userType === "company_user" && requirements.requiresCompanyId) {
-    const companyId = session.user.user_metadata?.companyId;
+    const companyId = user.user_metadata?.companyId;
 
     if (!companyId) {
       console.error("Company user missing companyId");

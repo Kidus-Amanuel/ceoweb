@@ -14,32 +14,19 @@ export async function getSession(): Promise<AuthSession | null> {
   try {
     const supabase = createClient();
     const {
-      data: { session },
+      data: { user },
       error,
-    } = await supabase.auth.getSession();
+    } = await supabase.auth.getUser();
 
-    if (error || !session) {
+    if (error || !user) {
       return null;
     }
 
-    // Extract user data from session
-    let user = session.user;
-    let userType = user.user_metadata?.userType as UserType;
-
-    // If userType is missing in session metadata, fetch the latest user data from server
-    // This happens immediately after login before metadata propagates to local session
-    if (!userType) {
-      const {
-        data: { user: latestUser },
-      } = await supabase.auth.getUser();
-      if (latestUser) {
-        user = latestUser;
-        userType = user.user_metadata?.userType as UserType;
-      }
-    }
+    const userType = (user.user_metadata?.user_type ||
+      user.user_metadata?.userType) as UserType;
 
     if (!userType) {
-      console.error("User type not found in session or server metadata");
+      console.error("User type not found in user metadata", user.user_metadata);
       return null;
     }
 
@@ -53,8 +40,10 @@ export async function getSession(): Promise<AuthSession | null> {
 
     // Add company user specific fields
     if (userType === "company_user") {
-      authSession.companyId = user.user_metadata?.companyId;
-      authSession.roleId = user.user_metadata?.roleId;
+      authSession.companyId =
+        user.user_metadata?.company_id || user.user_metadata?.companyId;
+      authSession.roleId =
+        user.user_metadata?.role_id || user.user_metadata?.roleId;
 
       if (!authSession.companyId || !authSession.roleId) {
         console.error("Company user missing companyId or roleId");
@@ -65,13 +54,18 @@ export async function getSession(): Promise<AuthSession | null> {
     // Add super admin specific fields
     if (userType === "super_admin") {
       authSession.companyScope = user.user_metadata?.companyScope || "all";
-      authSession.companyId = user.user_metadata?.companyId; // Current active company
+      authSession.companyId =
+        user.user_metadata?.company_id || user.user_metadata?.companyId; // Current active company
       authSession.companyIds =
+        user.user_metadata?.company_ids ||
         user.user_metadata?.companyIds ||
         (authSession.companyId ? [authSession.companyId] : []);
 
       if (authSession.companyScope === "limited") {
-        authSession.companyIds = user.user_metadata?.companyIds || [];
+        authSession.companyIds =
+          user.user_metadata?.company_ids ||
+          user.user_metadata?.companyIds ||
+          [];
       }
     }
 

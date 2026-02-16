@@ -31,8 +31,7 @@ export function SidebarNav() {
     setCurrentModule,
   } = useLayoutStore();
 
-  const { logout } = useUser();
-  const { user } = useAuthStore();
+  const { logout, roleInfo, user: supabaseUser } = useUser();
   const navItems = useNavigation();
   const { availableCompanies, selectedCompany, setSelectedCompany } =
     useCompanies();
@@ -72,7 +71,7 @@ export function SidebarNav() {
     document.addEventListener("mouseup", handleMouseUp);
   };
 
-  const isSuperAdmin = user?.userType === "super_admin";
+  const isSuperAdmin = roleInfo?.user_type === "super_admin";
 
   return (
     <motion.aside
@@ -136,7 +135,9 @@ export function SidebarNav() {
               >
                 <div className="flex flex-col items-start min-w-0">
                   <span className="text-xs font-semibold truncate w-full text-left">
-                    {selectedCompany?.name || "Select Company"}
+                    {selectedCompany?.name ||
+                      roleInfo?.company_name ||
+                      "Select Company"}
                   </span>
                   <span className="text-[10px] text-muted-foreground truncate">
                     {selectedCompany?.type || "Enterprise"}
@@ -342,7 +343,9 @@ export function SidebarNav() {
           )}
         >
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0 shadow-md">
-            {user?.name?.charAt(0).toUpperCase() || "U"}
+            {roleInfo?.role_name?.charAt(0).toUpperCase() ||
+              supabaseUser?.email?.charAt(0).toUpperCase() ||
+              "U"}
           </div>
           <AnimatePresence>
             {leftSidebarOpen && (
@@ -353,12 +356,14 @@ export function SidebarNav() {
                 className="flex-1 min-w-0"
               >
                 <p className="text-xs font-bold truncate leading-none mb-1">
-                  {user?.name}
+                  {roleInfo?.role_name ||
+                    supabaseUser?.user_metadata?.full_name ||
+                    supabaseUser?.email?.split("@")[0]}
                 </p>
                 <p className="text-[10px] text-muted-foreground truncate uppercase tracking-widest font-medium">
-                  {user?.userType === "super_admin"
+                  {roleInfo?.user_type === "super_admin"
                     ? "Super Admin"
-                    : "Company User"}
+                    : roleInfo?.role_name || "Company User"}
                 </p>
               </motion.div>
             )}

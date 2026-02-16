@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/shared/ui/button";
 import { Input } from "@/components/shared/ui/input";
@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { useUser } from "@/app/context/UserContext";
+import { createClient } from "@/lib/supabase/client";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -34,9 +35,28 @@ export default function OnboardingPage() {
     brandColor: "#2383e2",
     workspaceUrl: "ceo.et",
   });
+  const [modules, setModules] = useState<
+    { name: string; display_name: string }[]
+  >([]);
   const [invites, setInvites] = useState([
     { email: "", role: "General Manager" },
   ]);
+
+  useEffect(() => {
+    const fetchModules = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("modules")
+          .select("name, display_name")
+          .eq("is_active", true);
+        if (data) setModules(data);
+      } catch (err) {
+        console.error("Failed to fetch modules:", err);
+      }
+    };
+    fetchModules();
+  }, []);
 
   const nextStep = () => setStep((prev) => Math.min(prev + 1, 4));
   const prevStep = () => setStep((prev) => Math.max(prev - 1, 1));
@@ -228,24 +248,22 @@ export default function OnboardingPage() {
                   Brand Color
                 </label>
                 <div className="flex gap-2">
-                  {["#2383e2", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6"].map(
-                    (color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() =>
-                          setFormData({ ...formData, brandColor: color })
-                        }
-                        className={cn(
-                          "h-8 w-8 rounded-full border-2 transition-transform",
-                          formData.brandColor === color
-                            ? "border-foreground scale-110"
-                            : "border-transparent",
-                        )}
-                        style={{ backgroundColor: color }}
-                      />
-                    ),
-                  )}
+                  {["#2383e2"].map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() =>
+                        setFormData({ ...formData, brandColor: color })
+                      }
+                      className={cn(
+                        "h-8 w-8 rounded-full border-2 transition-transform",
+                        formData.brandColor === color
+                          ? "border-foreground scale-110"
+                          : "border-transparent",
+                      )}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -314,9 +332,14 @@ export default function OnboardingPage() {
                       }}
                     >
                       <option value="General Manager">General Manager</option>
-                      <option value="HR Manager">HR Manager</option>
-                      <option value="CRM Manager">CRM Manager</option>
-                      <option value="Sales Executive">Sales Executive</option>
+                      {modules.map((m) => (
+                        <option
+                          key={m.name}
+                          value={`${m.display_name} Manager`}
+                        >
+                          {m.display_name} Manager
+                        </option>
+                      ))}
                     </select>
                   </div>
                 ))}

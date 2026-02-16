@@ -22,14 +22,14 @@ export async function GET(request: Request) {
 
       if (profile) {
         const metadata: Record<string, any> = {
-          userType: profile.user_type,
+          user_type: profile.user_type,
           name: user.email?.split("@")[0] || "User",
         };
 
         if (profile.user_type === "company_user") {
-          metadata.companyId = profile.company_id;
+          metadata.company_id = profile.company_id;
 
-          // Fetch roleId
+          // Fetch role_id
           const { data: companyUser } = await supabase
             .from("company_users")
             .select("role_id")
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
             .single();
 
           if (companyUser) {
-            metadata.roleId = companyUser.role_id;
+            metadata.role_id = companyUser.role_id;
           }
         }
 
@@ -47,12 +47,27 @@ export async function GET(request: Request) {
         await supabaseAdmin.auth.admin.updateUserById(user.id, {
           user_metadata: metadata,
         });
-      }
 
-      return NextResponse.redirect(`${origin}${next}`);
+        // Determine redirect destination based on user type
+        let redirectUrl = next;
+        if (
+          next === "/onboarding" &&
+          profile.user_type === "company_user" &&
+          profile.company_id
+        ) {
+          redirectUrl = "/dashboard";
+        }
+
+        return NextResponse.redirect(`${origin}${redirectUrl}`);
+      }
     }
   }
 
   // Return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/login?error=AuthCodeError`);
+  const errorCode = searchParams.get("error_code") || "AuthCodeError";
+  const errorDescription =
+    searchParams.get("error_description") || "Authentication failed";
+  return NextResponse.redirect(
+    `${origin}/login?error=${errorCode}&message=${encodeURIComponent(errorDescription)}`,
+  );
 }

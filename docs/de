@@ -1,0 +1,1816 @@
+-- =====================================================
+-- Migration: Core Multi-Tenant ERP Schema
+-- Description: Creates the foundational schema for a multi-tenant ERP system
+--              with super_admin and company_user roles, dynamic role system,
+--              and module-based permissions
+-- Version: 1.0.0
+-- Date: 2026-02-12
+-- =====================================================
+
+-- =====================================================
+-- SECTION 1: ENUMS AND TYPES
+-- =====================================================
+
+-- User type enumeration: super_admin (platform owner) or company_user (tenant user)
+CREATE TYPE user_type AS ENUM ('super_admin', 'company_user');
+
+-- User status enumeration
+CREATE TYPE user_status AS ENUM ('active', 'suspended', 'inactive');
+
+-- Company status enumeration  
+CREATE TYPE company_status AS ENUM ('active', 'suspended', 'trial');
+
+-- =====================================================
+-- SECTION 2: CORE TABLES
+-- =====================================================
+
+-- -----------------------------------------------------
+-- TABLE: companies
+-- Purpose: Multi-tenant company/organization table
+-- RLS: Enabled - users can only access their own company
+-- -----------------------------------------------------
+CREATE TABLE companies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  owner_id UUID REFERENCES auth.users(id) ON DELETE RESTRICT,
+  is_active BOOLEAN DEFAULT true,
+  status company_status DEFAULT 'trial',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT companies_name_not_empty CHECK (char_length(name) > 0),
+  CONSTRAINT companies_slug_format CHECK (slug ~* '^[a-z0-9-]+$')
+);
+
+-- Indexes for companies table
+CREATE INDEX idx_companies_owner_id ON companies(owner_id);
+CREATE INDEX idx_companies_slug ON companies(slug);
+CREATE INDEX idx_companies_status ON companies(status) WHERE is_active = true;
+
+-- Comments
+COMMENT ON TABLE companies IS 'Tenant companies in the multi-tenant ERP system';
+COMMENT ON COLUMN companies.owner_id IS 'Company owner who created/manages the company';
+COMMENT ON COLUMN companies.slug IS 'URL-friendly unique identifier for the company';
+
+-- -----------------------------------------------------
+-- TABLE: modules  
+-- Purpose: Available ERP modules (CRM, HR, Fleet, etc.)
+-- RLS: Public read access
+-- -----------------------------------------------------
+CREATE TABLE modules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT UNIQUE NOT NULL,
+  display_name TEXT NOT NULL,
+  description TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT modules_name_lowercase CHECK (name = lower(name))
+);
+
+-- Insert core modules
+INSERT INTO modules (name, display_name, description) VALUES
+  ('crm', 'CRM', 'Customer Relationship Management'),
+  ('hr', 'HR', 'Human Resources'),
+  ('fleet', 'Fleet', 'Fleet Management'),
+  ('inventory', 'Inventory', 'Inventory Management'),
+  ('finance', 'Finance', 'Financial Management');
+
+COMMENT ON TABLE modules IS 'Available ERP modules that companies can enable';
+
+-- -----------------------------------------------------
+-- TABLE: profiles
+-- Purpose: Extends auth.users with company and role info
+-- RLS: Enabled - strict company isolation
+-- -----------------------------------------------------
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+  user_type user_type NOT NULL DEFAULT 'company_user',
+  full_name TEXT,
+  avatar_url TEXT,
+  status user_status DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints: company_users must have a company, super_admins must not
+  CONSTRAINT profiles_company_user_has_company CHECK (
+    (user_type = 'company_user' AND company_id IS NOT NULL) OR
+    (user_type = 'super_admin' AND company_id IS NULL)
+  )
+);
+
+-- Indexes for profiles table
+CREATE INDEX idx_profiles_company_id ON profiles(company_id);
+CREATE INDEX idx_profiles_user_type ON profiles(user_type);
+CREATE INDEX idx_profiles_status ON profiles(status);
+
+COMMENT ON TABLE profiles IS 'User profiles extending auth.users with company association';
+COMMENT ON COLUMN profiles.user_type IS 'super_admin for platform owners, company_user for regular users';
+COMMENT ON COLUMN profiles.company_id IS 'Company association - NULL for super_admins only';
+
+-- -----------------------------------------------------
+-- TABLE: roles
+-- Purpose: Company-specific role definitions
+-- RLS: Enabled - users can only see roles in their company
+-- -----------------------------------------------------
+CREATE TABLE roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT roles_name_not_empty CHECK (char_length(name) > 0),
+  -- Unique role name per company
+  CONSTRAINT roles_unique_per_company UNIQUE (company_id, name)
+);
+
+-- Indexes for roles table
+CREATE INDEX idx_roles_company_id ON roles(company_id);
+CREATE INDEX idx_roles_name ON roles(company_id, name);
+
+COMMENT ON TABLE roles IS 'Company-specific role definitions (e.g., General Manager, HR Manager)';
+COMMENT ON COLUMN roles.company_id IS 'Roles are scoped to a specific company';
+
+-- -----------------------------------------------------
+-- TABLE: company_users
+-- Purpose: Associates users with companies and assigns roles
+-- RLS: Enabled - strict company isolation
+-- -----------------------------------------------------
+CREATE TABLE company_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
+  position TEXT,
+  status user_status DEFAULT 'active',
+  joined_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints
+  -- Each user can only be in one company (for now - can be relaxed later)
+  CONSTRAINT company_users_user_unique UNIQUE (user_id)
+  -- NOTE: Role-company matching enforced via trigger (see below)
+);
+
+-- Indexes for company_users table
+CREATE INDEX idx_company_users_user_id ON company_users(user_id);
+CREATE INDEX idx_company_users_company_id ON company_users(company_id);
+CREATE INDEX idx_company_users_role_id ON company_users(role_id);
+CREATE INDEX idx_company_users_status ON company_users(status);
+
+COMMENT ON TABLE company_users IS 'Associates users with companies and assigns company-specific roles';
+COMMENT ON COLUMN company_users.position IS 'Job position/title within the company';
+COMMENT ON COLUMN company_users.status IS 'User status within this company';
+
+-- -----------------------------------------------------
+-- TABLE: role_permissions
+-- Purpose: Granular module-action permissions per role
+-- RLS: Enabled - view permissions for own company roles
+-- -----------------------------------------------------
+CREATE TABLE role_permissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  module TEXT NOT NULL,
+  action TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT role_permissions_unique UNIQUE (role_id, module, action),
+  CONSTRAINT role_permissions_valid_action CHECK (
+    action IN ('view', 'create', 'edit', 'delete', 'export', 'approve')
+  )
+  -- NOTE: Module validation enforced via trigger (see below)
+);
+
+-- Indexes for role_permissions table
+CREATE INDEX idx_role_permissions_role_id ON role_permissions(role_id);
+CREATE INDEX idx_role_permissions_module ON role_permissions(module);
+CREATE INDEX idx_role_permissions_action ON role_permissions(action);
+
+COMMENT ON TABLE role_permissions IS 'Granular permissions: which actions each role can perform on each module';
+COMMENT ON COLUMN role_permissions.module IS 'Module name (crm, hr, fleet, etc.)';
+COMMENT ON COLUMN role_permissions.action IS 'Permitted action (view, create, edit, delete, export, approve)';
+
+-- =====================================================
+-- SECTION 3: HELPER FUNCTIONS
+-- =====================================================
+
+-- -----------------------------------------------------
+-- FUNCTION: get_user_company_id
+-- Purpose: Returns the company_id for the current authenticated user
+-- Used in: RLS policies for cleaner syntax
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION get_user_company_id()
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT company_id 
+  FROM profiles 
+  WHERE id = auth.uid() 
+  LIMIT 1;
+$$;
+
+COMMENT ON FUNCTION get_user_company_id IS 'Returns company_id for current user, used in RLS policies';
+
+-- -----------------------------------------------------
+-- FUNCTION: get_user_type
+-- Purpose: Returns the user_type for the current authenticated user
+-- Used in: RLS policies to differentiate super_admin from company_user
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION get_user_type()
+RETURNS user_type
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT user_type 
+  FROM profiles 
+  WHERE id = auth.uid() 
+  LIMIT 1;
+$$;
+
+COMMENT ON FUNCTION get_user_type IS 'Returns user_type (super_admin or company_user) for current user';
+
+-- -----------------------------------------------------
+-- FUNCTION: has_permission
+-- Purpose: Check if current user has specific permission
+-- Used in: RLS policies and application logic
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION has_permission(
+  p_module TEXT,
+  p_action TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM company_users cu
+    JOIN role_permissions rp ON rp.role_id = cu.role_id
+    WHERE cu.user_id = auth.uid()
+      AND rp.module = p_module
+      AND rp.action = p_action
+      AND cu.status = 'active'
+  );
+$$;
+
+COMMENT ON FUNCTION has_permission IS 'Check if current user has permission for module+action';
+
+-- -----------------------------------------------------
+-- FUNCTION: update_updated_at_column
+-- Purpose: Automatically update updated_at timestamp
+-- Used in: Triggers on all tables with updated_at column
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION update_updated_at_column IS 'Trigger function to auto-update updated_at timestamp';
+
+-- =====================================================
+-- SECTION 4: TRIGGERS
+-- =====================================================
+
+-- Auto-update updated_at for companies
+CREATE TRIGGER set_companies_updated_at
+  BEFORE UPDATE ON companies
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Auto-update updated_at for profiles
+CREATE TRIGGER set_profiles_updated_at
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Auto-update updated_at for roles
+CREATE TRIGGER set_roles_updated_at
+  BEFORE UPDATE ON roles
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- -----------------------------------------------------
+-- TRIGGER FUNCTION: validate_company_users_role
+-- Purpose: Ensures role_id belongs to the same company
+-- Replaces CHECK constraint (subqueries not allowed in CHECK)
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION validate_company_users_role()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM roles
+    WHERE id = NEW.role_id
+    AND company_id = NEW.company_id
+  ) THEN
+    RAISE EXCEPTION 'Role % does not belong to company %', NEW.role_id, NEW.company_id;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION validate_company_users_role IS 'Ensures role belongs to the same company as the company_user';
+
+CREATE TRIGGER trg_validate_company_users_role
+  BEFORE INSERT OR UPDATE ON company_users
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_company_users_role();
+
+-- -----------------------------------------------------
+-- TRIGGER FUNCTION: validate_role_permissions_module
+-- Purpose: Ensures module name exists in modules table
+-- Replaces CHECK constraint (subqueries not allowed in CHECK)
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION validate_role_permissions_module()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM modules
+    WHERE name = NEW.module
+    AND is_active = true
+  ) THEN
+    RAISE EXCEPTION 'Module "%" does not exist or is not active', NEW.module;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION validate_role_permissions_module IS 'Ensures module exists and is active before adding permissions';
+
+CREATE TRIGGER trg_validate_role_permissions_module
+  BEFORE INSERT OR UPDATE ON role_permissions
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_role_permissions_module();
+
+-- =====================================================
+-- SECTION 5: ROW LEVEL SECURITY (RLS) POLICIES
+-- =====================================================
+
+-- Enable RLS on all tables
+ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE company_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE role_permissions ENABLE ROW LEVEL SECURITY;
+
+-- -----------------------------------------------------
+-- RLS POLICIES: companies
+-- -----------------------------------------------------
+
+-- SELECT: Super admins see all, company users see their own
+CREATE POLICY "Companies: super_admin can view all"
+  ON companies FOR SELECT
+  TO authenticated
+  USING (
+    get_user_type() = 'super_admin'
+  );
+
+CREATE POLICY "Companies: company_user can view own company"
+  ON companies FOR SELECT
+  TO authenticated
+  USING (
+    id = get_user_company_id()
+  );
+
+-- INSERT: Authenticated users can create companies (becomes owner)
+CREATE POLICY "Companies: authenticated users can create"
+  ON companies FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    auth.uid() = owner_id
+  );
+
+-- UPDATE: Company owner or super_admin can update
+CREATE POLICY "Companies: owner can update own company"
+  ON companies FOR UPDATE
+  TO authenticated
+  USING (
+    owner_id = auth.uid() OR get_user_type() = 'super_admin'
+  );
+
+-- DELETE: Company owner only (super_admin can delete via admin panel)
+CREATE POLICY "Companies: owner can delete own company"
+  ON companies FOR DELETE
+  TO authenticated
+  USING (
+    owner_id = auth.uid() OR get_user_type() = 'super_admin'
+  );
+
+-- -----------------------------------------------------
+-- RLS POLICIES: profiles
+-- -----------------------------------------------------
+
+-- SELECT: Super admins see all, company users see profiles in their company
+CREATE POLICY "Profiles: super_admin can view all"
+  ON profiles FOR SELECT
+  TO authenticated
+  USING (
+    get_user_type() = 'super_admin'
+  );
+
+CREATE POLICY "Profiles: company_user can view same company"
+  ON profiles FOR SELECT
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+  );
+
+-- INSERT: Super admin can create any profile, users can create own profile
+CREATE POLICY "Profiles: users can create own profile"
+  ON profiles FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    id = auth.uid() OR get_user_type() = 'super_admin'
+  );
+
+-- UPDATE: Users can update own profile, super_admin can update any
+CREATE POLICY "Profiles: users can update own profile"
+  ON profiles FOR UPDATE
+  TO authenticated
+  USING (
+    id = auth.uid() OR get_user_type() = 'super_admin'
+  );
+
+-- DELETE: Super admin only
+CREATE POLICY "Profiles: super_admin can delete"
+  ON profiles FOR DELETE
+  TO authenticated
+  USING (
+    get_user_type() = 'super_admin'
+  );
+
+-- -----------------------------------------------------
+-- RLS POLICIES: roles
+-- -----------------------------------------------------
+
+-- SELECT: Super admins see all, company users see their company roles
+CREATE POLICY "Roles: super_admin can view all"
+  ON roles FOR SELECT
+  TO authenticated
+  USING (
+    get_user_type() = 'super_admin'
+  );
+
+CREATE POLICY "Roles: company_user can view own company roles"
+  ON roles FOR SELECT
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+  );
+
+-- INSERT: Company owner or super_admin can create roles
+CREATE POLICY "Roles: company owner can create roles"
+  ON roles FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    company_id = get_user_company_id() 
+    OR get_user_type() = 'super_admin'
+  );
+
+-- UPDATE: Company owner or super_admin can update roles
+CREATE POLICY "Roles: company owner can update roles"
+  ON roles FOR UPDATE
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    OR get_user_type() = 'super_admin'
+  );
+
+-- DELETE: Company owner or super_admin can delete roles
+CREATE POLICY "Roles: company owner can delete roles"
+  ON roles FOR DELETE
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    OR get_user_type() = 'super_admin'
+  );
+
+-- -----------------------------------------------------
+-- RLS POLICIES: company_users
+-- -----------------------------------------------------
+
+-- SELECT: Super admins see all, company users see their company members
+CREATE POLICY "CompanyUsers: super_admin can view all"
+  ON company_users FOR SELECT
+  TO authenticated
+  USING (
+    get_user_type() = 'super_admin'
+  );
+
+CREATE POLICY "CompanyUsers: company_user can view same company"
+  ON company_users FOR SELECT
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+  );
+
+-- INSERT: Company owner or super_admin can add users
+CREATE POLICY "CompanyUsers: company owner can invite users"
+  ON company_users FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    company_id = get_user_company_id()
+    OR get_user_type() = 'super_admin'
+  );
+
+-- UPDATE: Company owner or super_admin can update
+CREATE POLICY "CompanyUsers: company owner can update"
+  ON company_users FOR UPDATE
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    OR get_user_type() = 'super_admin'
+  );
+
+-- DELETE: Company owner or super_admin can delete
+CREATE POLICY "CompanyUsers: company owner can remove users"
+  ON company_users FOR DELETE
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    OR get_user_type() = 'super_admin'
+  );
+
+-- -----------------------------------------------------
+-- RLS POLICIES: role_permissions
+-- -----------------------------------------------------
+
+-- SELECT: Super admins see all, company users see their company role permissions
+CREATE POLICY "RolePermissions: super_admin can view all"
+  ON role_permissions FOR SELECT
+  TO authenticated
+  USING (
+    get_user_type() = 'super_admin'
+  );
+
+CREATE POLICY "RolePermissions: company_user can view own company permissions"
+  ON role_permissions FOR SELECT
+  TO authenticated
+  USING (
+    role_id IN (
+      SELECT id FROM roles WHERE company_id = get_user_company_id()
+    )
+  );
+
+-- INSERT/UPDATE/DELETE: Company owner or super_admin only
+CREATE POLICY "RolePermissions: company owner can manage"
+  ON role_permissions FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    role_id IN (
+      SELECT id FROM roles WHERE company_id = get_user_company_id()
+    )
+    OR get_user_type() = 'super_admin'
+  );
+
+CREATE POLICY "RolePermissions: company owner can update"
+  ON role_permissions FOR UPDATE
+  TO authenticated
+  USING (
+    role_id IN (
+      SELECT id FROM roles WHERE company_id = get_user_company_id()
+    )
+    OR get_user_type() = 'super_admin'
+  );
+
+CREATE POLICY "RolePermissions: company owner can delete"
+  ON role_permissions FOR DELETE
+  TO authenticated
+  USING (
+    role_id IN (
+      SELECT id FROM roles WHERE company_id = get_user_company_id()
+    )
+    OR get_user_type() = 'super_admin'
+  );
+
+-- =====================================================
+-- SECTION 6: MODULES TABLE - PUBLIC READ ACCESS
+-- =====================================================
+
+-- Modules table doesn't need strict RLS, it's reference data
+ALTER TABLE modules ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Modules: anyone can view active modules"
+  ON modules FOR SELECT
+  TO authenticated
+  USING (is_active = true);
+
+-- Only super_admin can modify modules
+CREATE POLICY "Modules: super_admin can manage"
+  ON modules FOR ALL
+  TO authenticated
+  USING (get_user_type() = 'super_admin')
+  WITH CHECK (get_user_type() = 'super_admin');
+
+
+-- =====================================================
+-- Migration: Business Tables with Multi-Tenant Scoping
+-- Description: Creates example business tables (projects, employees)
+--              demonstrating proper tenant scoping and RLS policies
+-- Version: 1.0.0
+-- Date: 2026-02-12
+-- =====================================================
+
+-- =====================================================
+-- SECTION 1: BUSINESS ENUMS
+-- =====================================================
+
+-- Project status enumeration
+CREATE TYPE project_status AS ENUM ('planning', 'active', 'on_hold', 'completed', 'cancelled');
+
+-- Employee department enumeration (examples - expand as needed)
+CREATE TYPE department_type AS ENUM ('hr', 'crm', 'fleet', 'inventory', 'finance', 'operations', 'it');
+
+-- =====================================================
+-- SECTION 2: BUSINESS TABLES
+-- =====================================================
+
+-- -----------------------------------------------------
+-- TABLE: projects
+-- Purpose: Example business entity scoped by company
+-- Demonstrates: Multi-tenant isolation, ownership tracking
+-- RLS: Strict company-level isolation
+-- -----------------------------------------------------
+CREATE TABLE projects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+  status project_status DEFAULT 'planning',
+  start_date DATE,
+  end_date DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT projects_name_not_empty CHECK (char_length(name) > 0),
+  CONSTRAINT projects_dates_valid CHECK (end_date IS NULL OR end_date >= start_date)
+  -- NOTE: Owner-company matching enforced via trigger (see below)
+);
+
+-- Indexes for projects table
+CREATE INDEX idx_projects_company_id ON projects(company_id);
+CREATE INDEX idx_projects_owner_id ON projects(owner_id);
+CREATE INDEX idx_projects_status ON projects(status);
+CREATE INDEX idx_projects_dates ON projects(start_date, end_date);
+
+COMMENT ON TABLE projects IS 'Company projects - demonstrates multi-tenant business data';
+COMMENT ON COLUMN projects.company_id IS 'Tenant isolation - all queries must filter by this';
+COMMENT ON COLUMN projects.owner_id IS 'Project owner/manager - must be a user in the same company';
+
+-- -----------------------------------------------------
+-- TABLE: employees
+-- Purpose: HR module - employee records
+-- Demonstrates: HR data isolation, department tracking
+-- RLS: Strict company-level isolation
+-- -----------------------------------------------------
+CREATE TABLE employees (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  employee_number TEXT NOT NULL,
+  department department_type,
+  position TEXT,
+  hire_date DATE,
+  termination_date DATE,
+  salary DECIMAL(12, 2),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT employees_number_not_empty CHECK (char_length(employee_number) > 0),
+  CONSTRAINT employees_dates_valid CHECK (
+    termination_date IS NULL OR termination_date >= hire_date
+  ),
+  -- Employee number unique per company
+  CONSTRAINT employees_number_unique_per_company UNIQUE (company_id, employee_number)
+  -- NOTE: Profile-company matching enforced via trigger (see below)
+);
+
+-- Indexes for employees table
+CREATE INDEX idx_employees_company_id ON employees(company_id);
+CREATE INDEX idx_employees_profile_id ON employees(profile_id);
+CREATE INDEX idx_employees_employee_number ON employees(company_id, employee_number);
+CREATE INDEX idx_employees_department ON employees(department);
+CREATE INDEX idx_employees_hire_date ON employees(hire_date);
+
+COMMENT ON TABLE employees IS 'HR employee records - scoped to company with sensitive data protection';
+COMMENT ON COLUMN employees.company_id IS 'Tenant isolation - strict company-level access control';
+COMMENT ON COLUMN employees.profile_id IS 'Links to user profile - profile must be in same company';
+COMMENT ON COLUMN employees.salary IS 'Sensitive - additional RLS policies may restrict access';
+
+-- -----------------------------------------------------
+-- TABLE: customers (CRM Module Example)
+-- Purpose: CRM module - customer/client records
+-- Demonstrates: CRM module data isolation, assignment tracking
+-- RLS: Strict company-level isolation
+-- -----------------------------------------------------
+CREATE TABLE customers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  assigned_to UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT customers_name_not_empty CHECK (char_length(name) > 0),
+  CONSTRAINT customers_email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' OR email IS NULL),
+  CONSTRAINT customers_valid_status CHECK (status IN ('active', 'inactive', 'prospect', 'churned'))
+);
+
+-- Indexes for customers table
+CREATE INDEX idx_customers_company_id ON customers(company_id);
+CREATE INDEX idx_customers_assigned_to ON customers(assigned_to);
+CREATE INDEX idx_customers_status ON customers(status);
+CREATE INDEX idx_customers_email ON customers(email);
+
+COMMENT ON TABLE customers IS 'CRM customer records - scoped by company with assignment tracking';
+COMMENT ON COLUMN customers.assigned_to IS 'Sales rep/account manager - ownership for conditional access';
+
+-- -----------------------------------------------------
+-- TABLE: vehicles (Fleet Module Example)
+-- Purpose: Fleet module - vehicle tracking
+-- Demonstrates: Fleet module data isolation, driver assignment
+-- RLS: Strict company-level isolation
+-- -----------------------------------------------------
+CREATE TABLE vehicles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  vehicle_number TEXT NOT NULL,
+  make TEXT,
+  model TEXT,
+  year INTEGER,
+  license_plate TEXT,
+  assigned_driver_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT vehicles_number_not_empty CHECK (char_length(vehicle_number) > 0),
+  CONSTRAINT vehicles_number_unique_per_company UNIQUE (company_id, vehicle_number),
+  CONSTRAINT vehicles_year_valid CHECK (year IS NULL OR (year >= 1900 AND year <= EXTRACT(YEAR FROM NOW()) + 1)),
+  CONSTRAINT vehicles_valid_status CHECK (status IN ('active', 'maintenance', 'retired'))
+);
+
+-- Indexes for vehicles table
+CREATE INDEX idx_vehicles_company_id ON vehicles(company_id);
+CREATE INDEX idx_vehicles_vehicle_number ON vehicles(company_id, vehicle_number);
+CREATE INDEX idx_vehicles_assigned_driver ON vehicles(assigned_driver_id);
+CREATE INDEX idx_vehicles_status ON vehicles(status);
+
+COMMENT ON TABLE vehicles IS 'Fleet vehicle records - scoped by company with driver assignment';
+COMMENT ON COLUMN vehicles.assigned_driver_id IS 'Currently assigned driver - for conditional access in RLS';
+
+-- =====================================================
+-- SECTION 3: TRIGGERS FOR AUTO-UPDATE
+-- =====================================================
+
+-- Auto-update updated_at for projects
+CREATE TRIGGER set_projects_updated_at
+  BEFORE UPDATE ON projects
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Auto-update updated_at for employees
+CREATE TRIGGER set_employees_updated_at
+  BEFORE UPDATE ON employees
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Auto-update updated_at for customers
+CREATE TRIGGER set_customers_updated_at
+  BEFORE UPDATE ON customers
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Auto-update updated_at for vehicles
+CREATE TRIGGER set_vehicles_updated_at
+  BEFORE UPDATE ON vehicles
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- -----------------------------------------------------
+-- TRIGGER FUNCTION: validate_project_owner
+-- Purpose: Ensures project owner belongs to the same company
+-- Replaces CHECK constraint (subqueries not allowed in CHECK)
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION validate_project_owner()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM company_users
+    WHERE user_id = NEW.owner_id
+    AND company_id = NEW.company_id
+  ) THEN
+    RAISE EXCEPTION 'Project owner % is not a member of company %', NEW.owner_id, NEW.company_id;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION validate_project_owner IS 'Ensures project owner is a member of the project company';
+
+CREATE TRIGGER trg_validate_project_owner
+  BEFORE INSERT OR UPDATE ON projects
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_project_owner();
+
+-- -----------------------------------------------------
+-- TRIGGER FUNCTION: validate_employee_profile
+-- Purpose: Ensures employee profile belongs to the same company
+-- Replaces CHECK constraint (subqueries not allowed in CHECK)
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION validate_employee_profile()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id = NEW.profile_id
+    AND company_id = NEW.company_id
+  ) THEN
+    RAISE EXCEPTION 'Profile % does not belong to company %', NEW.profile_id, NEW.company_id;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION validate_employee_profile IS 'Ensures employee profile belongs to the same company';
+
+CREATE TRIGGER trg_validate_employee_profile
+  BEFORE INSERT OR UPDATE ON employees
+  FOR EACH ROW
+  EXECUTE FUNCTION validate_employee_profile();
+
+-- =====================================================
+-- SECTION 4: ROW LEVEL SECURITY (RLS) POLICIES
+-- =====================================================
+
+-- Enable RLS on all business tables
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
+
+-- -----------------------------------------------------
+-- RLS POLICIES: projects
+-- All operations require company membership via RLS
+-- -----------------------------------------------------
+
+-- SELECT: Super admins see all, company users see their company projects
+CREATE POLICY "Projects: super_admin can view all"
+  ON projects FOR SELECT
+  TO authenticated
+  USING (
+    get_user_type() = 'super_admin'
+  );
+
+CREATE POLICY "Projects: company_user can view company projects"
+  ON projects FOR SELECT
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+  );
+
+-- INSERT: Users with 'crm' module 'create' permission can create projects
+CREATE POLICY "Projects: authorized users can create"
+  ON projects FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('crm', 'create') OR 
+      get_user_type() = 'super_admin'
+    )
+  );
+
+-- UPDATE: Project owner or users with edit permission can update
+CREATE POLICY "Projects: owner or authorized can update"
+  ON projects FOR UPDATE
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    AND (
+      owner_id = auth.uid() OR
+      has_permission('crm', 'edit') OR
+      get_user_type() = 'super_admin'
+    )
+  );
+
+-- DELETE: Only users with delete permission can delete
+CREATE POLICY "Projects: authorized users can delete"
+  ON projects FOR DELETE
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('crm', 'delete') OR
+      get_user_type() = 'super_admin'
+    )
+  );
+
+-- -----------------------------------------------------
+-- RLS POLICIES: employees
+-- HR module - stricter access controls
+-- -----------------------------------------------------
+
+-- SELECT: Super admins see all, company users with HR view permission
+CREATE POLICY "Employees: super_admin can view all"
+  ON employees FOR SELECT
+  TO authenticated
+  USING (
+    get_user_type() = 'super_admin'
+  );
+
+CREATE POLICY "Employees: authorized users can view company employees"
+  ON employees FOR SELECT
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('hr', 'view') OR
+      profile_id = auth.uid()  -- Users can view their own employee record
+    )
+  );
+
+-- INSERT: Only users with HR create permission
+CREATE POLICY "Employees: HR can create employee records"
+  ON employees FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('hr', 'create') OR
+      get_user_type() = 'super_admin'
+    )
+  );
+
+-- UPDATE: HR edit permission required
+CREATE POLICY "Employees: HR can update employee records"
+  ON employees FOR UPDATE
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('hr', 'edit') OR
+      get_user_type() = 'super_admin'
+    )
+  );
+
+-- DELETE: HR delete permission required (very restrictive)
+CREATE POLICY "Employees: HR can delete employee records"
+  ON employees FOR DELETE
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('hr', 'delete') OR
+      get_user_type() = 'super_admin'
+    )
+  );
+
+-- -----------------------------------------------------
+-- RLS POLICIES: customers
+-- CRM module - with ownership-based access
+-- -----------------------------------------------------
+
+-- SELECT: View all company customers if has permission, or view assigned customers
+CREATE POLICY "Customers: super_admin can view all"
+  ON customers FOR SELECT
+  TO authenticated
+  USING (
+    get_user_type() = 'super_admin'
+  );
+
+CREATE POLICY "Customers: company_user can view company customers"
+  ON customers FOR SELECT
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('crm', 'view') OR
+      assigned_to = auth.uid()  -- Can view assigned customers
+    )
+  );
+
+-- INSERT: CRM create permission
+CREATE POLICY "Customers: authorized users can create"
+  ON customers FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('crm', 'create') OR
+      get_user_type() = 'super_admin'
+    )
+  );
+
+-- UPDATE: Can edit all if has permission, or own assigned customers
+CREATE POLICY "Customers: authorized users can update"
+  ON customers FOR UPDATE
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('crm', 'edit') OR
+      assigned_to = auth.uid() OR
+      get_user_type() = 'super_admin'
+    )
+  );
+
+-- DELETE: CRM delete permission only
+CREATE POLICY "Customers: authorized users can delete"
+  ON customers FOR DELETE
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('crm', 'delete') OR
+      get_user_type() = 'super_admin'
+    )
+  );
+
+-- -----------------------------------------------------
+-- RLS POLICIES: vehicles
+-- Fleet module - with driver assignment access
+-- -----------------------------------------------------
+
+-- SELECT: View all company vehicles if has permission, or assigned vehicle
+CREATE POLICY "Vehicles: super_admin can view all"
+  ON vehicles FOR SELECT
+  TO authenticated
+  USING (
+    get_user_type() = 'super_admin'
+  );
+
+CREATE POLICY "Vehicles: company_user can view company vehicles"
+  ON vehicles FOR SELECT
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('fleet', 'view') OR
+      assigned_driver_id = auth.uid()  -- Drivers can view assigned vehicle
+    )
+  );
+
+-- INSERT: Fleet create permission
+CREATE POLICY "Vehicles: authorized users can create"
+  ON vehicles FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('fleet', 'create') OR
+      get_user_type() = 'super_admin'
+    )
+  );
+
+-- UPDATE: Fleet edit permission
+CREATE POLICY "Vehicles: authorized users can update"
+  ON vehicles FOR UPDATE
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('fleet', 'edit') OR
+      get_user_type() = 'super_admin'
+    )
+  );
+
+-- DELETE: Fleet delete permission
+CREATE POLICY "Vehicles: authorized users can delete"
+  ON vehicles FOR DELETE
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    AND (
+      has_permission('fleet', 'delete') OR
+      get_user_type() = 'super_admin'
+    )
+  );
+
+
+-- =====================================================
+-- Migration: Authentication Integration & Helper Functions
+-- Description: Functions and triggers for Supabase Auth integration,
+--              user profile creation, and additional utility functions
+-- Version: 1.0.0
+-- Date: 2026-02-12
+-- =====================================================
+
+-- =====================================================
+-- SECTION 1: AUTH INTEGRATION FUNCTIONS
+-- =====================================================
+
+-- -----------------------------------------------------
+-- FUNCTION: handle_new_user
+-- Purpose: Automatically create profile when user signs up or is invited
+-- Trigger: After INSERT on auth.users
+-- Notes: This handles both:
+--        1. Direct sign-ups (creates super_admin if first user)
+--        2. Invited users (uses company_id from invite metadata)
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_company_id UUID;
+  v_role_id UUID;
+  v_user_type public.user_type;
+  v_meta_user_type TEXT;
+BEGIN
+  -- 1. Extract Metadata (Handling both snake_case and camelCase)
+  v_company_id := COALESCE(
+    (NEW.raw_user_meta_data->>'company_id')::UUID,
+    (NEW.raw_user_meta_data->>'companyId')::UUID
+  );
+  v_role_id := COALESCE(
+    (NEW.raw_user_meta_data->>'role_id')::UUID,
+    (NEW.raw_user_meta_data->>'roleId')::UUID
+  );
+  v_meta_user_type := COALESCE(
+    NEW.raw_user_meta_data->>'user_type',
+    NEW.raw_user_meta_data->>'userType'
+  );
+  
+  -- 2. Determine user type
+  -- Priority: 
+  --   A. Explicitly set in metadata
+  --   B. If company_id is present -> 'company_user'
+  --   C. Default to 'super_admin' (onboarding flow)
+  IF v_meta_user_type IS NOT NULL THEN
+    v_user_type := v_meta_user_type::public.user_type;
+  ELSIF v_company_id IS NOT NULL THEN
+    v_user_type := 'company_user'::public.user_type;
+  ELSE
+    v_user_type := 'super_admin'::public.user_type;
+  END IF;
+  
+  -- 3. Create the profile
+  INSERT INTO public.profiles (
+    id, 
+    company_id, 
+    user_type,
+    full_name,
+    status,
+    onboarding
+  ) VALUES (
+    NEW.id,
+    v_company_id,
+    v_user_type,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
+    'active'::public.user_status,
+    -- Invited company_users are considered "onboarded" once they sign up
+    -- because their organization context is already set.
+    (v_user_type = 'company_user')
+  );
+
+  -- 4. If invited/joined with context, link to company and role
+  IF v_company_id IS NOT NULL AND v_role_id IS NOT NULL THEN
+    INSERT INTO public.company_users (
+      user_id,
+      company_id,
+      role_id,
+      status,
+      position
+    ) VALUES (
+      NEW.id,
+      v_company_id,
+      v_role_id,
+      'active',
+      COALESCE(NEW.raw_user_meta_data->>'position', NEW.raw_user_meta_data->>'roleName')
+    ) ON CONFLICT DO NOTHING;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION handle_new_user IS 'Auto-creates profile for new auth.users, handles invitations via metadata';
+
+-- Create trigger on auth.users
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION handle_new_user();
+
+-- -----------------------------------------------------
+-- FUNCTION: handle_user_invitation
+-- Purpose: Creates company_users record when user accepts invitation
+-- Notes: This should be called after profile is created
+--        It links the user to company and assigns role
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION handle_user_invitation(
+  p_user_id UUID,
+  p_company_id UUID,
+  p_role_id UUID,
+  p_position TEXT DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_company_user_id UUID;
+BEGIN
+  -- Verify the role belongs to the company
+  IF NOT EXISTS (
+    SELECT 1 FROM roles WHERE id = p_role_id AND company_id = p_company_id
+  ) THEN
+    RAISE EXCEPTION 'Role does not belong to the specified company';
+  END IF;
+  
+  -- Create company_users record
+  INSERT INTO company_users (
+    user_id,
+    company_id,
+    role_id,
+    position,
+    status
+  ) VALUES (
+    p_user_id,
+    p_company_id,
+    p_role_id,
+    p_position,
+    'active'
+  )
+  RETURNING id INTO v_company_user_id;
+  
+  -- Update profile with company_id if not set
+  UPDATE profiles
+  SET company_id = p_company_id
+  WHERE id = p_user_id AND company_id IS NULL;
+  
+  RETURN v_company_user_id;
+END;
+$$;
+
+COMMENT ON FUNCTION handle_user_invitation IS 'Links invited user to company with role assignment';
+
+-- =====================================================
+-- SECTION 2: PERMISSION MANAGEMENT FUNCTIONS
+-- =====================================================
+
+-- -----------------------------------------------------
+-- FUNCTION: get_user_permissions
+-- Purpose: Returns all permissions for current user as JSON array
+-- Used in: Frontend to build permission state
+-- Returns: [{"module": "crm", "action": "view"}, ...]
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION get_user_permissions()
+RETURNS JSON
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT COALESCE(
+    json_agg(
+      json_build_object(
+        'module', rp.module,
+        'action', rp.action
+      )
+    ),
+    '[]'::json
+  )
+  FROM company_users cu
+  JOIN role_permissions rp ON rp.role_id = cu.role_id
+  WHERE cu.user_id = auth.uid()
+    AND cu.status = 'active';
+$$;
+
+COMMENT ON FUNCTION get_user_permissions IS 'Returns all permissions for current user as JSON array';
+
+-- -----------------------------------------------------
+-- FUNCTION: get_user_role_info
+-- Purpose: Returns complete role info for current user
+-- Used in: Frontend dashboard, profile display
+-- Returns: JSON with role name, company, permissions
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION get_user_role_info()
+RETURNS JSON
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT json_build_object(
+    'user_id', cu.user_id,
+    'company_id', cu.company_id,
+    'company_name', c.name,
+    'role_id', r.id,
+    'role_name', r.name,
+    'position', cu.position,
+    'status', cu.status,
+    'user_type', p.user_type,
+    'permissions', get_user_permissions()
+  )
+  FROM company_users cu
+  JOIN roles r ON r.id = cu.role_id
+  JOIN companies c ON c.id = cu.company_id
+  JOIN profiles p ON p.id = cu.user_id
+  WHERE cu.user_id = auth.uid()
+  LIMIT 1;
+$$;
+
+COMMENT ON FUNCTION get_user_role_info IS 'Returns complete role and permission info for current user';
+
+-- -----------------------------------------------------
+-- FUNCTION: assign_role_permissions
+-- Purpose: Bulk assign permissions to a role
+-- Used in: Role creation/management
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION assign_role_permissions(
+  p_role_id UUID,
+  p_permissions JSON  -- [{"module": "crm", "action": "view"}, ...]
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_permission JSON;
+  v_count INTEGER := 0;
+BEGIN
+  -- Verify role exists and user has access to it
+  IF NOT EXISTS (
+    SELECT 1 FROM roles 
+    WHERE id = p_role_id 
+    AND (
+      company_id = get_user_company_id() 
+      OR get_user_type() = 'super_admin'
+    )
+  ) THEN
+    RAISE EXCEPTION 'Role not found or access denied';
+  END IF;
+  
+  -- Insert permissions (ON CONFLICT DO NOTHING handles duplicates)
+  FOR v_permission IN SELECT * FROM json_array_elements(p_permissions)
+  LOOP
+    INSERT INTO role_permissions (role_id, module, action)
+    VALUES (
+      p_role_id,
+      v_permission->>'module',
+      v_permission->>'action'
+    )
+    ON CONFLICT (role_id, module, action) DO NOTHING;
+    
+    v_count := v_count + 1;
+  END LOOP;
+  
+  RETURN v_count;
+END;
+$$;
+
+COMMENT ON FUNCTION assign_role_permissions IS 'Bulk assign permissions to a role from JSON array';
+
+-- =====================================================
+-- SECTION 3: UTILITY FUNCTIONS
+-- =====================================================
+
+-- -----------------------------------------------------
+-- FUNCTION: is_company_owner
+-- Purpose: Check if current user is owner of a company
+-- Used in: Permission checks, UI rendering
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION is_company_owner(p_company_id UUID DEFAULT NULL)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 
+    FROM companies 
+    WHERE id = COALESCE(p_company_id, get_user_company_id())
+      AND owner_id = auth.uid()
+  );
+$$;
+
+COMMENT ON FUNCTION is_company_owner IS 'Check if current user owns the specified company';
+
+-- -----------------------------------------------------
+-- FUNCTION: get_company_stats
+-- Purpose: Returns statistics for a company
+-- Used in: Dashboard, analytics
+-- Returns: JSON with counts of users, roles, etc.
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION get_company_stats(p_company_id UUID DEFAULT NULL)
+RETURNS JSON
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT json_build_object(
+    'total_users', (
+      SELECT COUNT(*) FROM company_users 
+      WHERE company_id = COALESCE(p_company_id, get_user_company_id())
+    ),
+    'active_users', (
+      SELECT COUNT(*) FROM company_users 
+      WHERE company_id = COALESCE(p_company_id, get_user_company_id())
+        AND status = 'active'
+    ),
+    'total_roles', (
+      SELECT COUNT(*) FROM roles 
+      WHERE company_id = COALESCE(p_company_id, get_user_company_id())
+    ),
+    'total_projects', (
+      SELECT COUNT(*) FROM projects 
+      WHERE company_id = COALESCE(p_company_id, get_user_company_id())
+    ),
+    'total_employees', (
+      SELECT COUNT(*) FROM employees 
+      WHERE company_id = COALESCE(p_company_id, get_user_company_id())
+    )
+  );
+$$;
+
+COMMENT ON FUNCTION get_company_stats IS 'Returns statistics for a company (users, roles, projects, etc.)';
+
+-- =====================================================
+-- SECTION 4: VALIDATION FUNCTIONS
+-- =====================================================
+
+-- -----------------------------------------------------
+-- FUNCTION: validate_company_access
+-- Purpose: Validates that a user can access a specific resource
+-- Used in: Application-level permission checks
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION validate_company_access(
+  p_table_name TEXT,
+  p_record_id UUID
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+  v_company_id UUID;
+  v_sql TEXT;
+BEGIN
+  -- Super admins always have access
+  IF get_user_type() = 'super_admin' THEN
+    RETURN TRUE;
+  END IF;
+  
+  -- Build dynamic query to check company_id
+  v_sql := format(
+    'SELECT company_id FROM %I WHERE id = $1',
+    p_table_name
+  );
+  
+  EXECUTE v_sql INTO v_company_id USING p_record_id;
+  
+  -- Check if record's company matches user's company
+  RETURN v_company_id = get_user_company_id();
+END;
+$$;
+
+COMMENT ON FUNCTION validate_company_access IS 'Validates user can access a resource in specified table';
+
+-- =====================================================
+-- SECTION 5: AUDIT LOGGING (OPTIONAL)
+-- =====================================================
+
+-- -----------------------------------------------------
+-- TABLE: audit_logs (Optional - for tracking changes)
+-- Purpose: Track all important changes in the system
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  table_name TEXT NOT NULL,
+  record_id UUID,
+  action TEXT NOT NULL,  -- INSERT, UPDATE, DELETE
+  old_data JSONB,
+  new_data JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  CONSTRAINT audit_logs_valid_action CHECK (action IN ('INSERT', 'UPDATE', 'DELETE'))
+);
+
+CREATE INDEX idx_audit_logs_company_id ON audit_logs(company_id);
+CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX idx_audit_logs_table_record ON audit_logs(table_name, record_id);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at DESC);
+
+COMMENT ON TABLE audit_logs IS 'Audit trail of all important data changes';
+
+-- Enable RLS on audit_logs
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- RLS: Users can view audit logs for their company
+CREATE POLICY "AuditLogs: company_user can view own company logs"
+  ON audit_logs FOR SELECT
+  TO authenticated
+  USING (
+    company_id = get_user_company_id()
+    OR get_user_type() = 'super_admin'
+  );
+
+-- Only system can insert audit logs (no direct user inserts)
+CREATE POLICY "AuditLogs: system only inserts"
+  ON audit_logs FOR INSERT
+  TO authenticated
+  WITH CHECK (false);  -- No one can insert directly via SQL
+
+-- -----------------------------------------------------
+-- FUNCTION: log_audit
+-- Purpose: Helper function to create audit log entries
+-- -----------------------------------------------------
+CREATE OR REPLACE FUNCTION log_audit(
+  p_table_name TEXT,
+  p_record_id UUID,
+  p_action TEXT,
+  p_old_data JSONB DEFAULT NULL,
+  p_new_data JSONB DEFAULT NULL
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_audit_id UUID;
+BEGIN
+  INSERT INTO audit_logs (
+    company_id,
+    user_id,
+    table_name,
+    record_id,
+    action,
+    old_data,
+    new_data
+  ) VALUES (
+    get_user_company_id(),
+    auth.uid(),
+    p_table_name,
+    p_record_id,
+    p_action,
+    p_old_data,
+    p_new_data
+  )
+  RETURNING id INTO v_audit_id;
+  
+  RETURN v_audit_id;
+END;
+$$;
+
+COMMENT ON FUNCTION log_audit IS 'Creates audit log entry for tracking changes';
+
+
+-- Relax profiles_company_user_has_company constraint
+-- This allows super_admin users to have a company_id (e.g. after onboarding)
+
+-- First add onboarding column if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'onboarding') THEN
+        ALTER TABLE profiles ADD COLUMN onboarding BOOLEAN DEFAULT false;
+    END IF;
+END $$;
+
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_company_user_has_company;
+
+ALTER TABLE profiles ADD CONSTRAINT profiles_company_user_has_company CHECK (
+    (user_type = 'company_user' AND company_id IS NOT NULL) OR
+    (user_type = 'super_admin')
+);
+
+COMMENT ON CONSTRAINT profiles_company_user_has_company ON profiles IS 'Ensures company_users have a company, but allows super_admins to have one or not.';
+
+-- =====================================================
+-- Migration: Relax company_users constraint for super_admin
+-- Description: Allows super_admin to have multiple companies while
+--              enforcing single-company limit for company_user.
+-- =====================================================
+
+-- 1. Drop the existing single-company constraint
+ALTER TABLE company_users DROP CONSTRAINT IF EXISTS company_users_user_unique;
+
+-- 2. Add composite unique constraint to prevent duplicate roles in the same company
+-- (Users can be in multiple companies, but only once per company)
+ALTER TABLE company_users ADD CONSTRAINT company_users_user_company_unique UNIQUE (user_id, company_id);
+
+-- 3. Create trigger function to enforce single-company rule for regular users
+CREATE OR REPLACE FUNCTION enforce_single_company_for_regular_users()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_user_type user_type;
+    v_company_count INTEGER;
+BEGIN
+    -- Get user type from profiles
+    SELECT user_type INTO v_user_type FROM profiles WHERE id = NEW.user_id;
+
+    -- If user is a company_user, check if they already have a company association
+    IF v_user_type = 'company_user' THEN
+        SELECT count(*) INTO v_company_count FROM company_users WHERE user_id = NEW.user_id AND id != NEW.id;
+        
+        IF v_company_count > 0 THEN
+            RAISE EXCEPTION 'Regular company users can only be associated with one company.';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 4. Apply trigger to company_users table
+DROP TRIGGER IF EXISTS trg_enforce_single_company ON company_users;
+CREATE TRIGGER trg_enforce_single_company
+    BEFORE INSERT OR UPDATE ON company_users
+    FOR EACH ROW
+    EXECUTE FUNCTION enforce_single_company_for_regular_users();
+
+COMMENT ON FUNCTION enforce_single_company_for_regular_users IS 'Enforces that only super_admin can have multiple company associations in company_users table.';
+
+
+-- =====================================================
+-- Migration: Automated Employee Creation
+-- Description: Automatically creates an employee record when a user 
+--              is linked to a company in the company_users table.
+-- =====================================================
+
+-- 1. Create a sequence for employee numbers if it doesn't exist
+CREATE SEQUENCE IF NOT EXISTS employee_number_seq START 10001;
+
+-- 1b. Ensure employees table has status column (needed for trigger)
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS status user_status DEFAULT 'active';
+
+-- 2. Refine the existing validate_employee_profile function
+-- Original function in 20260212000002_create_business_tables.sql
+-- was too restrictive for super_admin multi-tenancy.
+CREATE OR REPLACE FUNCTION validate_employee_profile()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_user_type user_type;
+    v_profile_company_id UUID;
+BEGIN
+    SELECT user_type, company_id INTO v_user_type, v_profile_company_id 
+    FROM profiles 
+    WHERE id = NEW.profile_id;
+
+    -- If it's a regular company_user, profiles.company_id must match employees.company_id
+    IF v_user_type = 'company_user' THEN
+        IF v_profile_company_id != NEW.company_id THEN
+             RAISE EXCEPTION 'Profile % belongs to company %, but employee record is for company %', 
+                NEW.profile_id, v_profile_company_id, NEW.company_id;
+        END IF;
+    END IF;
+
+    -- For super_admin, profiles.company_id is NULL, which is fine since they can be in multiple companies.
+    -- We just need to ensure the profile exists (which the foreign key does).
+
+    RETURN NEW;
+END;
+$$;
+
+-- 3. Create composite unique index on employees if not already there
+-- This prevents a user from having multiple employee records in the same company
+ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_profile_company_unique;
+ALTER TABLE employees ADD CONSTRAINT employees_profile_company_unique UNIQUE (profile_id, company_id);
+
+-- 4. Create trigger function for automatic employee sync
+CREATE OR REPLACE FUNCTION sync_company_user_to_employee()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_employee_exists BOOLEAN;
+BEGIN
+    -- Check if employee record already exists for this profile in this company
+    SELECT EXISTS (
+        SELECT 1 FROM employees 
+        WHERE profile_id = NEW.user_id 
+        AND company_id = NEW.company_id
+    ) INTO v_employee_exists;
+
+    -- If not exists, create it
+    IF NOT v_employee_exists THEN
+        INSERT INTO employees (
+            company_id,
+            profile_id,
+            employee_number,
+            position,
+            hire_date,
+            status -- Added status if needed, though employees table uses default
+        ) VALUES (
+            NEW.company_id,
+            NEW.user_id,
+            'EMP-' || nextval('employee_number_seq')::TEXT,
+            NEW.position,
+            CURRENT_DATE,
+            'active' 
+        );
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 5. Attach sync trigger to company_users
+DROP TRIGGER IF EXISTS trg_sync_company_user_to_employee ON company_users;
+CREATE TRIGGER trg_sync_company_user_to_employee
+    AFTER INSERT OR UPDATE ON company_users
+    FOR EACH ROW
+    EXECUTE FUNCTION sync_company_user_to_employee();
+
+COMMENT ON FUNCTION sync_company_user_to_employee IS 'Automates employee record creation when a user is assigned to a company.';
+
+
+-- =====================================================
+-- Migration: Add Department to Roles
+-- Description: Adds a department column to the roles table and 
+--              updates the employee sync trigger to use it.
+-- =====================================================
+
+-- 1. Add department column to roles
+-- We use the existing department_type enum
+ALTER TABLE roles ADD COLUMN IF NOT EXISTS department department_type;
+
+COMMENT ON COLUMN roles.department IS 'The department/module this role primarily belongs to';
+
+-- 2. Update the sync trigger function to include department
+CREATE OR REPLACE FUNCTION sync_company_user_to_employee()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_employee_exists BOOLEAN;
+    v_role_department department_type;
+BEGIN
+    -- Get the department from the assigned role
+    SELECT department INTO v_role_department
+    FROM roles
+    WHERE id = NEW.role_id;
+
+    -- Check if employee record already exists
+    SELECT EXISTS (
+        SELECT 1 FROM employees 
+        WHERE profile_id = NEW.user_id 
+        AND company_id = NEW.company_id
+    ) INTO v_employee_exists;
+
+    -- If not exists, create it
+    IF NOT v_employee_exists THEN
+        INSERT INTO employees (
+            company_id,
+            profile_id,
+            employee_number,
+            department, -- Now including department
+            position,
+            hire_date,
+            status
+        ) VALUES (
+            NEW.company_id,
+            NEW.user_id,
+            'EMP-' || nextval('employee_number_seq')::TEXT,
+            v_role_department,
+            NEW.position,
+            CURRENT_DATE,
+            'active' 
+        );
+    ELSE
+        -- If it exists, update it (useful if role/position changes)
+        UPDATE employees
+        SET 
+            position = NEW.position,
+            department = v_role_department,
+            updated_at = NOW()
+        WHERE profile_id = NEW.user_id 
+        AND company_id = NEW.company_id;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
