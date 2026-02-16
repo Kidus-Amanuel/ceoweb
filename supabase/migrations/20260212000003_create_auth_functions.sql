@@ -28,20 +28,36 @@ DECLARE
   v_company_id UUID;
   v_role_id UUID;
   v_user_type public.user_type;
+  v_meta_user_type TEXT;
 BEGIN
-  -- Check if this is an invited user (has company_id in raw_user_meta_data)
-  v_company_id := (NEW.raw_user_meta_data->>'company_id')::UUID;
-  v_role_id := (NEW.raw_user_meta_data->>'role_id')::UUID;
+  -- 1. Extract Metadata (Handling both snake_case and camelCase)
+  v_company_id := COALESCE(
+    (NEW.raw_user_meta_data->>'company_id')::UUID,
+    (NEW.raw_user_meta_data->>'companyId')::UUID
+  );
+  v_role_id := COALESCE(
+    (NEW.raw_user_meta_data->>'role_id')::UUID,
+    (NEW.raw_user_meta_data->>'roleId')::UUID
+  );
+  v_meta_user_type := COALESCE(
+    NEW.raw_user_meta_data->>'user_type',
+    NEW.raw_user_meta_data->>'userType'
+  );
   
-  -- Determine user type
-  IF v_company_id IS NULL THEN
-    -- No company means this is either a super_admin or company owner creating their account
-    v_user_type := 'super_admin'::public.user_type;
-  ELSE
+  -- 2. Determine user type
+  -- Priority: 
+  --   A. Explicitly set in metadata
+  --   B. If company_id is present -> 'company_user'
+  --   C. Default to 'super_admin' (onboarding flow)
+  IF v_meta_user_type IS NOT NULL THEN
+    v_user_type := v_meta_user_type::public.user_type;
+  ELSIF v_company_id IS NOT NULL THEN
     v_user_type := 'company_user'::public.user_type;
+  ELSE
+    v_user_type := 'super_admin'::public.user_type;
   END IF;
   
-  -- Create the profile (ALWAYS do this first)
+  -- 3. Create the profile
   INSERT INTO public.profiles (
     id, 
     company_id, 
@@ -55,21 +71,25 @@ BEGIN
     v_user_type,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
     'active'::public.user_status,
-    (v_user_type = 'company_user') -- Set onboarding true by default for invited users
+    -- Invited company_users are considered "onboarded" once they sign up
+    -- because their organization context is already set.
+    (v_user_type = 'company_user')
   );
 
-  -- If invited, automatically link to company and role
+  -- 4. If invited/joined with context, link to company and role
   IF v_company_id IS NOT NULL AND v_role_id IS NOT NULL THEN
     INSERT INTO public.company_users (
       user_id,
       company_id,
       role_id,
-      status
+      status,
+      position
     ) VALUES (
       NEW.id,
       v_company_id,
       v_role_id,
-      'active'
+      'active',
+      COALESCE(NEW.raw_user_meta_data->>'position', NEW.raw_user_meta_data->>'role_name', NEW.raw_user_meta_data->>'roleName')
     ) ON CONFLICT DO NOTHING;
   END IF;
   

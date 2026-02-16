@@ -2,7 +2,15 @@
 
 import axios from "axios";
 import { useState } from "react";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  AlertCircle,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/shared/ui/button/Button";
@@ -101,9 +109,12 @@ export function LoginForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {serverError && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
+          <Alert
+            variant="destructive"
+            className="mb-4 animate-in fade-in slide-in-from-top-2 duration-300"
+          >
+            <XCircle className="h-4 w-4" />
+            <AlertTitle>Login Failed</AlertTitle>
             <AlertDescription>{serverError}</AlertDescription>
           </Alert>
         )}

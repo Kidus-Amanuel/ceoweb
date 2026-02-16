@@ -31,8 +31,7 @@ export function SidebarNav() {
     setCurrentModule,
   } = useLayoutStore();
 
-  const { logout } = useUser();
-  const { user } = useAuthStore();
+  const { logout, roleInfo, user: supabaseUser } = useUser();
   const navItems = useNavigation();
   const { availableCompanies, selectedCompany, setSelectedCompany } =
     useCompanies();
@@ -72,7 +71,7 @@ export function SidebarNav() {
     document.addEventListener("mouseup", handleMouseUp);
   };
 
-  const isSuperAdmin = user?.userType === "super_admin";
+  const isSuperAdmin = roleInfo?.user_type === "super_admin";
 
   return (
     <motion.aside
@@ -136,13 +135,15 @@ export function SidebarNav() {
               >
                 <div className="flex flex-col items-start min-w-0">
                   <span className="text-xs font-semibold truncate w-full text-left">
-                    {selectedCompany?.name || "Select Company"}
+                    {selectedCompany?.name ||
+                      roleInfo?.company_name ||
+                      "Select Company"}
                   </span>
                   <span className="text-[10px] text-muted-foreground truncate">
                     {selectedCompany?.type || "Enterprise"}
                   </span>
                 </div>
-                {isSuperAdmin && (
+                {availableCompanies.length > 0 && (
                   <ChevronDown
                     className={cn(
                       "w-3 h-3 text-muted-foreground ml-auto shrink-0 transition-transform",
@@ -157,40 +158,42 @@ export function SidebarNav() {
 
         {/* Dropdown Menu */}
         <AnimatePresence>
-          {showCompanyDropdown && leftSidebarOpen && isSuperAdmin && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="absolute left-3 right-3 top-full mt-1 bg-white border border-border/50 rounded-xl shadow-xl z-50 overflow-hidden backdrop-blur-xl"
-            >
-              <div className="p-1.5 space-y-0.5">
-                {availableCompanies.map((company) => (
-                  <button
-                    key={company.id}
-                    onClick={() => {
-                      setSelectedCompany(company.id);
-                      setShowCompanyDropdown(false);
-                    }}
-                    className={cn(
-                      "flex items-center gap-2 w-full p-2 rounded-lg text-xs transition-colors",
-                      selectedCompany?.id === company.id
-                        ? "bg-primary/5 text-primary font-medium"
-                        : "hover:bg-muted/50 text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <Building2 className="w-3 h-3" />
-                    <div className="flex flex-col items-start">
-                      <span>{company.name}</span>
-                      <span className="text-[9px] opacity-70">
-                        {company.type}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          )}
+          {showCompanyDropdown &&
+            leftSidebarOpen &&
+            availableCompanies.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute left-3 right-3 top-full mt-1 bg-white border border-border/50 rounded-xl shadow-xl z-50 overflow-hidden backdrop-blur-xl"
+              >
+                <div className="p-1.5 space-y-0.5">
+                  {availableCompanies.map((company) => (
+                    <button
+                      key={company.id}
+                      onClick={() => {
+                        setSelectedCompany(company.id);
+                        setShowCompanyDropdown(false);
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 w-full p-2 rounded-lg text-xs transition-colors",
+                        selectedCompany?.id === company.id
+                          ? "bg-primary/5 text-primary font-medium"
+                          : "hover:bg-muted/50 text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <Building2 className="w-3 h-3" />
+                      <div className="flex flex-col items-start">
+                        <span>{company.name}</span>
+                        <span className="text-[9px] opacity-70">
+                          {company.type}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
         </AnimatePresence>
       </div>
 
@@ -342,7 +345,9 @@ export function SidebarNav() {
           )}
         >
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0 shadow-md">
-            {user?.name?.charAt(0).toUpperCase() || "U"}
+            {roleInfo?.role_name?.charAt(0).toUpperCase() ||
+              supabaseUser?.email?.charAt(0).toUpperCase() ||
+              "U"}
           </div>
           <AnimatePresence>
             {leftSidebarOpen && (
@@ -353,12 +358,14 @@ export function SidebarNav() {
                 className="flex-1 min-w-0"
               >
                 <p className="text-xs font-bold truncate leading-none mb-1">
-                  {user?.name}
+                  {roleInfo?.role_name ||
+                    supabaseUser?.user_metadata?.full_name ||
+                    supabaseUser?.email?.split("@")[0]}
                 </p>
                 <p className="text-[10px] text-muted-foreground truncate uppercase tracking-widest font-medium">
-                  {user?.userType === "super_admin"
+                  {roleInfo?.user_type === "super_admin"
                     ? "Super Admin"
-                    : "Company User"}
+                    : roleInfo?.role_name || "Company User"}
                 </p>
               </motion.div>
             )}

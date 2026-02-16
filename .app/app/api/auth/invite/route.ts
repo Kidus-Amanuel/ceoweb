@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -29,17 +28,34 @@ export async function POST(request: Request) {
     const { email, role: roleName } = await request.json();
     const companyId = roleInfo?.company_id;
 
+    if (!roleInfo) {
+      console.error(
+        "Invite Error: get_user_role_info returned no data for user",
+        user.id,
+      );
+      return NextResponse.json(
+        {
+          error:
+            "Could not find your organization context. Please try logging out and back in.",
+        },
+        { status: 400 },
+      );
+    }
+
     console.log("Invitation Process Status:", {
-      inviter: user.email,
+      inviterId: user.id,
+      inviterEmail: user.email,
       target: email,
       roleName,
-      companyId,
+      companyId: roleInfo.company_id,
+      companyName: roleInfo.company_name,
       isSuperAdmin,
     });
 
     if (!companyId) {
       console.error(
-        "Invite Error: Inviter has no company_id linked to their profile",
+        "Invite Error: Inviter has no company_id linked to their roleInfo",
+        roleInfo,
       );
       return NextResponse.json(
         { error: "Your account is not linked to an organization" },
@@ -62,22 +78,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      console.error(
-        "SUPABASE_SERVICE_ROLE_KEY is missing from environment variables",
-      );
-      return NextResponse.json(
-        { error: "Service Role Key Missing" },
-        { status: 500 },
-      );
-    }
-
-    const supabaseAdmin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-    );
-
+    // 4. Send Invitation using our Admin Client
+    const supabaseAdmin = await createAdminClient();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
@@ -85,6 +87,7 @@ export async function POST(request: Request) {
       {
         redirectTo: `${appUrl}/signup`, // Ensure users land on our signup page
         data: {
+          user_type: "company_user",
           company_id: companyId,
           role_id: role?.id,
           role_name: roleName,

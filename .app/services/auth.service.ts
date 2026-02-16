@@ -6,6 +6,7 @@ export const authService = {
     email: string,
     password: string,
     fullName: string,
+    metadata: Record<string, any> = {},
     supabase?: SupabaseClient,
   ) {
     const client = supabase || createClient();
@@ -15,8 +16,11 @@ export const authService = {
       email,
       password,
       options: {
-        data: { full_name: fullName },
-        emailRedirectTo: `${deployUrl}/auth/callback`,
+        data: {
+          full_name: fullName,
+          ...metadata,
+        },
+        emailRedirectTo: `${deployUrl}/api/auth/callback`,
       },
     });
   },
@@ -37,7 +41,7 @@ export const authService = {
   async resetPassword(email: string) {
     const supabase = createClient();
     return supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${location.origin}/auth/reset-password`,
+      redirectTo: `${location.origin}/reset-password`,
     });
   },
 };

@@ -68,6 +68,7 @@ export const NAV_CONFIG: NavItem[] = [
     roles: ["super_admin", "company_user"],
     subItems: [
       { id: "fleet-overview", label: "Overview", href: "/fleet" },
+      { id: "fleet-shipments", label: "Shipments", href: "/fleet/shipments" },
       { id: "fleet-vehicles", label: "Vehicles", href: "/fleet/vehicles" },
       { id: "fleet-drivers", label: "Drivers", href: "/fleet/drivers" },
       {
@@ -108,16 +109,16 @@ export const NAV_CONFIG: NavItem[] = [
     ],
   },
   {
-    id: "hrm",
+    id: "hr",
     label: "HR Module",
     icon: UserCircle,
-    href: "/hrm",
+    href: "/hr",
     module: "HR",
     roles: ["super_admin", "company_user"],
     subItems: [
-      { id: "hr-employees", label: "Employees", href: "/hrm/employees" },
-      { id: "hr-payroll", label: "Payroll", href: "/hrm/payroll" },
-      { id: "hr-attendance", label: "Attendance", href: "/hrm/attendance" },
+      { id: "hr-employees", label: "Employees", href: "/hr/employees" },
+      { id: "hr-payroll", label: "Payroll", href: "/hr/payroll" },
+      { id: "hr-attendance", label: "Attendance", href: "/hr/attendance" },
     ],
   },
   {
