@@ -1,34 +1,79 @@
-import { useAuthStore } from "@/store/authStore";
-import { MOCK_COMPANIES, Company } from "@/lib/constants/nav-config";
+import { useUser } from "@/app/context/UserContext";
+import { Company } from "@/lib/constants/nav-config";
 import { useLayoutStore } from "@/store/layout-store";
-import { useEffect, useMemo } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export function useCompanies() {
-  const { user } = useAuthStore();
+  const { user } = useUser();
   const { selectedCompanyId, setSelectedCompanyId } = useLayoutStore();
+  const [availableCompanies, setAvailableCompanies] = useState<Company[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const availableCompanies = useMemo(() => {
-    if (!user) return [];
+  useEffect(() => {
+    async function fetchCompanies() {
+      if (!user) {
+        setAvailableCompanies([]);
+        return;
+      }
 
-    if (user.userType === "super_admin") {
-      // Super Admin sees all companies in their list
-      return (user.companyIds || [])
-        .map((id) => MOCK_COMPANIES[id])
-        .filter(Boolean);
-    } else {
-      // Company User sees only their company
-      const companyId = user.companyId;
-      return companyId ? [MOCK_COMPANIES[companyId]].filter(Boolean) : [];
+      const meta = user.user_metadata || {};
+      const userType = meta.user_type || meta.userType || "company_user";
+
+      setIsLoading(true);
+      const supabase = createClient();
+
+      try {
+        let companies: any[] = [];
+
+        if (userType === "super_admin") {
+          // Super Admin: Fetch all companies where they are the owner
+          const { data, error } = await supabase
+            .from("companies")
+            .select("id, name")
+            .eq("owner_id", user.id);
+
+          if (error) throw error;
+          companies = data || [];
+        } else {
+          // Regular User: Fetch only their assigned company from metadata
+          const companyId = meta.company_id || meta.companyId;
+
+          if (companyId) {
+            const { data, error } = await supabase
+              .from("companies")
+              .select("id, name")
+              .eq("id", companyId);
+
+            if (error) throw error;
+            companies = data || [];
+          }
+        }
+
+        if (companies.length > 0) {
+          const mapped: Company[] = companies.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            type: "Enterprise",
+          }));
+          setAvailableCompanies(mapped);
+        } else {
+          setAvailableCompanies([]);
+        }
+      } catch (err) {
+        console.error("Error in useCompanies:", err);
+      } finally {
+        setIsLoading(false);
+      }
     }
+
+    fetchCompanies();
   }, [user]);
 
-  const selectedCompany = useMemo(() => {
-    return (
-      availableCompanies.find((c) => c.id === selectedCompanyId) ||
-      availableCompanies[0] ||
-      null
-    );
-  }, [availableCompanies, selectedCompanyId]);
+  const selectedCompany =
+    availableCompanies.find((c) => c.id === selectedCompanyId) ||
+    availableCompanies[0] ||
+    null;
 
   // Sync selectedCompanyId if not set
   useEffect(() => {
@@ -41,5 +86,6 @@ export function useCompanies() {
     availableCompanies,
     selectedCompany,
     setSelectedCompany: (id: string) => setSelectedCompanyId(id),
+    isLoading,
   };
 }

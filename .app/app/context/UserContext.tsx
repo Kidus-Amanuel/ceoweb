@@ -43,12 +43,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
 
   const fetchUserData = useCallback(
-    async (sessionUser?: User | null) => {
+    async (
+      sessionUser: User | null | undefined = undefined,
+      options: { forceLoading?: boolean } = { forceLoading: true },
+    ) => {
       try {
-        // Only trigger loading state if we're not already loading
-        // Internal state updates from effects should be careful not to
-        // cause cascading renders.
-        setIsLoading((prev) => (prev ? prev : true));
+        // Only trigger loading state if we're not already loading and forceLoading is true
+        if (options.forceLoading) {
+          setIsLoading((prev) => (prev ? prev : true));
+        }
 
         let currentUser = sessionUser;
         if (currentUser === undefined) {
@@ -82,7 +85,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
           // SPEED FIX: Decouple UI loading from background DB sync
           // Setting isLoading(false) here allows AuthGuard and Sidebar to render instantly
-          setIsLoading(false);
+          if (options.forceLoading) {
+            setIsLoading(false);
+          }
 
           // 2. Fetch fresh data from DB (in background)
           const { data, error } = await supabase.rpc("get_user_role_info");
@@ -145,7 +150,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshUser = async () => {
-    await fetchUserData();
+    // Perform a silent refresh so we don't unmount components (like Onboarding)
+    await fetchUserData(undefined, { forceLoading: false });
   };
 
   return (

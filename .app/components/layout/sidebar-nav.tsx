@@ -143,7 +143,7 @@ export function SidebarNav() {
                     {selectedCompany?.type || "Enterprise"}
                   </span>
                 </div>
-                {isSuperAdmin && (
+                {availableCompanies.length > 0 && (
                   <ChevronDown
                     className={cn(
                       "w-3 h-3 text-muted-foreground ml-auto shrink-0 transition-transform",
@@ -158,40 +158,42 @@ export function SidebarNav() {
 
         {/* Dropdown Menu */}
         <AnimatePresence>
-          {showCompanyDropdown && leftSidebarOpen && isSuperAdmin && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="absolute left-3 right-3 top-full mt-1 bg-white border border-border/50 rounded-xl shadow-xl z-50 overflow-hidden backdrop-blur-xl"
-            >
-              <div className="p-1.5 space-y-0.5">
-                {availableCompanies.map((company) => (
-                  <button
-                    key={company.id}
-                    onClick={() => {
-                      setSelectedCompany(company.id);
-                      setShowCompanyDropdown(false);
-                    }}
-                    className={cn(
-                      "flex items-center gap-2 w-full p-2 rounded-lg text-xs transition-colors",
-                      selectedCompany?.id === company.id
-                        ? "bg-primary/5 text-primary font-medium"
-                        : "hover:bg-muted/50 text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <Building2 className="w-3 h-3" />
-                    <div className="flex flex-col items-start">
-                      <span>{company.name}</span>
-                      <span className="text-[9px] opacity-70">
-                        {company.type}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          )}
+          {showCompanyDropdown &&
+            leftSidebarOpen &&
+            availableCompanies.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute left-3 right-3 top-full mt-1 bg-white border border-border/50 rounded-xl shadow-xl z-50 overflow-hidden backdrop-blur-xl"
+              >
+                <div className="p-1.5 space-y-0.5">
+                  {availableCompanies.map((company) => (
+                    <button
+                      key={company.id}
+                      onClick={() => {
+                        setSelectedCompany(company.id);
+                        setShowCompanyDropdown(false);
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 w-full p-2 rounded-lg text-xs transition-colors",
+                        selectedCompany?.id === company.id
+                          ? "bg-primary/5 text-primary font-medium"
+                          : "hover:bg-muted/50 text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <Building2 className="w-3 h-3" />
+                      <div className="flex flex-col items-start">
+                        <span>{company.name}</span>
+                        <span className="text-[9px] opacity-70">
+                          {company.type}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
         </AnimatePresence>
       </div>
 
