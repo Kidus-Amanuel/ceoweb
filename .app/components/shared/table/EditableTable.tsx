@@ -195,6 +195,7 @@ export function EditableTable<
   searchable = true,
   pagination = true,
 }: EditableTableProps<T>) {
+  "use no memo";
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [editingCell, setEditingCell] = useState<{
@@ -253,6 +254,7 @@ export function EditableTable<
     }
   }, [editingCell]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns: finalColumns,

@@ -58,6 +58,15 @@ export default function OnboardingPage() {
     fetchModules();
   }, []);
 
+  useEffect(() => {
+    if (step === 4) {
+      const timer = setTimeout(() => {
+        router.push("/dashboard");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [step, router]);
+
   const nextStep = () => setStep((prev) => Math.min(prev + 1, 4));
   const prevStep = () => setStep((prev) => Math.max(prev - 1, 1));
 

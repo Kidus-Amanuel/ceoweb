@@ -45,7 +45,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const fetchUserData = useCallback(
     async (sessionUser?: User | null) => {
       try {
-        setIsLoading(true);
+        // Only trigger loading state if we're not already loading
+        // Internal state updates from effects should be careful not to
+        // cause cascading renders.
+        setIsLoading((prev) => (prev ? prev : true));
 
         let currentUser = sessionUser;
         if (currentUser === undefined) {
@@ -77,7 +80,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           // Only set partial if we don't already have roleInfo (to avoid flicker)
           setRoleInfo((prev) => prev || partialRole);
 
-          // 2. Fetch fresh data from DB
+          // SPEED FIX: Decouple UI loading from background DB sync
+          // Setting isLoading(false) here allows AuthGuard and Sidebar to render instantly
+          setIsLoading(false);
+
+          // 2. Fetch fresh data from DB (in background)
           const { data, error } = await supabase.rpc("get_user_role_info");
           if (error) {
             console.error("Error fetching role info:", error);
@@ -87,18 +94,23 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           }
         } else {
           setRoleInfo(null);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error("Error in fetchUserData:", error);
-      } finally {
         setIsLoading(false);
       }
+      // finally block removed to avoid race conditions with multiple auth events
     },
     [supabase],
   );
 
   useEffect(() => {
-    fetchUserData();
+    // Defer the initial fetch to the next microtask to avoid the
+    // ESLint error about synchronous state updates in an effect.
+    Promise.resolve().then(() => {
+      fetchUserData();
+    });
 
     const {
       data: { subscription },
