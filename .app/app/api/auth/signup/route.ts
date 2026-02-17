@@ -2,38 +2,101 @@ import { NextRequest, NextResponse } from "next/server";
 import { signupSchema } from "@/lib/validation/auth";
 import { authService } from "@/services/auth.service";
 import logger from "@/lib/utils/logger";
+import { z } from "zod";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log("Signup Request Body:", JSON.stringify(body, null, 2));
 
     // 1. Validate Input
     const validatedData = signupSchema.parse(body);
 
-    // 2. Call Service
-    const data = await authService.signup(validatedData);
+    // 2. Initialize Admin Client
+    const supabaseAdmin = await createAdminClient();
 
-    logger.info(
-      { email: validatedData.email, context: "auth-api" },
-      "User signup successful",
+    // 3. Check if user already exists (Invited Flow)
+    const {
+      data: { users },
+      error: listError,
+    } = await supabaseAdmin.auth.admin.listUsers();
+    const existingUser = users.find(
+      (u) => u.email?.toLowerCase() === validatedData.email.toLowerCase(),
     );
 
-    // 3. Return Success
+    // Check if they were invited (have companyId or company_id in metadata)
+    const companyId =
+      existingUser?.user_metadata?.companyId ||
+      existingUser?.user_metadata?.company_id;
+    const isInvited = !!companyId;
+
+    if (isInvited && existingUser) {
+      logger.info(
+        { email: validatedData.email },
+        "Finalizing invited user signup",
+      );
+
+      const { error: updateError } =
+        await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+          password: validatedData.password,
+          email_confirm: true,
+          user_metadata: {
+            ...existingUser.user_metadata,
+            userType: "company_user",
+            companyId: companyId,
+            roleId:
+              existingUser.user_metadata?.roleId ||
+              existingUser.user_metadata?.role_id,
+            fullName: validatedData.fullName,
+          },
+        });
+
+      if (updateError) throw updateError;
+
+      return NextResponse.json(
+        { message: "Signup successful", autoRedirect: true },
+        { status: 200 },
+      );
+    }
+
+    // 4. Standard Signup (New User Flow)
+    const supabase = await createClient();
+    const { data: authData, error: authError } = await authService.signUp(
+      validatedData.email,
+      validatedData.password,
+      validatedData.fullName,
+      { userType: "super_admin" },
+      supabase,
+    );
+
+    if (authError) {
+      logger.warn({ error: authError }, "Standard signup failed");
+      return NextResponse.json(
+        { message: authError.message },
+        { status: authError.status || 400 },
+      );
+    }
+
+    // Return Success with autoRedirect: false for new users
     return NextResponse.json(
-      { message: "Signup successful", data },
+      {
+        message: "Signup successful",
+        data: authData,
+        autoRedirect: false,
+      },
       { status: 201 },
     );
   } catch (error: any) {
-    // Handle Zod validation errors specifically if needed
-    if (error.name === "ZodError") {
-      logger.warn(
-        { errors: error.errors, context: "auth-api" },
-        "Signup validation failed",
-      );
+    console.error("Signup Error Dump:", error); // Raw error log
+    if (error?.name === "ZodError" || error instanceof z.ZodError) {
+      const issues = error.issues || error.errors;
+      console.error("Zod Validation Issues:", JSON.stringify(issues, null, 2));
+
       return NextResponse.json(
         {
           message: "Validation failed",
-          errors: error.errors,
+          errors: issues,
         },
         { status: 400 },
       );

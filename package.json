@@ -5,6 +5,7 @@
   "scripts": {
     "prepare": "husky install",
     "dev": "pnpm --filter app dev",
+    "build": "pnpm --filter app build",
     "lint": "pnpm -r run lint",
     "test": "pnpm -r run test",
     "format": "prettier --write .",

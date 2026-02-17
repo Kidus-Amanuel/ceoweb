@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { User } from "@supabase/supabase-js";
+import { User } from "@/hooks/use-auth";
 
 interface AuthState {
   user: User | null;

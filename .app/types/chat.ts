@@ -1,4 +1,11 @@
-export type MessageType = "text" | "image" | "file" | "audio" | "system";
+export type MessageType =
+  | "text"
+  | "image"
+  | "file"
+  | "audio"
+  | "system"
+  | "erp_record"
+  | "call";
 export type ChatType = "dm" | "group" | "ai" | "channel";
 
 export interface User {

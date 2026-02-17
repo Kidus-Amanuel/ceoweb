@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { Message, User } from "@/types/chat";
 import { format, isToday, isYesterday } from "date-fns";
 import { Check, CheckCheck } from "lucide-react";
+import Image from "next/image";
 
 interface MessageBubbleProps {
   message: Message;
@@ -36,10 +37,13 @@ export function MessageBubble({
       {!isMe && showAvatar && (
         <div className="flex-shrink-0 mt-auto mb-1">
           {sender?.avatar ? (
-            <img
+            <Image
               src={sender.avatar}
               alt={sender.name || "User avatar"}
+              width={32}
+              height={32}
               className="h-8 w-8 rounded-full object-cover ring-1 ring-border"
+              unoptimized
             />
           ) : (
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-400 to-pink-600 flex items-center justify-center ring-1 ring-border">
