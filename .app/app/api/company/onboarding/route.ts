@@ -113,7 +113,7 @@ export async function POST(request: Request) {
         company_id: company.id,
         name: roleName,
         description: `Manages ${m.display_name} module`,
-        department: m.display_name, // Use display_name to match department table
+        department: m.name, // Use internal code (e.g., "hr")
       });
     });
 
@@ -134,7 +134,7 @@ export async function POST(request: Request) {
         actions.forEach((action) => {
           permissions.push({
             role_id: gmRecord.id,
-            module: m.name,
+            module: m.name, // Use internal code
             action: action,
           });
         });
@@ -143,12 +143,12 @@ export async function POST(request: Request) {
       await supabase.from("role_permissions").insert(permissions);
     }
 
-    // 3c. Assign Module-Specific Permissions
+    // 3c. Assign Module-Specific Permissions for Managers
     for (const role of roleRecords || []) {
       if (role.department && role.name !== "General Manager") {
         await supabase.from("role_permissions").insert({
           role_id: role.id,
-          module: role.department,
+          module: role.department, // This is now m.name
           action: "view",
         });
       }

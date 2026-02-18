@@ -82,6 +82,19 @@ export async function POST(request: Request) {
     const supabaseAdmin = await createAdminClient();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
+    // Fetch company plan modules to include in metadata
+    const { data: companyData } = await supabaseAdmin
+      .from("companies")
+      .select("plan_id")
+      .eq("id", companyId)
+      .single();
+
+    const { data: planData } = await supabaseAdmin
+      .from("plans")
+      .select("modules")
+      .eq("id", companyData?.plan_id)
+      .single();
+
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       email,
       {
@@ -92,6 +105,7 @@ export async function POST(request: Request) {
           role_id: role?.id,
           role_name: roleName,
           full_name: name,
+          plan_modules: planData?.modules || [], // Crucial for visibility
           invited_by: user.id,
         },
       },

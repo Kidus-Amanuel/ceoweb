@@ -29,15 +29,43 @@ export function useNavigation() {
         if (!isModuleInPlan) return false;
 
         // B. Permission check
-        // General Manager bypass: If the module is in the plan, GMs should see it
-        // even if explicit permissions haven't been synchronized yet (common after upgrade)
-        const isGeneralManager =
+        // 1. General Manager / Owner Bypass: Should see all modules in the plan
+        const isHighLevelRole =
           roleInfo.role_name?.toLowerCase().includes("general manager") ||
           roleInfo.role_name?.toLowerCase().includes("gm") ||
           roleInfo.role_name?.toLowerCase().includes("owner");
 
-        if (isGeneralManager) return true;
+        if (isHighLevelRole) return true;
 
+        // 2. Specific Manager Bypass: If role name contains the module name (e.g. "HR Manager" for "HR")
+        const roleName = roleInfo.role_name?.toLowerCase() || "";
+        const moduleLabel = item.label?.toLowerCase() || "";
+        const moduleCode = item.module?.toLowerCase() || "";
+
+        // Senior fix: Map common aliases (e.g., "Human Resources" -> "HR")
+        const aliases: Record<string, string[]> = {
+          hr: ["human resources", "hr module", "people", "staff"],
+          crm: ["customer", "sales", "crm"],
+          fleet: ["logistics", "shipping", "vehicles"],
+          inventory: ["stock", "warehouse", "inventory"],
+          finance: ["accounting", "finance", "billing"],
+        };
+
+        const currentAliases = aliases[moduleCode] || [];
+        const matchesAlias = currentAliases.some((alias) =>
+          roleName.includes(alias),
+        );
+
+        if (
+          roleName.includes("manager") &&
+          (roleName.includes(moduleLabel) ||
+            roleName.includes(moduleCode) ||
+            matchesAlias)
+        ) {
+          return true;
+        }
+
+        // 3. Strict Permission Check (for all other roles)
         const userPermissions = roleInfo.permissions || [];
         const hasModuleAccess = userPermissions.some(
           (p: { module: string; action: string }) =>
