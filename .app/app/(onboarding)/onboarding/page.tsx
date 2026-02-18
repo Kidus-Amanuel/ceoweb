@@ -46,10 +46,21 @@ export default function OnboardingPage() {
     const fetchModules = async () => {
       try {
         const supabase = createClient();
+        // 1. Get modules allowed for Starter plan
+        const { data: plan } = await supabase
+          .from("plans")
+          .select("modules")
+          .eq("name", "Starter")
+          .single();
+
+        const allowedModules = plan?.modules || ["hr", "crm"];
+
+        // 2. Fetch display names
         const { data } = await supabase
           .from("modules")
           .select("name, display_name")
-          .eq("is_active", true);
+          .in("name", allowedModules);
+
         if (data) setModules(data);
       } catch (err) {
         console.error("Failed to fetch modules:", err);

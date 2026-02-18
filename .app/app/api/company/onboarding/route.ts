@@ -15,13 +15,21 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { companyName, industry, companySize, slug } = body;
 
-    // 1. Create Company
+    // 1. Get the Starter Plan ID
+    const { data: starterPlan } = await supabase
+      .from("plans")
+      .select("id")
+      .eq("name", "Starter")
+      .single();
+
+    // 2. Create Company
     const { data: company, error: companyError } = await supabase
       .from("companies")
       .insert({
         name: companyName,
         slug: slug,
         owner_id: user.id,
+        plan_id: starterPlan?.id,
         status: "active",
       })
       .select()
@@ -29,18 +37,24 @@ export async function POST(request: Request) {
 
     if (companyError) throw companyError;
 
-    // 2. Fetch Active Modules for seeding permissions
+    // 3. Fetch Modules allowed by the Plan (Starter)
+    const { data: starterPlanData } = await supabase
+      .from("plans")
+      .select("modules")
+      .eq("name", "Starter")
+      .single();
+
+    const allowedModules: string[] = starterPlanData?.modules || ["hr", "crm"];
+
+    // Fetch Display Names for these modules
     const { data: dbModules } = await supabase
       .from("modules")
       .select("name, display_name")
-      .eq("is_active", true);
+      .in("name", allowedModules);
 
-    const availableModules = dbModules?.map((m) => m.name) || [
-      "crm",
-      "hr",
-      "fleet",
-      "inventory",
-      "finance",
+    const availableModules = dbModules || [
+      { name: "hr", display_name: "Human Resources" },
+      { name: "crm", display_name: "CRM" },
     ];
 
     // 3. Seed Default Roles for the Company
@@ -51,31 +65,18 @@ export async function POST(request: Request) {
         description: "Manages overall company operations",
         department: null,
       },
-      {
-        company_id: company.id,
-        name: "Sales Executive",
-        description: "CRM sales team",
-        department: "crm",
-      },
     ];
 
-    // Add Manager roles for each module
-    availableModules.forEach((moduleName) => {
-      const displayName =
-        dbModules?.find((m) => m.name === moduleName)?.display_name ||
-        moduleName.charAt(0) + moduleName.slice(1);
+    // Add Manager roles for each allowed module
+    availableModules.forEach((m: any) => {
+      const roleName = `${m.display_name} Manager`;
 
-      const roleName = `${displayName} Manager`;
-
-      // Check if already added (like CRM Manager vs Sales Executive)
-      if (!defaultRoles.find((r) => r.name === roleName)) {
-        defaultRoles.push({
-          company_id: company.id,
-          name: roleName,
-          description: `Manages ${displayName} module`,
-          department: moduleName,
-        });
-      }
+      defaultRoles.push({
+        company_id: company.id,
+        name: roleName,
+        description: `Manages ${m.display_name} module`,
+        department: m.name,
+      });
     });
 
     const { data: roleRecords, error: rolesError } = await supabase
@@ -91,11 +92,11 @@ export async function POST(request: Request) {
       const actions = ["view", "create", "edit", "delete", "export", "approve"];
       const permissions: any[] = [];
 
-      availableModules.forEach((moduleName) => {
+      availableModules.forEach((m: any) => {
         actions.forEach((action) => {
           permissions.push({
             role_id: gmRecord.id,
-            module: moduleName,
+            module: m.name,
             action: action,
           });
         });

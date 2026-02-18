@@ -6,11 +6,12 @@ export function useNavigation() {
   const { roleInfo, isLoading } = useUser();
 
   const filteredNav = useMemo(() => {
-    // We only return empty if we have absolutely no role information
     if (!roleInfo) return [];
 
+    const planModules = roleInfo.plan_modules || [];
+
     return NAV_CONFIG.filter((item: NavItem) => {
-      // 1. Super admins always see everything
+      // 1. Super admins always see everything (for the upgrade upsell flow)
       if (roleInfo.user_type === "super_admin") return true;
 
       // 2. Check User Type roles in config
@@ -18,10 +19,16 @@ export function useNavigation() {
         return false;
       }
 
-      // 3. Check Module Permissions for Company Users
+      // 3. Check Plan & Module Permissions for Company Users
       if (item.module) {
+        // Module must be in the plan for company users to see it
+        const isModuleInPlan = planModules.some(
+          (m: string) => m.toLowerCase() === item.module?.toLowerCase(),
+        );
+
+        if (!isModuleInPlan) return false;
+
         const userPermissions = roleInfo.permissions || [];
-        // Check if any permission module matches (case-insensitive)
         const hasModuleAccess = userPermissions.some(
           (p: { module: string; action: string }) =>
             p.module.toLowerCase() === item.module?.toLowerCase(),
