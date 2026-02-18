@@ -57,7 +57,47 @@ export async function POST(request: Request) {
       { name: "crm", display_name: "CRM" },
     ];
 
-    // 3. Seed Default Roles for the Company
+    // 3. Seed Default Departments, Positions, and Roles for the Company
+
+    // 3a. Create Departments
+    const departmentRecords = availableModules.map((m: any) => ({
+      company_id: company.id,
+      name: m.display_name,
+    }));
+
+    const { data: dbDepartments, error: deptError } = await supabase
+      .from("departments")
+      .insert(departmentRecords)
+      .select();
+
+    if (deptError) throw deptError;
+
+    // 3b. Create Positions
+    const positionRecords: any[] = [
+      {
+        company_id: company.id,
+        title: "General Manager",
+        department_id: null,
+      },
+    ];
+
+    availableModules.forEach((m: any) => {
+      const dept = dbDepartments?.find((d) => d.name === m.display_name);
+      positionRecords.push({
+        company_id: company.id,
+        title: `${m.display_name} Manager`,
+        department_id: dept?.id || null,
+      });
+    });
+
+    const { data: dbPositions, error: posError } = await supabase
+      .from("positions")
+      .insert(positionRecords)
+      .select();
+
+    if (posError) throw posError;
+
+    // 3c. Create Roles linked to Departments
     const defaultRoles: any[] = [
       {
         company_id: company.id,
@@ -67,15 +107,13 @@ export async function POST(request: Request) {
       },
     ];
 
-    // Add Manager roles for each allowed module
     availableModules.forEach((m: any) => {
       const roleName = `${m.display_name} Manager`;
-
       defaultRoles.push({
         company_id: company.id,
         name: roleName,
         description: `Manages ${m.display_name} module`,
-        department: m.name,
+        department: m.display_name, // Use display_name to match department table
       });
     });
 
@@ -206,7 +244,37 @@ export async function POST(request: Request) {
       console.error("Failed to sync onboarding metadata:", metadataError);
     }
 
-    // Return success
+    // 7. Create Employee Record for the Owner
+    const { data: finalProfile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+
+    const fullName =
+      finalProfile?.full_name || user.user_metadata?.full_name || "";
+    const firstName = fullName.split(" ")[0] || "";
+    const lastName = fullName.split(" ").slice(1).join(" ") || "";
+
+    const { error: employeeError } = await supabase.from("employees").insert({
+      company_id: company.id,
+      user_id: user.id,
+      first_name: firstName,
+      last_name: lastName,
+      email: user.email,
+      employee_code: `OWN-${user.id.substring(0, 8)}`,
+      status: "active",
+      hire_date: new Date().toISOString().split("T")[0],
+      position_id: gmRecord?.id
+        ? dbPositions?.find((p) => p.title === "General Manager")?.id
+        : null,
+    });
+
+    if (employeeError) {
+      console.warn("Could not create owner employee record:", employeeError);
+    }
+
+    // 8. Return success
     return NextResponse.json({ success: true, company });
   } catch (error: any) {
     console.error("Onboarding error:", error);

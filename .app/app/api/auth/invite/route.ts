@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     const isSuperAdmin = roleInfo?.user_type === "super_admin";
-    const { email, role: roleName } = await request.json();
+    const { email, role: roleName, name } = await request.json();
     const companyId = roleInfo?.company_id;
 
     if (!roleInfo) {
@@ -91,6 +91,7 @@ export async function POST(request: Request) {
           company_id: companyId,
           role_id: role?.id,
           role_name: roleName,
+          full_name: name,
           invited_by: user.id,
         },
       },

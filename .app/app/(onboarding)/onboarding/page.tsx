@@ -39,7 +39,7 @@ export default function OnboardingPage() {
     { name: string; display_name: string }[]
   >([]);
   const [invites, setInvites] = useState([
-    { email: "", role: "General Manager" },
+    { email: "", role: "General Manager", name: "" },
   ]);
 
   useEffect(() => {
@@ -106,6 +106,7 @@ export default function OnboardingPage() {
               await axios.post("/api/auth/invite", {
                 email: invite.email,
                 role: invite.role,
+                name: invite.name,
               });
             } catch (inviteErr) {
               console.error(`Failed to invite ${invite.email}:`, inviteErr);
@@ -334,6 +335,16 @@ export default function OnboardingPage() {
                   <div key={index} className="flex gap-2">
                     <Input
                       className="flex-1"
+                      placeholder="Full Name"
+                      value={invite.name}
+                      onChange={(e) => {
+                        const newInvites = [...invites];
+                        newInvites[index].name = e.target.value;
+                        setInvites(newInvites);
+                      }}
+                    />
+                    <Input
+                      className="flex-[1.5]"
                       placeholder="colleague@company.com"
                       value={invite.email}
                       onChange={(e) => {
@@ -371,7 +382,7 @@ export default function OnboardingPage() {
                 onClick={() =>
                   setInvites([
                     ...invites,
-                    { email: "", role: "General Manager" },
+                    { email: "", role: "General Manager", name: "" },
                   ])
                 }
               >

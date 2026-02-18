@@ -1819,11 +1819,14 @@ DECLARE
   v_first_name TEXT;
   v_last_name TEXT;
   v_onboarding BOOLEAN;
+  v_dept_name TEXT;
+  v_dept_id UUID;
+  v_pos_id UUID;
 BEGIN
   -- Extract Metadata
   v_company_id := COALESCE((NEW.raw_user_meta_data->>'company_id')::UUID, (NEW.raw_user_meta_data->>'companyId')::UUID);
   v_role_id := COALESCE((NEW.raw_user_meta_data->>'role_id')::UUID, (NEW.raw_user_meta_data->>'roleId')::UUID);
-  v_full_name := COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email);
+  v_full_name := COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'fullName');
 
   -- Determine User Type & Onboarding Status
   IF v_company_id IS NOT NULL THEN
@@ -1836,7 +1839,7 @@ BEGIN
 
   -- 1. Create Profile
   INSERT INTO public.profiles (id, company_id, user_type, full_name, email, onboarding) 
-  VALUES (NEW.id, v_company_id, v_user_type, v_full_name, NEW.email, v_onboarding)
+  VALUES (NEW.id, v_company_id, v_user_type, COALESCE(v_full_name, NEW.email), NEW.email, v_onboarding)
   ON CONFLICT (id) DO UPDATE SET
     company_id = EXCLUDED.company_id,
     user_type = EXCLUDED.user_type,
@@ -1849,17 +1852,38 @@ BEGIN
         INSERT INTO public.company_users (user_id, company_id, role_id, status) 
         VALUES (NEW.id, v_company_id, v_role_id, 'active') 
         ON CONFLICT (user_id, company_id) DO NOTHING;
+        
+        -- Resolve Department and Position IDs from the Role
+        SELECT department INTO v_dept_name FROM roles WHERE id = v_role_id;
+        IF v_dept_name IS NOT NULL THEN
+            SELECT id INTO v_dept_id FROM departments WHERE company_id = v_company_id AND name = v_dept_name LIMIT 1;
+        END IF;
+        
+        -- Position title usually matches Role name
+        SELECT id INTO v_pos_id FROM positions 
+        WHERE company_id = v_company_id 
+        AND title = (SELECT name FROM roles WHERE id = v_role_id) 
+        LIMIT 1;
     END IF;
 
     -- B. Add to employees table (Auto-create Employee Record)
-    -- Parse name
-    v_first_name := split_part(v_full_name, ' ', 1);
-    v_last_name := NULLIF(substring(v_full_name from length(v_first_name) + 2), '');
+    -- Parse name safely
+    IF v_full_name IS NOT NULL AND v_full_name NOT LIKE '%@%' THEN
+        v_first_name := split_part(v_full_name, ' ', 1);
+        v_last_name := NULLIF(substring(v_full_name from length(v_first_name) + 2), '');
+    ELSE
+        -- Default to empty if it looks like an email or is missing
+        v_first_name := '';
+        v_last_name := '';
+    END IF;
+    
     IF v_last_name IS NULL THEN v_last_name := ''; END IF;
 
     INSERT INTO public.employees (
         company_id, 
         user_id, 
+        department_id,
+        position_id,
         employee_code, 
         first_name, 
         last_name, 
@@ -1869,7 +1893,9 @@ BEGIN
     ) VALUES (
         v_company_id,
         NEW.id,
-        'EMP-' || substring(NEW.id::text, 1, 8), -- Generate simple code
+        v_dept_id,
+        v_pos_id,
+        'EMP-' || substring(NEW.id::text, 1, 8),
         v_first_name,
         v_last_name,
         NEW.email,
