@@ -35,7 +35,7 @@ export function SidebarNav() {
 
   const { logout, roleInfo, user: supabaseUser } = useUser();
   const navItems = useNavigation();
-  const { availableCompanies, selectedCompany, setSelectedCompany } =
+  const { availableCompanies, selectedCompany, setSelectedCompany, isLoading } =
     useCompanies();
   const pathname = usePathname();
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
@@ -136,10 +136,12 @@ export function SidebarNav() {
           onClick={() =>
             leftSidebarOpen && setShowCompanyDropdown(!showCompanyDropdown)
           }
+          disabled={isLoading}
           className={cn(
             "flex items-center gap-2 w-full p-2 rounded-xl border border-transparent hover:bg-white/50 hover:border-border/50 transition-all shadow-sm group",
             !leftSidebarOpen && "justify-center",
             showCompanyDropdown && "bg-white/50 border-border/50",
+            isLoading && "opacity-50 cursor-not-allowed",
           )}
         >
           <Building2 className="w-4 h-4 text-primary shrink-0" />
