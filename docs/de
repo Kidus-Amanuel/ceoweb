@@ -16,7 +16,8 @@ INSERT INTO modules (name, display_name, description) VALUES
     ('inventory', 'Inventory Management', 'Products, suppliers, stock'),
     ('fleet', 'Fleet Management', 'Vehicles, maintenance, trips'),
     ('finance', 'Finance', 'Invoices, payments, accounting'),
-    ('projects', 'Project Management', 'Projects, tasks, time tracking')
+    ('projects', 'Project Management', 'Projects, tasks, time tracking'),
+    ('trade', 'International Trade', 'Shipments, containers, customs, ports')
 ON CONFLICT (name) DO NOTHING;
 
 -- Add foreign key to role_permissions (if table already exists)
@@ -57,22 +58,25 @@ DO $$ BEGIN CREATE TYPE project_status AS ENUM ('planning', 'active', 'on_hold',
 DO $$ BEGIN CREATE TYPE task_priority AS ENUM ('low', 'medium', 'high', 'urgent'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE vehicle_status AS ENUM ('active', 'maintenance', 'retired'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE stock_movement_type AS ENUM ('receive', 'dispatch', 'adjustment', 'return'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE shipment_status AS ENUM ('planned', 'in_transit', 'port_arrival', 'customs_hold', 'released', 'delivered', 'cancelled'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE shipment_mode AS ENUM ('sea', 'air', 'land', 'multimodal'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE container_status AS ENUM ('empty', 'loaded', 'sealed', 'opened', 'discharged'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- 1.3 Plans
 CREATE TABLE IF NOT EXISTS plans (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL UNIQUE,
     max_users INTEGER NOT NULL,
-    modules JSONB NOT NULL DEFAULT '["hr", "crm"]',
+    modules JSONB NOT NULL DEFAULT '["hr", "crm","trade"]',
     price_monthly DECIMAL(10,2) NOT NULL,
     features JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 INSERT INTO plans (name, max_users, price_monthly, modules) VALUES
-    ('Starter', 5, 29.00, '["hr", "crm"]'),
-    ('Business', 20, 99.00, '["hr", "crm", "inventory", "finance"]'),
-    ('Enterprise', 1000, 499.00, '["hr", "crm", "inventory", "finance", "fleet", "projects"]')
+    ('Starter', 5, 29.00, '["hr", "crm","trade"]'),
+    ('Business', 20, 99.00, '["hr", "crm", "inventory", "finance","trade"]'),
+    ('Enterprise', 1000, 499.00, '["hr", "crm", "inventory", "finance","trade", "fleet", "projects"]')
 ON CONFLICT (name) DO UPDATE SET 
     max_users = EXCLUDED.max_users,
     modules = EXCLUDED.modules,
@@ -1460,6 +1464,148 @@ CREATE TABLE IF NOT EXISTS financial_periods (
 CREATE INDEX IF NOT EXISTS idx_financial_periods_company ON financial_periods(company_id);
 
 -- =============================================================================
+-- PHASE 10B: INTERNATIONAL TRADE MODULE
+-- =============================================================================
+
+-- 10B.1 Ports
+CREATE TABLE IF NOT EXISTS ports (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    code TEXT, -- UN/LOCODE
+    country_code TEXT,
+    location_type TEXT CHECK (location_type IN ('sea', 'air', 'land_terminal')),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(company_id, code)
+);
+
+-- 10B.2 Freight Forwarders
+CREATE TABLE IF NOT EXISTS freight_forwarders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    contact_name TEXT,
+    email TEXT,
+    phone TEXT,
+    address JSONB,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10B.3 Vessels
+CREATE TABLE IF NOT EXISTS vessels (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    imo_number TEXT,
+    mmsi TEXT,
+    vessel_type TEXT,
+    flag_state TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(company_id, imo_number)
+);
+
+-- 10B.4 Shipments
+CREATE TABLE IF NOT EXISTS shipments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    shipment_number TEXT NOT NULL,
+    mode shipment_mode DEFAULT 'sea',
+    status shipment_status DEFAULT 'planned',
+    origin_port_id UUID REFERENCES ports(id),
+    destination_port_id UUID REFERENCES ports(id),
+    vessel_id UUID REFERENCES vessels(id),
+    freight_forwarder_id UUID REFERENCES freight_forwarders(id),
+    departure_date DATE,
+    estimated_arrival_date DATE,
+    actual_arrival_date DATE,
+    bill_of_lading TEXT,
+    total_weight NUMERIC(10,2),
+    weight_unit TEXT DEFAULT 'kg',
+    custom_fields JSONB DEFAULT '{}',
+    deleted_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(company_id, shipment_number)
+);
+
+-- 10B.5 Shipment Items
+CREATE TABLE IF NOT EXISTS shipment_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+    product_id UUID REFERENCES products(id),
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    description TEXT,
+    hs_code TEXT, -- Harmonized System code for customs
+    unit_value DECIMAL(12,2),
+    total_value DECIMAL(12,2),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10B.6 Containers
+CREATE TABLE IF NOT EXISTS containers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    shipment_id UUID REFERENCES shipments(id) ON DELETE CASCADE,
+    container_number TEXT NOT NULL,
+    type TEXT, -- e.g., 20ft, 40ft HQ
+    seal_number TEXT,
+    status container_status DEFAULT 'loaded',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(company_id, container_number)
+);
+
+-- 10B.7 Container Items
+CREATE TABLE IF NOT EXISTS container_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    container_id UUID NOT NULL REFERENCES containers(id) ON DELETE CASCADE,
+    shipment_item_id UUID NOT NULL REFERENCES shipment_items(id),
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10B.8 Customs Clearance
+CREATE TABLE IF NOT EXISTS customs_clearance (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+    declaration_number TEXT,
+    status TEXT DEFAULT 'pending', -- pending, cleared, exam_required, rejected
+    submission_date TIMESTAMPTZ,
+    clearance_date TIMESTAMPTZ,
+    duty_amount DECIMAL(12,2),
+    tax_amount DECIMAL(12,2),
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(shipment_id)
+);
+
+-- 10B.9 Shipment Events (Timeline)
+CREATE TABLE IF NOT EXISTS shipment_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+    event_type TEXT NOT NULL, -- departure, arrival, gating, loading
+    event_timestamp TIMESTAMPTZ NOT NULL,
+    location TEXT,
+    description TEXT,
+    created_by UUID REFERENCES profiles(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_shipments_company ON shipments(company_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(status);
+CREATE INDEX IF NOT EXISTS idx_shipment_items_shipment ON shipment_items(shipment_id);
+CREATE INDEX IF NOT EXISTS idx_containers_shipment ON containers(shipment_id);
+CREATE INDEX IF NOT EXISTS idx_shipment_events_shipment ON shipment_events(shipment_id);
+
+
+-- =============================================================================
 -- PHASE 11: AUTO‑UPDATE TRIGGERS (for all tables with updated_at)
 -- =============================================================================
 
@@ -1478,7 +1624,8 @@ BEGIN
         'vehicle_maintenance', 'fuel_logs', 'trips', 'vehicle_documents', 'insurance_policies',
         'projects', 'tasks', 'time_logs',
         'exchange_rates', 'chart_of_accounts', 'tax_rates', 'payment_methods',
-        'invoices', 'payments', 'bills', 'expense_claims', 'journal_entries', 'financial_periods'
+        'invoices', 'payments', 'bills', 'expense_claims', 'journal_entries', 'financial_periods',
+        'ports', 'freight_forwarders', 'vessels', 'shipments', 'containers', 'customs_clearance'
     ) LOOP
         EXECUTE format('DROP TRIGGER IF EXISTS update_%I_updated_at ON %I', t, t);
         EXECUTE format('CREATE TRIGGER update_%I_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()', t, t);
@@ -1746,6 +1893,27 @@ BEGIN
         PERFORM create_policy_if_not_exists(t || '_update', t, 'UPDATE', 'get_current_user_type() = ''super_admin'' OR (company_id = get_current_company_id() AND has_permission(''finance'', ''edit''))', 'get_current_user_type() = ''super_admin'' OR (company_id = get_current_company_id() AND has_permission(''finance'', ''edit''))');
         PERFORM create_policy_if_not_exists(t || '_delete', t, 'DELETE', 'get_current_user_type() = ''super_admin'' OR (company_id = get_current_company_id() AND has_permission(''finance'', ''delete''))');
     END LOOP;
+
+    -- International Trade Module Tables
+    FOREACH t IN ARRAY ARRAY['ports', 'freight_forwarders', 'vessels', 'shipments', 'containers', 'customs_clearance'] LOOP
+        PERFORM create_policy_if_not_exists(t || '_select', t, 'SELECT', 'get_current_user_type() = ''super_admin'' OR (company_id = get_current_company_id() AND has_permission(''trade'', ''view''))');
+        PERFORM create_policy_if_not_exists(t || '_insert', t, 'INSERT', NULL, 'get_current_user_type() = ''super_admin'' OR (company_id = get_current_company_id() AND has_permission(''trade'', ''create''))');
+        PERFORM create_policy_if_not_exists(t || '_update', t, 'UPDATE', 'get_current_user_type() = ''super_admin'' OR (company_id = get_current_company_id() AND has_permission(''trade'', ''edit''))', 'get_current_user_type() = ''super_admin'' OR (company_id = get_current_company_id() AND has_permission(''trade'', ''edit''))');
+        PERFORM create_policy_if_not_exists(t || '_delete', t, 'DELETE', 'get_current_user_type() = ''super_admin'' OR (company_id = get_current_company_id() AND has_permission(''trade'', ''delete''))');
+    END LOOP;
+
+    -- Trade Child Tables
+    PERFORM create_policy_if_not_exists('shipment_items_select', 'shipment_items', 'SELECT', 'shipment_id IN (SELECT id FROM shipments WHERE company_id = get_current_company_id())');
+    PERFORM create_policy_if_not_exists('shipment_items_mod', 'shipment_items', 'INSERT', NULL, 'shipment_id IN (SELECT id FROM shipments WHERE company_id = get_current_company_id())');
+    PERFORM create_policy_if_not_exists('shipment_items_upd', 'shipment_items', 'UPDATE', 'shipment_id IN (SELECT id FROM shipments WHERE company_id = get_current_company_id())');
+    PERFORM create_policy_if_not_exists('shipment_items_del', 'shipment_items', 'DELETE', 'shipment_id IN (SELECT id FROM shipments WHERE company_id = get_current_company_id())');
+
+    PERFORM create_policy_if_not_exists('container_items_select', 'container_items', 'SELECT', 'container_id IN (SELECT id FROM containers WHERE company_id = get_current_company_id())');
+    PERFORM create_policy_if_not_exists('container_items_mod', 'container_items', 'INSERT', NULL, 'container_id IN (SELECT id FROM containers WHERE company_id = get_current_company_id())');
+    
+    PERFORM create_policy_if_not_exists('shipment_events_select', 'shipment_events', 'SELECT', 'shipment_id IN (SELECT id FROM shipments WHERE company_id = get_current_company_id())');
+    PERFORM create_policy_if_not_exists('shipment_events_mod', 'shipment_events', 'INSERT', NULL, 'shipment_id IN (SELECT id FROM shipments WHERE company_id = get_current_company_id())');
+
 
     -- Child Tables (Items) - Implicit access via Parent
     -- If you can view/edit the parent (checked via module permission), you can view/edit the items.

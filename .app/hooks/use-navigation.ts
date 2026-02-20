@@ -49,6 +49,7 @@ export function useNavigation() {
           fleet: ["logistics", "shipping", "vehicles"],
           inventory: ["stock", "warehouse", "inventory"],
           finance: ["accounting", "finance", "billing"],
+          trade: ["trade", "import", "export", "logistics", "shipping"],
         };
 
         const currentAliases = aliases[moduleCode] || [];
