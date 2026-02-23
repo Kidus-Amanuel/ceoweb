@@ -99,7 +99,7 @@ export function getRouteRequirements(pathname: string): RouteRequirement {
 
   if (requiresCompanyUser(pathname)) {
     return {
-      userTypes: ["company_user"],
+      userTypes: ["company_user", "super_admin"],
       requiresCompanyId: true,
       requiresPermissions: true,
     };

@@ -39,17 +39,28 @@ export default function OnboardingPage() {
     { name: string; display_name: string }[]
   >([]);
   const [invites, setInvites] = useState([
-    { email: "", role: "General Manager" },
+    { email: "", role: "General Manager", name: "" },
   ]);
 
   useEffect(() => {
     const fetchModules = async () => {
       try {
         const supabase = createClient();
+        // 1. Get modules allowed for Starter plan
+        const { data: plan } = await supabase
+          .from("plans")
+          .select("modules")
+          .eq("name", "Starter")
+          .single();
+
+        const allowedModules = plan?.modules || ["hr", "crm"];
+
+        // 2. Fetch display names
         const { data } = await supabase
           .from("modules")
           .select("name, display_name")
-          .eq("is_active", true);
+          .in("name", allowedModules);
+
         if (data) setModules(data);
       } catch (err) {
         console.error("Failed to fetch modules:", err);
@@ -95,6 +106,7 @@ export default function OnboardingPage() {
               await axios.post("/api/auth/invite", {
                 email: invite.email,
                 role: invite.role,
+                name: invite.name,
               });
             } catch (inviteErr) {
               console.error(`Failed to invite ${invite.email}:`, inviteErr);
@@ -323,6 +335,16 @@ export default function OnboardingPage() {
                   <div key={index} className="flex gap-2">
                     <Input
                       className="flex-1"
+                      placeholder="Full Name"
+                      value={invite.name}
+                      onChange={(e) => {
+                        const newInvites = [...invites];
+                        newInvites[index].name = e.target.value;
+                        setInvites(newInvites);
+                      }}
+                    />
+                    <Input
+                      className="flex-[1.5]"
                       placeholder="colleague@company.com"
                       value={invite.email}
                       onChange={(e) => {
@@ -360,7 +382,7 @@ export default function OnboardingPage() {
                 onClick={() =>
                   setInvites([
                     ...invites,
-                    { email: "", role: "General Manager" },
+                    { email: "", role: "General Manager", name: "" },
                   ])
                 }
               >
