@@ -1,34 +1,48 @@
 "use client";
+"use no memo";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  useReactTable,
+  flexRender,
   getCoreRowModel,
-  getSortedRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
-  flexRender,
+  getSortedRowModel,
+  useReactTable,
 } from "@tanstack/react-table";
-import type { ColumnDef, SortingState, RowData } from "@tanstack/react-table";
-import { motion, AnimatePresence } from "framer-motion";
+import type { ColumnDef, RowData, SortingState } from "@tanstack/react-table";
+import { AnimatePresence, motion } from "framer-motion";
 import {
+  Check,
   ChevronDown,
-  ChevronUp,
-  Search,
-  Plus,
   ChevronLeft,
   ChevronRight,
-  Trash2,
-  Check,
-  X,
-  Filter,
+  ChevronUp,
+  Pencil,
+  Plus,
+  Search,
   Settings2,
+  Trash2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/shared/ui/button/Button";
-import { Input } from "@/components/shared/ui/input/Input";
 import { Checkbox } from "@/components/shared/ui/checkbox/Checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/ui/dialog";
+import { Input } from "@/components/shared/ui/input/Input";
 import { Label } from "@/components/shared/ui/label/Label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/shared/ui/popover/Popover";
 import {
   Select,
   SelectContent,
@@ -37,151 +51,164 @@ import {
   SelectValue,
 } from "@/components/shared/ui/select/Select";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/shared/ui/popover/Popover";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/shared/ui/table";
+import { SmartEditor, defaultCurrencyOptions } from "./SmartEditor";
 
-// --- Types ---
 export interface VirtualColumn {
   id: string;
   label: string;
   key: string;
-  type: "text" | "number" | "select" | "boolean" | "json";
+  type:
+    | "text"
+    | "number"
+    | "date"
+    | "datetime"
+    | "select"
+    | "boolean"
+    | "json"
+    | "currency";
   options?: { label: string; value: string | number }[];
 }
 
 declare module "@tanstack/react-table" {
   interface ColumnMeta<TData extends RowData, TValue> {
-    type?: "text" | "number" | "select" | "boolean" | "json";
+    type?:
+      | "text"
+      | "number"
+      | "date"
+      | "datetime"
+      | "select"
+      | "boolean"
+      | "json"
+      | "currency";
     options?: { label: string; value: string | number }[];
+    optionsByType?: Record<string, { label: string; value: string | number }[]>;
+    optionsSourceKey?: string;
     isVirtual?: boolean;
   }
 }
 
 interface EditableTableProps<
-  T extends { id: string; costimize?: Record<string, any> },
+  T extends { id: string; customValues?: Record<string, any> },
 > {
   data: T[];
   columns: ColumnDef<T, any>[];
   virtualColumns?: VirtualColumn[];
-  title: string;
+  title?: string;
   description?: string;
   onAdd?: (data: Partial<T>) => void;
   onUpdate?: (id: string, data: Partial<T>) => void;
   onDelete?: (id: string) => void;
   onColumnAdd?: (column: Omit<VirtualColumn, "id">) => void;
+  onColumnUpdate?: (
+    columnId: string,
+    column: Omit<VirtualColumn, "id">,
+  ) => void;
+  onColumnDelete?: (columnId: string) => void;
   searchable?: boolean;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
   pagination?: boolean;
+  currentPage?: number;
+  totalRows?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
 }
 
-// --- Smart Editor Component (extracted to prevent re-creation on renders) ---
-interface SmartEditorProps {
-  value: any;
-  onChange: (val: any) => void;
-  onCommit?: () => void;
-  onCancel?: () => void;
-  meta?: any;
-  placeholder?: string;
-  isAddMode?: boolean;
-  inputRef?: React.RefObject<HTMLInputElement | null>;
-}
+type DeleteTarget = {
+  kind: "row" | "column";
+  id: string;
+  label: string;
+} | null;
 
-const SmartEditor = ({
-  value,
-  onChange,
-  onCommit,
-  onCancel,
-  meta,
-  placeholder,
-  isAddMode = false,
-  inputRef,
-}: SmartEditorProps) => {
-  const type = meta?.type || "text";
-
-  if (type === "boolean") {
-    return (
-      <div className="flex items-center h-full px-1">
-        <Checkbox
-          checked={!!value}
-          onCheckedChange={(checked) => {
-            onChange(checked);
-            if (!isAddMode) onCommit?.();
-          }}
-        />
-      </div>
-    );
+const norm = (v: unknown) =>
+  String(v ?? "")
+    .trim()
+    .toLowerCase();
+const toColumnKey = (v: string) =>
+  v
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+const allowedTypes: VirtualColumn["type"][] = [
+  "text",
+  "number",
+  "date",
+  "datetime",
+  "select",
+  "boolean",
+  "json",
+  "currency",
+];
+const asColumnType = (v: unknown): VirtualColumn["type"] =>
+  allowedTypes.includes(v as VirtualColumn["type"])
+    ? (v as VirtualColumn["type"])
+    : "text";
+const findSelectLabel = (
+  options: { label: string; value: string | number }[] | undefined,
+  value: unknown,
+) => {
+  const n = norm(value);
+  if (!options?.length || !n) return undefined;
+  return options.find((o) => norm(o.value) === n || norm(o.label) === n)?.label;
+};
+const formatDateValue = (value: unknown, withTime: boolean) => {
+  if (value === null || value === undefined || value === "") return "-";
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return withTime
+    ? parsed.toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : parsed.toLocaleDateString();
+};
+const prettyValue = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value !== "object") return String(value);
+  if (Array.isArray(value)) return value.map((v) => String(v)).join(", ");
+  const rec = value as Record<string, unknown>;
+  if ("amount" in rec || "currency" in rec) {
+    const currency = String(rec.currency ?? "USD");
+    const amountRaw = rec.amount;
+    const amount =
+      amountRaw === null || amountRaw === undefined || amountRaw === ""
+        ? null
+        : Number(amountRaw);
+    if (amount === null || Number.isNaN(amount)) return currency;
+    return `${currency} ${amount.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   }
-
-  if (type === "select" && meta?.options) {
-    return (
-      <Select
-        value={String(value ?? "")}
-        onValueChange={(val) => {
-          onChange(val);
-          if (!isAddMode) onCommit?.();
-        }}
-      >
-        <SelectTrigger className="h-9 w-full rounded-[10px] border-[#2383E2]/20 bg-white ring-blue-500/10 shadow-2xl">
-          <SelectValue placeholder={placeholder || "Select..."} />
-        </SelectTrigger>
-        <SelectContent>
-          {meta.options.map((opt: any) => (
-            <SelectItem key={opt.value} value={String(opt.value)}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    );
-  }
-
-  if (type === "json") {
-    return (
-      <Input
-        ref={!isAddMode && inputRef ? inputRef : undefined}
-        placeholder={placeholder}
-        value={
-          typeof value === "object" ? JSON.stringify(value) : (value ?? "")
-        }
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={() => {
-          try {
-            const parsed = JSON.parse(value);
-            onChange(parsed);
-          } catch (e) {}
-          if (!isAddMode) onCommit?.();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") onCommit?.();
-          if (e.key === "Escape") onCancel?.();
-        }}
-        className="h-10 -my-1 rounded-[12px] border-[#2383E2] bg-white ring-[6px] ring-blue-500/10 shadow-2xl font-mono text-[11px]"
-      />
-    );
-  }
-
-  return (
-    <Input
-      ref={!isAddMode && inputRef ? inputRef : undefined}
-      type={type === "number" ? "number" : "text"}
-      placeholder={placeholder}
-      value={value ?? ""}
-      onChange={(e) =>
-        onChange(type === "number" ? Number(e.target.value) : e.target.value)
-      }
-      onBlur={() => !isAddMode && onCommit?.()}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") onCommit?.();
-        if (e.key === "Escape") onCancel?.();
-      }}
-      className="h-10 -my-1 rounded-[12px] border-[#2383E2] bg-white ring-[6px] ring-blue-500/10 shadow-2xl relative font-semibold text-[#37352F]"
-    />
-  );
+  return JSON.stringify(value);
+};
+const resolveMetaForValues = (meta: any, values?: Record<string, unknown>) => {
+  if (
+    meta?.type !== "select" ||
+    !meta?.optionsByType ||
+    !meta?.optionsSourceKey
+  )
+    return meta;
+  const source = values?.[meta.optionsSourceKey];
+  return {
+    ...meta,
+    options:
+      meta.optionsByType[norm(source)] ??
+      meta.optionsByType[String(source ?? "")] ??
+      [],
+  };
 };
 
 export function EditableTable<
-  T extends { id: string; costimize?: Record<string, any> },
+  T extends { id: string; customValues?: Record<string, any> },
 >({
   data,
   columns: baseColumns,
@@ -192,10 +219,17 @@ export function EditableTable<
   onUpdate,
   onDelete,
   onColumnAdd,
+  onColumnUpdate,
+  onColumnDelete,
   searchable = true,
+  searchQuery,
+  onSearchQueryChange,
   pagination = true,
+  currentPage = 1,
+  totalRows = 0,
+  pageSize = 50,
+  onPageChange,
 }: EditableTableProps<T>) {
-  "use no memo";
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [editingCell, setEditingCell] = useState<{
@@ -205,63 +239,140 @@ export function EditableTable<
   const [editValue, setEditValue] = useState<any>("");
   const [isAdding, setIsAdding] = useState(false);
   const [newRowData, setNewRowData] = useState<Record<string, any>>({});
-
-  // Virtual Column Builder State
   const [newColLabel, setNewColLabel] = useState("");
   const [newColType, setNewColType] = useState<VirtualColumn["type"]>("text");
+  const [newColOptions, setNewColOptions] = useState("");
+  const [newColKey, setNewColKey] = useState("");
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [isColPopoverOpen, setIsColPopoverOpen] = useState(false);
-
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Merge base columns with virtual columns
+  const setSearchValue = (value: string) => {
+    setGlobalFilter(value);
+    onSearchQueryChange?.(value);
+  };
+
+  const resetColumnForm = () => {
+    setEditingColumnId(null);
+    setNewColLabel("");
+    setNewColType("text");
+    setNewColOptions("");
+    setNewColKey("");
+  };
+
+  const openColumnForEdit = (column: VirtualColumn) => {
+    setEditingColumnId(column.id);
+    setNewColLabel(column.label);
+    setNewColType(asColumnType(column.type));
+    setNewColKey(column.key);
+    setNewColOptions(
+      (column.options ?? [])
+        .map((option) => String(option.value ?? option.label))
+        .join(", "),
+    );
+    setIsColPopoverOpen(true);
+  };
+
   const finalColumns = useMemo(() => {
-    const vCols: ColumnDef<T, any>[] = virtualColumns.map((vc) => ({
-      id: vc.key,
-      header: vc.label,
-      accessorFn: (row) => row.costimize?.[vc.key],
-      meta: {
-        type: vc.type,
-        options: vc.options,
-        isVirtual: true,
-      },
+    const virtualDefs: ColumnDef<T, any>[] = virtualColumns.map((vCol) => ({
+      id: vCol.key,
+      header: () => (
+        <div className="flex items-center gap-2">
+          <span>{vCol.label}</span>
+          {onColumnUpdate ? (
+            <button
+              type="button"
+              aria-label={`Edit column ${vCol.label}`}
+              className="text-blue-500 hover:text-blue-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                openColumnForEdit(vCol);
+              }}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
+          {onColumnDelete ? (
+            <button
+              type="button"
+              aria-label={`Delete column ${vCol.label}`}
+              className="text-red-500 hover:text-red-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteTarget({
+                  kind: "column",
+                  id: vCol.id,
+                  label: vCol.label,
+                });
+              }}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          ) : null}
+        </div>
+      ),
+      accessorFn: (row) => row.customValues?.[vCol.key],
+      meta: { type: vCol.type, options: vCol.options, isVirtual: true },
       cell: (info) => {
         const val = info.getValue();
-        if (vc.type === "boolean")
+        const meta = info.column.columnDef.meta;
+        if (meta?.type === "select") {
+          return (
+            <span>
+              {findSelectLabel(meta.options, val) ?? prettyValue(val)}
+            </span>
+          );
+        }
+        if (meta?.type === "date")
+          return <span>{formatDateValue(val, false)}</span>;
+        if (meta?.type === "datetime")
+          return <span>{formatDateValue(val, true)}</span>;
+        if (meta?.type === "boolean") {
           return (
             <Checkbox
               checked={!!val}
               disabled
-              className="scale-75 cursor-default"
+              className="scale-75 pointer-events-none"
             />
           );
-        if (vc.type === "json")
-          return (
-            <span className="text-[10px] font-mono opacity-50 truncate max-w-[80px]">
-              {JSON.stringify(val)}
-            </span>
-          );
-        return <span>{val ?? "-"}</span>;
+        }
+        return <span>{prettyValue(val)}</span>;
       },
     }));
+    return [...baseColumns, ...virtualDefs];
+  }, [baseColumns, onColumnDelete, onColumnUpdate, virtualColumns]);
 
-    return [...baseColumns, ...vCols];
-  }, [baseColumns, virtualColumns]);
+  const dependentColumnsBySource = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const col of finalColumns) {
+      const source = col.meta?.optionsSourceKey;
+      const key = String(
+        col.id ??
+          (((col as { accessorKey?: unknown }).accessorKey as string) || ""),
+      );
+      if (!source || !key) continue;
+      if (!map[source]) map[source] = [];
+      map[source].push(key);
+    }
+    return map;
+  }, [finalColumns]);
 
   useEffect(() => {
-    if (editingCell && inputRef.current) {
-      inputRef.current.focus();
-      if (inputRef.current.type === "text") inputRef.current.select();
-    }
+    if (!editingCell || !inputRef.current) return;
+    inputRef.current.focus();
+    if (inputRef.current.type === "text") inputRef.current.select();
   }, [editingCell]);
+
+  useEffect(() => {
+    if (searchQuery !== undefined) setGlobalFilter(searchQuery);
+  }, [searchQuery]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns: finalColumns,
-    state: {
-      sorting,
-      globalFilter,
-    },
+    state: { sorting, globalFilter },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
@@ -279,95 +390,86 @@ export function EditableTable<
     isVirtual: boolean,
   ) => {
     if (!onUpdate) return;
-
-    const row = data.find((r) => r.id === id);
+    const row = data.find((entry) => entry.id === id);
     if (!row) return;
-
     if (isVirtual) {
-      const updatedCostimize = { ...(row.costimize || {}), [columnId]: value };
-      onUpdate(id, { costimize: updatedCostimize } as Partial<T>);
+      onUpdate(id, {
+        customValues: { ...(row.customValues || {}), [columnId]: value },
+      } as Partial<T>);
     } else {
-      // Use the column's internal ID which matches accessorKey for base columns
       onUpdate(id, { [columnId]: value } as Partial<T>);
     }
     setEditingCell(null);
   };
 
   const handleAddCommit = () => {
-    if (onAdd) {
-      onAdd(newRowData as Partial<T>);
-    }
+    onAdd?.(newRowData as Partial<T>);
     setIsAdding(false);
     setNewRowData({});
   };
 
-  const handleAddColumn = () => {
-    if (onColumnAdd && newColLabel) {
-      const key = newColLabel.toLowerCase().replace(/\s+/g, "_");
-      onColumnAdd({
-        label: newColLabel,
-        key,
-        type: newColType,
-      });
-      setNewColLabel("");
-      setIsColPopoverOpen(false);
-    }
+  const handleSaveColumn = () => {
+    if (!newColLabel.trim()) return;
+    const key = (newColKey || toColumnKey(newColLabel)).trim();
+    const options =
+      newColType === "currency"
+        ? defaultCurrencyOptions
+        : newColType === "select"
+          ? newColOptions
+              .split(",")
+              .map((v) => v.trim())
+              .filter(Boolean)
+              .map((v) => ({ label: v, value: v }))
+          : undefined;
+    const next = { label: newColLabel, key, type: newColType, options };
+    if (editingColumnId && onColumnUpdate)
+      onColumnUpdate(editingColumnId, next);
+    else onColumnAdd?.(next);
+    resetColumnForm();
+    setIsColPopoverOpen(false);
   };
 
-  return (
-    <div className="flex flex-col h-full bg-white rounded-[24px] border border-[#E9E9E7] shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden transition-all duration-500 hover:shadow-[0_12px_50px_rgba(0,0,0,0.06)]">
-      {/* Header */}
-      <div className="px-10 py-8 border-b border-[#F1F1F0] bg-white">
-        <div className="flex items-center justify-between mb-8">
-          <div className="space-y-1.5">
-            <h3 className="text-2xl font-bold text-[#37352F] tracking-tight antialiased">
-              {title}
-            </h3>
-            {description && (
-              <p className="text-[14px] text-[#787774] font-medium leading-relaxed max-w-xl">
-                {description}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={() => setIsAdding(true)}
-              aria-label="New Record"
-              className="bg-[#2383E2] hover:bg-[#1A6FB0] text-white rounded-[14px] px-6 h-11 font-bold flex items-center gap-2 shadow-xl shadow-blue-500/20"
-            >
-              <Plus className="w-5 h-5" />
-              New Record
-            </Button>
-          </div>
-        </div>
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const canGoPrevious = currentPage > 1;
+  const canGoNext = currentPage < totalPages;
 
-        <div className="flex items-center gap-5">
-          {searchable && (
-            <div className="relative flex-1 group max-w-lg">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#91918E] group-focus-within:text-[#2383E2]" />
-              <Input
-                placeholder="Search workspace..."
-                value={globalFilter}
-                onChange={(e) => setGlobalFilter(e.target.value)}
-                className="pl-12 h-12 bg-[#F7F7F5] border-transparent focus:bg-white focus:border-[#2383E2] rounded-[16px] transition-all"
-              />
-            </div>
-          )}
-        </div>
+  return (
+    <div className="flex flex-col h-full bg-white rounded-[24px] border border-border shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden">
+      <div className="px-6 py-5 border-b border-border bg-white space-y-3">
+        {title ? (
+          <h3 className="text-2xl font-bold text-[#37352F] tracking-tight antialiased">
+            {title}
+          </h3>
+        ) : null}
+        {description ? (
+          <p className="text-[14px] text-[#787774] font-medium leading-relaxed max-w-xl">
+            {description}
+          </p>
+        ) : null}
+        {searchable ? (
+          <div className="relative flex-1 group max-w-lg">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-blue-500" />
+            <Input
+              placeholder="Search..."
+              value={globalFilter}
+              onChange={(e) => setSearchValue(e.target.value)}
+              className="pl-12 h-12 bg-[#F7F7F5] border-border rounded-[16px]"
+            />
+          </div>
+        ) : null}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto custom-scrollbar">
-        <table className="w-full text-sm border-separate border-spacing-0">
-          <thead className="sticky top-0 z-30 bg-white/90 backdrop-blur-md">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header, index) => (
-                  <th
+      <div className="flex-1 overflow-auto">
+        <Table className="w-full min-w-[1300px] table-auto border-collapse">
+          <TableHeader className="sticky top-0 z-30 bg-white [&_tr]:border-b [&_tr]:border-border">
+            {table.getHeaderGroups().map((group) => (
+              <TableRow key={group.id} className="hover:bg-transparent">
+                {group.headers.map((header, i) => (
+                  <TableHead
                     key={header.id}
                     className={cn(
-                      "h-[52px] text-left align-middle font-bold text-[11px] uppercase tracking-[0.14em] text-[#91918E] border-b border-[#F1F1F0]",
-                      index === 0 ? "pl-10" : "px-8",
+                      "h-[52px] text-left align-middle font-bold text-[11px] uppercase tracking-[0.14em] text-[#91918E] border-r border-border/40 last:border-r-0",
+                      i === 0 ? "pl-6" : "px-6",
                     )}
                   >
                     <div
@@ -378,183 +480,239 @@ export function EditableTable<
                         header.column.columnDef.header,
                         header.getContext(),
                       )}
-                      {header.column.getIsSorted() &&
-                        (header.column.getIsSorted() === "asc" ? (
-                          <ChevronUp className="w-3.5 h-3.5" />
-                        ) : (
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        ))}
+                      {header.column.getIsSorted() === "asc" ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : header.column.getIsSorted() === "desc" ? (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      ) : null}
                     </div>
-                  </th>
+                  </TableHead>
                 ))}
-                <th className="w-12 border-b border-[#F1F1F0]">
-                  <Popover
-                    open={isColPopoverOpen}
-                    onOpenChange={setIsColPopoverOpen}
-                  >
-                    <PopoverTrigger asChild>
-                      <button className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[#F1F1F0] text-[#91918E] transition-colors translate-y-[2px]">
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      align="end"
-                      className="w-80 p-5 space-y-4 shadow-3xl rounded-[24px] border-[#F1F1F0] z-[100]"
+                <TableHead className="w-12 border-r border-border/40 last:border-r-0 px-1">
+                  {onColumnAdd ? (
+                    <Popover
+                      open={isColPopoverOpen}
+                      onOpenChange={setIsColPopoverOpen}
                     >
-                      <div className="space-y-2">
-                        <h4 className="font-bold text-[#37352F] flex items-center gap-2">
-                          <Settings2 className="w-4 h-4 opacity-40" />
-                          Add Custom Field
-                        </h4>
-                        <p className="text-xs text-[#787774]">
-                          Stored in the JSONB metadata layer.
-                        </p>
-                      </div>
-                      <div className="space-y-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase tracking-widest font-bold text-[#91918E]">
-                            Field Name
-                          </Label>
-                          <Input
-                            placeholder="e.g. Blood Type"
-                            value={newColLabel}
-                            onChange={(e) => setNewColLabel(e.target.value)}
-                            className="h-10 rounded-[12px] border-[#E9E9E7] focus:border-[#2383E2] transition-all bg-[#F7F7F5]/50"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase tracking-widest font-bold text-[#91918E]">
-                            Data Type
-                          </Label>
-                          <Select
-                            value={newColType}
-                            onValueChange={(val: any) => setNewColType(val)}
-                          >
-                            <SelectTrigger className="h-10 rounded-[12px] border-[#E9E9E7] bg-[#F7F7F5]/50">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="z-[110]">
-                              <SelectItem value="text">Text</SelectItem>
-                              <SelectItem value="number">Number</SelectItem>
-                              <SelectItem value="boolean">
-                                Boolean (Checkbox)
-                              </SelectItem>
-                              <SelectItem value="select">
-                                Select (Dropdown)
-                              </SelectItem>
-                              <SelectItem value="json">JSON Object</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Button
-                          onClick={handleAddColumn}
-                          className="w-full bg-[#37352F] hover:bg-black text-white rounded-[14px] h-11 font-bold mt-2 shadow-lg shadow-black/5"
-                        >
-                          Create Column
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </th>
-                <th className="w-24 px-4 border-b border-[#F1F1F0]" />
-              </tr>
-            ))}
-          </thead>
-          <tbody className="bg-white">
-            <AnimatePresence mode="wait">
-              {isAdding && (
-                <motion.tr
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  className="bg-blue-50/10"
-                >
-                  {table.getVisibleFlatColumns().map((column, index) => {
-                    const isVirtual = column.columnDef.meta?.isVirtual;
-                    const colId = column.id;
-                    return (
-                      <td
-                        key={column.id}
-                        className={cn(
-                          "py-5 border-b border-[#F1F1F0]",
-                          index === 0 ? "pl-10" : "px-8",
-                        )}
-                      >
-                        <SmartEditor
-                          isAddMode={true}
-                          meta={column.columnDef.meta}
-                          placeholder={`Set ${String(column.columnDef.header)}...`}
-                          value={
-                            isVirtual
-                              ? newRowData.costimize?.[colId]
-                              : newRowData[colId]
-                          }
-                          onChange={(val) => {
-                            setNewRowData((prev) => {
-                              if (isVirtual) {
-                                return {
-                                  ...prev,
-                                  costimize: {
-                                    ...(prev.costimize || {}),
-                                    [colId]: val,
-                                  },
-                                };
-                              } else {
-                                return { ...prev, [colId]: val };
-                              }
-                            });
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!isColPopoverOpen) {
+                              resetColumnForm();
+                              setIsColPopoverOpen(true);
+                            }
                           }}
-                        />
-                      </td>
-                    );
-                  })}
-                  <td className="px-1 py-5 border-b border-[#F1F1F0]" />
-                  <td className="px-6 py-5 border-b border-[#F1F1F0]">
-                    <div className="flex items-center gap-3">
-                      <Button
-                        size="icon"
-                        onClick={handleAddCommit}
-                        aria-label="Save new record"
-                        className="h-10 w-10 rounded-full bg-green-500 hover:bg-green-600 text-white shadow-lg"
+                          className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[#F1F1F0] text-[#91918E] border border-border/60"
+                        >
+                          <Plus className="w-4 h-4 text-blue-500" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="end"
+                        className="w-80 p-5 space-y-4 shadow-3xl rounded-[24px] border-[#F1F1F0] z-[100]"
                       >
-                        <Check className="w-5 h-5" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => {
-                          setIsAdding(false);
-                          setNewRowData({ costimize: {} });
-                        }}
-                        className="h-10 w-10 rounded-full text-red-400 hover:bg-red-50"
-                      >
-                        <X className="w-5 h-5" />
-                      </Button>
-                    </div>
-                  </td>
-                </motion.tr>
-              )}
-            </AnimatePresence>
+                        <div className="space-y-2">
+                          <h4 className="font-bold text-[#37352F] flex items-center gap-2">
+                            <Settings2 className="w-4 h-4 text-violet-500" />
+                            {editingColumnId ? "Update Column" : "Add Column"}
+                          </h4>
+                          <p className="text-xs text-[#787774]">
+                            Define an additional reusable column.
+                          </p>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] uppercase tracking-widest font-bold text-[#91918E]">
+                              Field Name
+                            </Label>
+                            <Input
+                              placeholder="e.g. Blood Type"
+                              value={newColLabel}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setNewColLabel(v);
+                                if (!editingColumnId)
+                                  setNewColKey(toColumnKey(v));
+                              }}
+                              className="h-10 rounded-[12px] border-[#E9E9E7]"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] uppercase tracking-widest font-bold text-[#91918E]">
+                              Field Key
+                            </Label>
+                            <Input
+                              placeholder="e.g. blood_type"
+                              value={newColKey}
+                              onChange={(e) =>
+                                setNewColKey(toColumnKey(e.target.value))
+                              }
+                              className="h-10 rounded-[12px] border-[#E9E9E7]"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] uppercase tracking-widest font-bold text-[#91918E]">
+                              Data Type
+                            </Label>
+                            <Select
+                              value={newColType}
+                              onValueChange={(v: VirtualColumn["type"]) => {
+                                setNewColType(v);
+                                if (v !== "select" && v !== "currency")
+                                  setNewColOptions("");
+                              }}
+                            >
+                              <SelectTrigger className="h-10 rounded-[12px] border-[#E9E9E7]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="z-[110]">
+                                <SelectItem value="text">Text</SelectItem>
+                                <SelectItem value="number">Number</SelectItem>
+                                <SelectItem value="date">Date</SelectItem>
+                                <SelectItem value="datetime">
+                                  Date + Time
+                                </SelectItem>
+                                <SelectItem value="boolean">
+                                  Boolean (Checkbox)
+                                </SelectItem>
+                                <SelectItem value="select">
+                                  Select (Dropdown)
+                                </SelectItem>
+                                <SelectItem value="currency">
+                                  Currency
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {newColType === "select" ? (
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] uppercase tracking-widest font-bold text-[#91918E]">
+                                Options (Comma Separated)
+                              </Label>
+                              <Input
+                                placeholder="e.g. High, Medium, Low"
+                                value={newColOptions}
+                                onChange={(e) =>
+                                  setNewColOptions(e.target.value)
+                                }
+                                className="h-10 rounded-[12px] border-[#E9E9E7]"
+                              />
+                            </div>
+                          ) : null}
+                          <Button
+                            onClick={handleSaveColumn}
+                            className="w-full bg-[#37352F] hover:bg-black text-white rounded-[14px] h-11 font-bold mt-2"
+                          >
+                            {editingColumnId
+                              ? "Update Column"
+                              : "Create Column"}
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  ) : null}
+                </TableHead>
+                <TableHead className="w-20 px-4" />
+              </TableRow>
+            ))}
+          </TableHeader>
 
+          <TableBody>
             <AnimatePresence initial={false}>
               {table.getRowModel().rows.map((row) => (
                 <motion.tr
                   layout
                   key={row.id}
-                  className="group hover:bg-[#F7F7F5]/60 transition-colors duration-300"
+                  className="group hover:bg-muted/20 transition-colors"
                 >
-                  {row.getVisibleCells().map((cell, index) => {
+                  {row.getVisibleCells().map((cell, i) => {
+                    const rowValues = row.original as Record<string, unknown>;
+                    const meta = resolveMetaForValues(
+                      cell.column.columnDef.meta,
+                      rowValues,
+                    );
                     const isEditing =
                       editingCell?.id === row.original.id &&
                       editingCell?.columnId === cell.column.id;
+                    const isSelect = meta?.type === "select";
+                    const isBoolean = meta?.type === "boolean";
+                    const isVirtual = !!cell.column.columnDef.meta?.isVirtual;
+                    const rawValue = cell.getValue();
+                    const selectedLabel = isSelect
+                      ? findSelectLabel(meta?.options, rawValue)
+                      : null;
+
+                    const renderCell = () => {
+                      if (isEditing) {
+                        return (
+                          <SmartEditor
+                            inputRef={inputRef}
+                            meta={meta}
+                            value={editValue}
+                            onChange={setEditValue}
+                            onCommit={(v) =>
+                              handleSave(
+                                row.original.id,
+                                cell.column.id,
+                                v ?? editValue,
+                                isVirtual,
+                              )
+                            }
+                            onCancel={() => setEditingCell(null)}
+                          />
+                        );
+                      }
+                      if (isSelect)
+                        return (
+                          <span>{selectedLabel ?? prettyValue(rawValue)}</span>
+                        );
+                      if (isBoolean) {
+                        return (
+                          <Checkbox
+                            checked={!!rawValue}
+                            onCheckedChange={(checked) =>
+                              handleSave(
+                                row.original.id,
+                                cell.column.id,
+                                checked === true,
+                                isVirtual,
+                              )
+                            }
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        );
+                      }
+                      if (
+                        !isVirtual &&
+                        (meta?.type === "date" || meta?.type === "datetime")
+                      ) {
+                        return (
+                          <span>
+                            {formatDateValue(
+                              rawValue,
+                              meta?.type === "datetime",
+                            )}
+                          </span>
+                        );
+                      }
+                      const rendered = flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      );
+                      return rendered ?? <span>{prettyValue(rawValue)}</span>;
+                    };
+
                     return (
-                      <td
+                      <TableCell
                         key={cell.id}
                         className={cn(
-                          "py-5 border-b border-[#F1F1F0] relative overflow-hidden",
-                          index === 0 ? "pl-10" : "px-8",
+                          "py-2 border-b border-r border-border/40 last:border-r-0 align-top",
+                          isVirtual ? "min-w-[260px]" : "min-w-[180px]",
+                          i === 0 ? "pl-6" : "px-6",
                         )}
                         onClick={() => {
+                          if (isBoolean) return;
                           setEditingCell({
                             id: row.original.id,
                             columnId: cell.column.id,
@@ -562,56 +720,219 @@ export function EditableTable<
                           setEditValue(cell.getValue());
                         }}
                       >
-                        {isEditing ? (
-                          <SmartEditor
-                            inputRef={inputRef}
-                            meta={cell.column.columnDef.meta}
-                            value={editValue}
-                            onChange={setEditValue}
-                            onCommit={() =>
-                              handleSave(
-                                row.original.id,
-                                cell.column.id,
-                                editValue,
-                                !!cell.column.columnDef.meta?.isVirtual,
-                              )
-                            }
-                            onCancel={() => setEditingCell(null)}
-                          />
-                        ) : (
-                          <div className="font-semibold text-[#37352F] cursor-text">
-                            {flexRender(
-                              cell.column.columnDef.cell,
-                              cell.getContext(),
-                            )}
-                          </div>
-                        )}
-                      </td>
+                        <div className="font-medium text-[#37352F] break-words whitespace-normal">
+                          {renderCell()}
+                        </div>
+                      </TableCell>
                     );
                   })}
-                  <td className="px-1 py-5 border-b border-[#F1F1F0]" />
-                  <td className="px-6 py-5 border-b border-[#F1F1F0]">
-                    <div className="flex justify-end transition-all duration-300">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        aria-label={`Delete ${row.original.id}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onDelete) onDelete(row.original.id);
-                        }}
-                        className="h-10 w-10 text-[#91918E] hover:text-red-500"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </Button>
-                    </div>
-                  </td>
+                  <TableCell className="px-1 py-4 border-b border-border/60" />
+                  <TableCell className="px-4 py-4 border-b border-border/60">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`Delete ${row.original.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const label = String(
+                          (row.original as Record<string, unknown>).name ??
+                            (row.original as Record<string, unknown>).title ??
+                            row.original.id,
+                        );
+                        setDeleteTarget({
+                          kind: "row",
+                          id: row.original.id,
+                          label,
+                        });
+                      }}
+                      className="h-9 w-9 text-red-500/70 hover:text-red-600 hover:bg-red-50 border border-red-100"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </TableCell>
                 </motion.tr>
               ))}
             </AnimatePresence>
-          </tbody>
-        </table>
+
+            <AnimatePresence mode="wait">
+              {isAdding ? (
+                <motion.tr
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  className="bg-blue-50/10"
+                >
+                  {table.getVisibleFlatColumns().map((column, i) => {
+                    const isVirtual = !!column.columnDef.meta?.isVirtual;
+                    const columnId = column.id;
+                    const meta = resolveMetaForValues(
+                      column.columnDef.meta,
+                      newRowData,
+                    );
+                    return (
+                      <TableCell
+                        key={column.id}
+                        className={cn(
+                          "py-2 border-b border-border/60 align-top",
+                          column.columnDef.meta?.isVirtual
+                            ? "min-w-[260px]"
+                            : "min-w-[200px]",
+                          i === 0 ? "pl-6" : "px-6",
+                        )}
+                      >
+                        <SmartEditor
+                          isAddMode
+                          meta={meta}
+                          placeholder={`Set ${String(column.columnDef.header)}...`}
+                          value={
+                            isVirtual
+                              ? newRowData.customValues?.[columnId]
+                              : newRowData[columnId]
+                          }
+                          onChange={(nextValue) => {
+                            setNewRowData((prev) => {
+                              const next = { ...prev };
+                              if (isVirtual) {
+                                return {
+                                  ...next,
+                                  customValues: {
+                                    ...(prev.customValues || {}),
+                                    [columnId]: nextValue,
+                                  },
+                                };
+                              }
+                              next[columnId] = nextValue;
+                              (
+                                dependentColumnsBySource[columnId] || []
+                              ).forEach((dep) => {
+                                if (dep !== columnId) next[dep] = undefined;
+                              });
+                              return next;
+                            });
+                          }}
+                        />
+                      </TableCell>
+                    );
+                  })}
+                  <TableCell className="px-1 py-4 border-b border-border/60" />
+                  <TableCell className="px-4 py-4 border-b border-border/60">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        size="icon"
+                        onClick={handleAddCommit}
+                        aria-label="Save new row"
+                        className="h-9 w-9 rounded-full bg-green-500 hover:bg-green-600 text-white border border-green-600/40"
+                      >
+                        <Check className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => {
+                          setIsAdding(false);
+                          setNewRowData({ customValues: {} });
+                        }}
+                        className="h-9 w-9 rounded-full text-red-400 hover:bg-red-50 border"
+                      >
+                        <X className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </motion.tr>
+              ) : null}
+            </AnimatePresence>
+          </TableBody>
+        </Table>
       </div>
+
+      <div className="flex items-center justify-between border-t border-border px-6 py-4 bg-white gap-4">
+        {onAdd ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setIsAdding(true);
+              setNewRowData({});
+            }}
+            aria-label="New Record"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Row
+          </Button>
+        ) : (
+          <div />
+        )}
+
+        {pagination && onPageChange ? (
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-[#787774]">
+              Page {currentPage} of {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!canGoPrevious}
+                onClick={() => onPageChange(currentPage - 1)}
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Previous
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!canGoNext}
+                onClick={() => onPageChange(currentPage + 1)}
+              >
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {deleteTarget?.kind === "column" ? "Delete Column" : "Delete Row"}
+            </DialogTitle>
+            <DialogDescription>
+              {deleteTarget?.kind === "column"
+                ? `Delete custom column "${deleteTarget?.label}"?`
+                : `Delete row "${deleteTarget?.label}"? This cannot be undone.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => {
+                if (!deleteTarget) return;
+                if (deleteTarget.kind === "column")
+                  onColumnDelete?.(deleteTarget.id);
+                else onDelete?.(deleteTarget.id);
+                setDeleteTarget(null);
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
