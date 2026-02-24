@@ -12,7 +12,6 @@ import {
   Plus,
 } from "lucide-react";
 import { useLayoutStore } from "@/store/layout-store";
-import { useAuthStore } from "@/store/authStore";
 import { useNavigation } from "@/hooks/use-navigation";
 import { useCompanies } from "@/hooks/use-companies";
 import { useUser } from "@/app/context/UserContext";
@@ -20,6 +19,7 @@ import { NavItem, NavSubItem } from "@/lib/constants/nav-config";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { GlobalSearchInput } from "@/components/layout/global-search-input";
 
 export function SidebarNav() {
   const {
@@ -39,6 +39,7 @@ export function SidebarNav() {
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [sidebarSearchQuery, setSidebarSearchQuery] = useState("");
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>
@@ -72,6 +73,13 @@ export function SidebarNav() {
   };
 
   const isSuperAdmin = roleInfo?.user_type === "super_admin";
+  const activeItemId =
+    navItems
+      .filter(
+        (item) =>
+          pathname === item.href || pathname.startsWith(`${item.href}/`),
+      )
+      .sort((a, b) => b.href.length - a.href.length)[0]?.id ?? currentModule;
 
   return (
     <motion.aside
@@ -200,13 +208,13 @@ export function SidebarNav() {
       {/* Search & Action Box */}
       <div className="px-3 py-2 space-y-2">
         <div className="flex items-center gap-2">
-          <button
+          <div
             className={cn(
               "flex items-center gap-2 flex-1 p-2.5 rounded-xl bg-background/50 border border-border/50 hover:bg-background hover:border-primary/30 transition-all text-muted-foreground shadow-sm",
               !leftSidebarOpen && "justify-center",
             )}
           >
-            <Search className="w-4 h-4 shrink-0 text-muted-foreground/60" />
+            <Search className="w-4 h-4 shrink-0 text-blue-500" />
             <AnimatePresence>
               {leftSidebarOpen && (
                 <motion.div
@@ -215,23 +223,28 @@ export function SidebarNav() {
                   exit={{ opacity: 0 }}
                   className="flex items-center gap-2 flex-1"
                 >
-                  <span className="text-sm">Search</span>
-                  <kbd className="ml-auto text-[10px] bg-secondary px-1.5 py-0.5 rounded border border-border">
-                    ⌘K
-                  </kbd>
+                  <GlobalSearchInput
+                    value={sidebarSearchQuery}
+                    onChange={setSidebarSearchQuery}
+                    companyId={selectedCompany?.id}
+                    placeholder="Search Intelligent..."
+                    className="w-full"
+                    inputClassName="h-6 text-sm"
+                    iconClassName="hidden"
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
-          </button>
+          </div>
 
           {/* Add Button for Super Admin */}
           {leftSidebarOpen && isSuperAdmin && (
             <Link
               href="/onboarding"
-              className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity shadow-lg shadow-primary/20 flex items-center justify-center shrink-0"
+              className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity shadow-lg shadow-primary/20 flex items-center justify-center shrink-0 border border-primary/50"
               title="Add New Company"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 text-emerald-100" />
             </Link>
           )}
         </div>
@@ -241,8 +254,7 @@ export function SidebarNav() {
       <nav className="flex-1 px-2 py-4 space-y-1.5 overflow-y-auto custom-scrollbar">
         {navItems.map((item: NavItem) => {
           const Icon = item.icon;
-          const isActive =
-            currentModule === item.id || pathname.startsWith(item.href);
+          const isActive = activeItemId === item.id;
           const hasSubItems = item.subItems && item.subItems.length > 0;
           const isExpanded = expandedItems.includes(item.id);
 

@@ -86,9 +86,10 @@ export const NAV_CONFIG: NavItem[] = [
     module: "CRM",
     roles: ["super_admin", "company_user"],
     subItems: [
-      { id: "crm-contacts", label: "Contacts", href: "/crm/contacts" },
-      { id: "crm-deals", label: "Deals", href: "/crm/deals" },
-      { id: "crm-tasks", label: "Tasks", href: "/crm/tasks" },
+      { id: "customers", label: "Customers", href: "/crm/customers" },
+      { id: "deals", label: "Deals", href: "/crm/deals" },
+      { id: "activities", label: "Activities", href: "/crm/activities" },
+      { id: "reports", label: "Reports", href: "/crm/reports" },
     ],
   },
   {
