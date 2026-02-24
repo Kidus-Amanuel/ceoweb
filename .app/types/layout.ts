@@ -21,6 +21,7 @@ export interface LayoutState {
   rightSidebarWidth: number;
   currentModule: ModuleType;
   selectedCompanyId: string | null;
+  globalSearchQuery: string;
   toggleLeftSidebar: () => void;
   toggleRightSidebar: () => void;
   setLeftSidebarOpen: (open: boolean) => void;
@@ -29,4 +30,5 @@ export interface LayoutState {
   setRightSidebarWidth: (width: number) => void;
   setCurrentModule: (module: ModuleType) => void;
   setSelectedCompanyId: (id: string | null) => void;
+  setGlobalSearchQuery: (query: string) => void;
 }
