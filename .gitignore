@@ -8,6 +8,9 @@ out/
 build/
 dist/
 
+# TypeScript
+*.tsbuildinfo
+
 # Environments
 .env
 .env*.local
@@ -33,3 +36,6 @@ coverage/
 
 # Vercel
 .vercel
+
+# Supabase
+supabase/.temp
