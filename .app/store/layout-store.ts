@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { LayoutState, ModuleType } from "@/types/layout";
+import { LayoutState } from "@/types/layout";
 
 export const useLayoutStore = create<LayoutState>()(
   persist(
@@ -9,9 +9,7 @@ export const useLayoutStore = create<LayoutState>()(
       rightSidebarOpen: false,
       leftSidebarWidth: 260,
       rightSidebarWidth: 520,
-      currentModule: "dashboard",
       selectedCompanyId: null,
-      globalSearchQuery: "",
       toggleLeftSidebar: () =>
         set((state) => ({
           leftSidebarOpen: !state.leftSidebarOpen,
@@ -40,9 +38,7 @@ export const useLayoutStore = create<LayoutState>()(
         set({ leftSidebarWidth: Math.max(70, Math.min(400, width)) }),
       setRightSidebarWidth: (width) =>
         set({ rightSidebarWidth: Math.max(400, Math.min(1000, width)) }),
-      setCurrentModule: (module) => set({ currentModule: module }),
       setSelectedCompanyId: (id) => set({ selectedCompanyId: id }),
-      setGlobalSearchQuery: (query) => set({ globalSearchQuery: query }),
     }),
     {
       name: "ceo-layout-storage-v2",
@@ -51,9 +47,7 @@ export const useLayoutStore = create<LayoutState>()(
         rightSidebarOpen: state.rightSidebarOpen,
         leftSidebarWidth: state.leftSidebarWidth,
         rightSidebarWidth: state.rightSidebarWidth,
-        currentModule: state.currentModule,
         selectedCompanyId: state.selectedCompanyId,
-        globalSearchQuery: state.globalSearchQuery,
       }),
     },
   ),
