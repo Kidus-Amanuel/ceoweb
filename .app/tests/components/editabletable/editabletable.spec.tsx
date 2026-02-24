@@ -50,8 +50,8 @@ describe("EditableTable", () => {
     const aliceCell = screen.getByText("Alice");
     fireEvent.click(aliceCell);
 
-    const input = screen.getByDisplayValue("Alice");
-    expect(input).toBeInTheDocument();
+    const textarea = screen.getByDisplayValue("Alice");
+    expect(textarea.tagName.toLowerCase()).toBe("textarea");
   });
 
   // TODO: Fix this test - fireEvent.change doesn't properly trigger onChange in controlled components
@@ -76,11 +76,13 @@ describe("EditableTable", () => {
   // });
 
   it("opens ghost row when New Record is clicked", () => {
+    const onAdd = vi.fn();
     render(
       <EditableTable
         title="Test Table"
         data={mockData}
         columns={columns as any}
+        onAdd={onAdd}
       />,
     );
 
@@ -115,7 +117,7 @@ describe("EditableTable", () => {
   //     expect(onAdd).toHaveBeenCalledWith({ name: "Charlie", role: "QA" });
   // });
 
-  it("calls onDelete when trash icon is clicked", () => {
+  it("calls onDelete after delete dialog confirmation", () => {
     const onDelete = vi.fn();
     render(
       <EditableTable
@@ -127,6 +129,7 @@ describe("EditableTable", () => {
     );
 
     fireEvent.click(screen.getByLabelText(/Delete 1/i));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     expect(onDelete).toHaveBeenCalledWith("1");
   });
@@ -140,7 +143,7 @@ describe("EditableTable", () => {
       />,
     );
 
-    const searchInput = screen.getByPlaceholderText(/Search workspace/i);
+    const searchInput = screen.getByPlaceholderText(/Search/i);
     fireEvent.change(searchInput, { target: { value: "Bob" } });
 
     await waitFor(
@@ -152,5 +155,25 @@ describe("EditableTable", () => {
     );
 
     expect(screen.getByText("Bob")).toBeInTheDocument();
+  });
+
+  it("calls onPageChange when Next is clicked", () => {
+    const onPageChange = vi.fn();
+
+    render(
+      <EditableTable
+        title="Customers"
+        data={mockData}
+        columns={columns as any}
+        pagination={true}
+        currentPage={1}
+        totalRows={101}
+        pageSize={50}
+        onPageChange={onPageChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(onPageChange).toHaveBeenCalledWith(2);
   });
 });
