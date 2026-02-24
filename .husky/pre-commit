@@ -154,11 +154,12 @@ fi
 # Clean up
 rm -f "$pid_file"
 
-# Add only if there are changes
-if ! git diff --quiet; then
-  echo "📋 Adding modified files to the commit..."
-  git add -A
-fi
+# COMMENTED OUT: We are not automatically adding files to the commit to give developers control over what gets committed. If you want to add modified files, please do so manually after the checks pass.
+# # Add only if there are changes
+# if ! git diff --quiet; then
+#   echo "📋 Adding modified files to the commit..."
+#   git add -A
+# fi
 
 echo ""
 echo "🎉 ========== ALL PRE-COMMIT CHECKS PASSED! ========== 🎉"
