@@ -20,6 +20,8 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GlobalSearchInput } from "@/components/layout/global-search-input";
+import { UpgradeModal } from "@/components/shared/feedback/upgrade-modal";
+import { Lock } from "lucide-react";
 
 export function SidebarNav() {
   const {
@@ -33,13 +35,29 @@ export function SidebarNav() {
 
   const { logout, roleInfo, user: supabaseUser } = useUser();
   const navItems = useNavigation();
-  const { availableCompanies, selectedCompany, setSelectedCompany } =
+  const { availableCompanies, selectedCompany, setSelectedCompany, isLoading } =
     useCompanies();
   const pathname = usePathname();
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [sidebarSearchQuery, setSidebarSearchQuery] = useState("");
+  const [upgradeModal, setUpgradeModal] = useState<{
+    isOpen: boolean;
+    moduleName: string;
+  }>({
+    isOpen: false,
+    moduleName: "",
+  });
+
+  const planModules = roleInfo?.plan_modules || [];
+
+  const isModuleInPlan = (moduleCode?: string) => {
+    if (!moduleCode) return true; // Non-module items like Dashboard
+    return planModules.some(
+      (m: string) => m.toLowerCase() === moduleCode.toLowerCase(),
+    );
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) =>
@@ -126,10 +144,12 @@ export function SidebarNav() {
           onClick={() =>
             leftSidebarOpen && setShowCompanyDropdown(!showCompanyDropdown)
           }
+          disabled={isLoading}
           className={cn(
             "flex items-center gap-2 w-full p-2 rounded-xl border border-transparent hover:bg-white/50 hover:border-border/50 transition-all shadow-sm group",
             !leftSidebarOpen && "justify-center",
             showCompanyDropdown && "bg-white/50 border-border/50",
+            isLoading && "opacity-50 cursor-not-allowed",
           )}
         >
           <Building2 className="w-4 h-4 text-primary shrink-0" />
@@ -250,13 +270,15 @@ export function SidebarNav() {
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1.5 overflow-y-auto custom-scrollbar">
-        {navItems.map((item: NavItem) => {
+        {navItems.map((item: any) => {
           const Icon = item.icon;
-          const isActive = activeItemId === item.id;
-          const hasSubItems = item.subItems && item.subItems.length > 0;
+          const isActive =
+            currentModule === item.id || pathname.startsWith(item.href);
+          const hasSubItems = !!item.subItems?.length;
           const isExpanded = expandedItems.includes(item.id);
+          const inPlan = isModuleInPlan(item.module);
+          const isLocked = !inPlan && isSuperAdmin;
 
           return (
             <div key={item.id} className="space-y-1">
@@ -266,9 +288,15 @@ export function SidebarNav() {
                   isActive
                     ? "bg-background text-primary shadow-sm border border-border/80"
                     : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                  isLocked && "opacity-80 grayscale-[0.5]",
                   !leftSidebarOpen && "justify-center px-2",
                 )}
-                onClick={() => {
+                onClick={(e) => {
+                  if (isLocked) {
+                    e.preventDefault();
+                    setUpgradeModal({ isOpen: true, moduleName: item.label });
+                    return;
+                  }
                   if (hasSubItems && leftSidebarOpen) {
                     toggleExpand(item.id);
                   } else {
@@ -277,8 +305,11 @@ export function SidebarNav() {
                 }}
               >
                 <Link
-                  href={hasSubItems ? "#" : item.href}
+                  href={hasSubItems || isLocked ? "#" : item.href}
                   className="flex items-center gap-3 flex-1 min-w-0"
+                  onClick={(e) => {
+                    if (isLocked) e.preventDefault();
+                  }}
                 >
                   <Icon
                     className={cn(
@@ -300,7 +331,11 @@ export function SidebarNav() {
                   </AnimatePresence>
                 </Link>
 
-                {leftSidebarOpen && hasSubItems && (
+                {leftSidebarOpen && isLocked && (
+                  <Lock className="w-3 h-3 text-muted-foreground/50 ml-auto" />
+                )}
+
+                {leftSidebarOpen && hasSubItems && !isLocked && (
                   <ChevronDown
                     className={cn(
                       "w-3 h-3 transition-transform duration-200",
@@ -405,6 +440,12 @@ export function SidebarNav() {
           <ChevronRight className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors" />
         )}
       </button>
+      <UpgradeModal
+        isOpen={upgradeModal.isOpen}
+        onClose={() => setUpgradeModal({ ...upgradeModal, isOpen: false })}
+        moduleName={upgradeModal.moduleName}
+        currentPlan={roleInfo?.plan_name || "Starter"}
+      />
     </motion.aside>
   );
 }

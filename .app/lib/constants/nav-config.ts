@@ -12,6 +12,9 @@ import {
   Clock,
   UserPlus,
   Compass,
+  Ship,
+  Anchor,
+  Globe,
 } from "lucide-react";
 import { LucideIcon } from "lucide-react";
 
@@ -136,6 +139,37 @@ export const NAV_CONFIG: NavItem[] = [
         id: "fin-reports",
         label: "Financial Reports",
         href: "/finance/reports",
+      },
+    ],
+  },
+  {
+    id: "trade",
+    label: "International Trade",
+    icon: Ship,
+    href: "/internationaltrade",
+    module: "trade",
+    roles: ["super_admin", "company_user"],
+    subItems: [
+      {
+        id: "trade-shipments",
+        label: "Shipments",
+        href: "/internationaltrade/shipments",
+      },
+      {
+        id: "trade-containers",
+        label: "Containers",
+        href: "/internationaltrade/containers",
+      },
+      { id: "trade-ports", label: "Ports", href: "/internationaltrade/ports" },
+      {
+        id: "trade-vessels",
+        label: "Vessels",
+        href: "/internationaltrade/vessels",
+      },
+      {
+        id: "trade-clearance",
+        label: "Customs Clearance",
+        href: "/internationaltrade/clearance",
       },
     ],
   },
