@@ -437,9 +437,9 @@ export function CrmWorkspace({
 
     const counts = (response.data || DEFAULT_COUNTS) as Record<string, number>;
     setTableCounts({
-      customers: counts.customers ?? counts.crm_customers ?? 0,
-      deals: counts.deals ?? counts.crm_deals ?? 0,
-      activities: counts.activities ?? counts.crm_activities ?? 0,
+      customers: counts.customers ?? 0,
+      deals: counts.deals ?? 0,
+      activities: counts.activities ?? 0,
     });
   }, []);
 
