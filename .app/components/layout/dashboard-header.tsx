@@ -4,13 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { useLayoutStore } from "@/store/layout-store";
 import { Bell, Command, Menu } from "lucide-react";
 import { GlobalSearchInput } from "@/components/layout/global-search-input";
+import { usePathname } from "next/navigation";
 
 interface DashboardHeaderProps {
   onMobileMenuToggle?: () => void;
 }
 
 export function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderProps) {
-  const { currentModule, selectedCompanyId } = useLayoutStore();
+  const { selectedCompanyId } = useLayoutStore();
+  const pathname = usePathname();
   const [headerSearchQuery, setHeaderSearchQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -25,14 +27,21 @@ export function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const moduleTitles: Record<string, string> = {
-    dashboard: "Executive Overview",
-    fleet: "Fleet Operations",
-    crm: "Customer Intelligence",
-    inventory: "Global Inventory",
-    hrm: "Human Capital",
-    settings: "System Configuration",
-  };
+  const moduleTitle = pathname.startsWith("/crm")
+    ? "Customer Intelligence"
+    : pathname.startsWith("/fleet")
+      ? "Fleet Operations"
+      : pathname.startsWith("/inventory")
+        ? "Global Inventory"
+        : pathname.startsWith("/hr")
+          ? "Human Capital"
+          : pathname.startsWith("/finance")
+            ? "Financial Operations"
+            : pathname.startsWith("/admin")
+              ? "Platform Administration"
+              : pathname.startsWith("/settings")
+                ? "System Configuration"
+                : "Executive Overview";
 
   return (
     <header className="h-16 border-b border-border/40 bg-background/80 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-6">
@@ -45,7 +54,7 @@ export function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderProps) {
         </button>
         <div>
           <h2 className="text-base font-bold text-foreground tracking-tight">
-            {moduleTitles[currentModule] || "Dashboard"}
+            {moduleTitle}
           </h2>
           <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest opacity-60">
             CEO Strategic Engine v1.0
