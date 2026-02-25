@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { UserProvider } from "@/app/context/UserContext";
+import "@/lib/i18n/config";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(

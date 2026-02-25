@@ -10,6 +10,7 @@ import {
   ChevronRight,
   LogOut,
   Plus,
+  Lock,
 } from "lucide-react";
 import { useLayoutStore } from "@/store/layout-store";
 import { useNavigation } from "@/hooks/use-navigation";
@@ -21,9 +22,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GlobalSearchInput } from "@/components/layout/global-search-input";
 import { UpgradeModal } from "@/components/shared/feedback/upgrade-modal";
-import { Lock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export function SidebarNav() {
+  const { t } = useTranslation();
   const {
     leftSidebarOpen,
     leftSidebarWidth,
@@ -61,6 +63,33 @@ export function SidebarNav() {
     setExpandedItems((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
     );
+  };
+
+  const getNavLabel = (item: NavItem | NavSubItem) => {
+    const keyMap: Record<string, string> = {
+      "fleet-overview": "overview",
+      "fleet-shipments": "shipments",
+      "fleet-vehicles": "vehicles",
+      "fleet-drivers": "drivers",
+      "fleet-maintenance": "maintenance",
+      "inv-stock": "stock_level",
+      "inv-warehouses": "warehouses",
+      "inv-suppliers": "suppliers",
+      "hr-employees": "employees",
+      "hr-payroll": "payroll",
+      "hr-attendance": "attendance",
+      "fin-invoices": "invoices",
+      "fin-expenses": "expenses",
+      "fin-reports": "fin_reports",
+      "trade-shipments": "shipments",
+      "trade-containers": "containers",
+      "trade-ports": "ports",
+      "trade-vessels": "vessels",
+      "trade-clearance": "customs",
+    };
+
+    const key = keyMap[item.id] || item.id;
+    return t(`navigation.items.${key}`, item.label);
   };
 
   const handleResizeStart = (e: React.MouseEvent) => {
@@ -122,7 +151,7 @@ export function SidebarNav() {
                 exit={{ opacity: 0, x: -10 }}
                 className="font-bold text-sm truncate tracking-tight"
               >
-                CEO PORTAL
+                {t("navigation.portal_name")}
               </motion.span>
             )}
           </AnimatePresence>
@@ -156,10 +185,10 @@ export function SidebarNav() {
                   <span className="text-xs font-semibold truncate w-full text-left">
                     {selectedCompany?.name ||
                       roleInfo?.company_name ||
-                      "Select Company"}
+                      t("navigation.select_company")}
                   </span>
                   <span className="text-[10px] text-muted-foreground truncate">
-                    {selectedCompany?.type || "Enterprise"}
+                    {selectedCompany?.type || t("navigation.enterprise")}
                   </span>
                 </div>
                 {availableCompanies.length > 0 && (
@@ -238,7 +267,7 @@ export function SidebarNav() {
                     value={sidebarSearchQuery}
                     onChange={setSidebarSearchQuery}
                     companyId={selectedCompany?.id}
-                    placeholder="Search Intelligent..."
+                    placeholder={t("common.search_placeholder")}
                     className="w-full"
                     inputClassName="h-6 text-sm"
                     iconClassName="hidden"
@@ -253,7 +282,7 @@ export function SidebarNav() {
             <Link
               href="/onboarding"
               className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity shadow-lg shadow-primary/20 flex items-center justify-center shrink-0 border border-primary/50"
-              title="Add New Company"
+              title={t("navigation.add_company")}
             >
               <Plus className="w-4 h-4 text-emerald-100" />
             </Link>
@@ -287,7 +316,10 @@ export function SidebarNav() {
                 onClick={(e) => {
                   if (isLocked) {
                     e.preventDefault();
-                    setUpgradeModal({ isOpen: true, moduleName: item.label });
+                    setUpgradeModal({
+                      isOpen: true,
+                      moduleName: getNavLabel(item),
+                    });
                     return;
                   }
                   if (hasSubItems && leftSidebarOpen) {
@@ -317,7 +349,7 @@ export function SidebarNav() {
                         exit={{ opacity: 0, x: -10 }}
                         className="truncate"
                       >
-                        {item.label}
+                        {getNavLabel(item)}
                       </motion.span>
                     )}
                   </AnimatePresence>
@@ -372,7 +404,7 @@ export function SidebarNav() {
                             )}
                           />
                         ) : null}
-                        {sub.label}
+                        {getNavLabel(sub)}
                       </Link>
                     ))}
                   </motion.div>
@@ -411,8 +443,8 @@ export function SidebarNav() {
                 </p>
                 <p className="text-[10px] text-muted-foreground truncate uppercase tracking-widest font-medium">
                   {roleInfo?.user_type === "super_admin"
-                    ? "Super Admin"
-                    : roleInfo?.role_name || "Company User"}
+                    ? t("common.super_admin")
+                    : roleInfo?.role_name || t("common.company_user")}
                 </p>
               </motion.div>
             )}
@@ -421,7 +453,7 @@ export function SidebarNav() {
             <button
               onClick={() => logout()}
               className="p-1.5 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors border border-transparent hover:border-red-100"
-              title="Logout"
+              title={t("common.logout")}
             >
               <LogOut className="w-4 h-4" />
             </button>

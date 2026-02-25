@@ -46,15 +46,15 @@ export type { VirtualColumn };
 declare module "@tanstack/react-table" {
   interface ColumnMeta<TData extends RowData, TValue> {
     type?:
-      | "text"
-      | "number"
-      | "date"
-      | "datetime"
-      | "select"
-      | "boolean"
-      | "json"
-      | "currency"
-      | "status";
+    | "text"
+    | "number"
+    | "date"
+    | "datetime"
+    | "select"
+    | "boolean"
+    | "json"
+    | "currency"
+    | "status";
     options?: { label: string; value: string | number }[];
     optionsByType?: Record<string, { label: string; value: string | number }[]>;
     optionsSourceKey?: string;
@@ -214,18 +214,18 @@ export function EditableTable<
         ? parsedOptions.length
           ? parsedOptions
           : defaultCurrencyOptions.map((e) => ({
-              label: String(e.value).toUpperCase(),
-              value: String(e.value).toUpperCase(),
-            }))
+            label: String(e.value).toUpperCase(),
+            value: String(e.value).toUpperCase(),
+          }))
         : newColType === "status"
           ? parsedOptions.length
             ? parsedOptions
             : [
-                { label: "Pending", value: "Pending" },
-                { label: "In Progress", value: "In Progress" },
-                { label: "Done", value: "Done" },
-                { label: "Cancelled", value: "Cancelled" },
-              ]
+              { label: "Pending", value: "Pending" },
+              { label: "In Progress", value: "In Progress" },
+              { label: "Done", value: "Done" },
+              { label: "Cancelled", value: "Cancelled" },
+            ]
           : newColType === "select"
             ? parsedOptions
             : undefined;
@@ -398,7 +398,7 @@ export function EditableTable<
       const source = col.meta?.optionsSourceKey;
       const key = String(
         col.id ??
-          (((col as { accessorKey?: unknown }).accessorKey as string) || ""),
+        (((col as { accessorKey?: unknown }).accessorKey as string) || ""),
       );
       if (source && key) {
         map[source] = map[source] || [];
@@ -570,9 +570,9 @@ export function EditableTable<
             id: row.id,
             label: String(
               (row as any).name ??
-                (row as any).subject ??
-                (row as any).title ??
-                "this row",
+              (row as any).subject ??
+              (row as any).title ??
+              "this row",
             ),
           });
         }}

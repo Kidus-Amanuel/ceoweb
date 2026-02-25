@@ -299,7 +299,7 @@ export const NAV_CONFIG: NavItem[] = [
     label: "Settings",
     icon: Settings,
     iconClassName: "text-slate-500",
-    href: "/settings",
+    href: "/coming-soon",
     roles: ["super_admin", "company_user"],
   },
 ];
