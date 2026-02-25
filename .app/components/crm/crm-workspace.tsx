@@ -32,7 +32,7 @@ import {
   getCrmTablesAction,
   updateCrmCustomFieldAction,
   updateCrmRowAction,
-} from "@/app/actions/crm";
+} from "@/app/api/crm/crm";
 
 type CrmDataTable = "customers" | "deals" | "activities";
 type CrmTable = CrmDataTable | "reports";
