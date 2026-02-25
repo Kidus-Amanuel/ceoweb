@@ -22,6 +22,7 @@ export const PUBLIC_ROUTES = [
   "/forgot-password",
   "/reset-password",
   "/api/auth",
+  "/api/webhooks",
   "/coming-soon",
 ] as const;
 
@@ -49,6 +50,7 @@ export const COMPANY_USER_ROUTES = [
   "/inventory",
   "/fleet",
   "/finance",
+  "/api/fleet",
 ] as const;
 
 // ─── Guards ───────────────────────────────────────────────────────────────────
