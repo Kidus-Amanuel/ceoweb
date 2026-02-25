@@ -33,29 +33,6 @@ const zodErrorToText = (error: z.ZodError) =>
     .map((i) => `${i.path.join(".") || "root"}: ${i.message}`)
     .join(" | ");
 
-const normalizeLegacyTableName = (table: unknown) => {
-  if (table === "crm_customers") return "customers";
-  if (table === "crm_deals") return "deals";
-  if (table === "crm_activities") return "activities";
-  return table;
-};
-
-const normalizeLegacyCrmInput = (input: unknown) => {
-  if (!input || typeof input !== "object") {
-    return input;
-  }
-
-  const parsed = input as Record<string, unknown>;
-  if (!Object.prototype.hasOwnProperty.call(parsed, "table")) {
-    return input;
-  }
-
-  return {
-    ...parsed,
-    table: normalizeLegacyTableName(parsed.table),
-  };
-};
-
 async function getAuthContext(
   companyId: string,
 ): Promise<ActionResult<AuthContext>> {
@@ -137,9 +114,7 @@ export async function getCrmTableViewAction(input: unknown): Promise<
     columnDefinitions: Record<string, unknown>[];
   }>
 > {
-  const parsed = crmTableViewInputSchema.safeParse(
-    normalizeLegacyCrmInput(input),
-  );
+  const parsed = crmTableViewInputSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, error: zodErrorToText(parsed.error) };
   }
@@ -351,9 +326,7 @@ export async function deleteCrmCustomFieldAction(
 export async function createCrmRowAction(
   input: unknown,
 ): Promise<ActionResult<Record<string, unknown>>> {
-  const parsed = crmCreateRowInputSchema.safeParse(
-    normalizeLegacyCrmInput(input),
-  );
+  const parsed = crmCreateRowInputSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, error: zodErrorToText(parsed.error) };
   }
@@ -380,9 +353,7 @@ export async function createCrmRowAction(
 export async function updateCrmRowAction(
   input: unknown,
 ): Promise<ActionResult<Record<string, unknown>>> {
-  const parsed = crmUpdateRowInputSchema.safeParse(
-    normalizeLegacyCrmInput(input),
-  );
+  const parsed = crmUpdateRowInputSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, error: zodErrorToText(parsed.error) };
   }
@@ -410,9 +381,7 @@ export async function updateCrmRowAction(
 export async function deleteCrmRowAction(
   input: unknown,
 ): Promise<ActionResult<null>> {
-  const parsed = crmDeleteRowInputSchema.safeParse(
-    normalizeLegacyCrmInput(input),
-  );
+  const parsed = crmDeleteRowInputSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, error: zodErrorToText(parsed.error) };
   }
