@@ -29,12 +29,10 @@ export function SidebarNav() {
     leftSidebarWidth,
     toggleLeftSidebar,
     setLeftSidebarWidth,
-    currentModule,
-    setCurrentModule,
   } = useLayoutStore();
 
   const { logout, roleInfo, user: supabaseUser } = useUser();
-  const navItems = useNavigation();
+  const navItems = useNavigation() as NavItem[];
   const { availableCompanies, selectedCompany, setSelectedCompany, isLoading } =
     useCompanies();
   const pathname = usePathname();
@@ -91,13 +89,6 @@ export function SidebarNav() {
   };
 
   const isSuperAdmin = roleInfo?.user_type === "super_admin";
-  const activeItemId =
-    navItems
-      .filter(
-        (item) =>
-          pathname === item.href || pathname.startsWith(`${item.href}/`),
-      )
-      .sort((a, b) => b.href.length - a.href.length)[0]?.id ?? currentModule;
 
   return (
     <motion.aside
@@ -271,12 +262,14 @@ export function SidebarNav() {
       </div>
 
       <nav className="flex-1 px-2 py-4 space-y-1.5 overflow-y-auto custom-scrollbar">
-        {navItems.map((item: any) => {
+        {navItems.map((item: NavItem) => {
           const Icon = item.icon;
           const isActive =
-            currentModule === item.id || pathname.startsWith(item.href);
+            pathname === item.href || pathname.startsWith(`${item.href}/`);
           const hasSubItems = !!item.subItems?.length;
-          const isExpanded = expandedItems.includes(item.id);
+          const isExpanded =
+            expandedItems.includes(item.id) ||
+            !!item.subItems?.some((sub) => pathname === sub.href);
           const inPlan = isModuleInPlan(item.module);
           const isLocked = !inPlan && isSuperAdmin;
 
@@ -299,8 +292,6 @@ export function SidebarNav() {
                   }
                   if (hasSubItems && leftSidebarOpen) {
                     toggleExpand(item.id);
-                  } else {
-                    setCurrentModule(item.id as any);
                   }
                 }}
               >
@@ -314,6 +305,7 @@ export function SidebarNav() {
                   <Icon
                     className={cn(
                       "w-4 h-4 shrink-0 transition-transform group-hover:scale-110",
+                      item.iconClassName ?? "text-muted-foreground",
                       isActive && "text-primary",
                     )}
                   />
@@ -366,12 +358,20 @@ export function SidebarNav() {
                         key={sub.id}
                         href={sub.href}
                         className={cn(
-                          "block py-2 px-3 text-xs rounded-lg transition-colors",
+                          "flex items-center gap-2 py-2 px-3 text-xs rounded-lg transition-colors",
                           pathname === sub.href
                             ? "text-primary font-semibold bg-primary/5"
                             : "text-muted-foreground hover:text-foreground hover:bg-background/50",
                         )}
                       >
+                        {sub.icon ? (
+                          <sub.icon
+                            className={cn(
+                              "w-3.5 h-3.5 shrink-0",
+                              sub.iconClassName ?? "text-muted-foreground",
+                            )}
+                          />
+                        ) : null}
                         {sub.label}
                       </Link>
                     ))}
