@@ -12,7 +12,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { Search, Loader2 } from "lucide-react";
-import { getGlobalSearchResultsAction } from "@/app/actions/crm";
+import { getGlobalSearchResultsAction } from "@/app/api/crm/crm";
 import { Input } from "@/components/shared/ui/input/Input";
 import { cn } from "@/lib/utils";
 
