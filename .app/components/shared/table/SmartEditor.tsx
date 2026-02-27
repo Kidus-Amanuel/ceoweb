@@ -10,6 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/ui/select/Select";
+import { cn } from "@/lib/utils";
+import {
+  defaultCurrencyOptions,
+  findSelectOptionIndex,
+  getSemanticOptionTone,
+} from "@/utils/table-utils";
 
 export interface SmartEditorProps {
   value: any;
@@ -21,14 +27,6 @@ export interface SmartEditorProps {
   isAddMode?: boolean;
   inputRef?: RefObject<HTMLInputElement | null>;
 }
-
-export const defaultCurrencyOptions = [
-  { label: "USD", value: "USD" },
-  { label: "EUR", value: "EUR" },
-  { label: "GBP", value: "GBP" },
-  { label: "JPY", value: "JPY" },
-  { label: "PHP", value: "PHP" },
-];
 
 export const parseDateTimeParts = (
   value: unknown,
@@ -74,17 +72,25 @@ export const SmartEditor = ({
       <div className="flex items-center h-full px-1">
         <Checkbox
           checked={!!value}
-          onCheckedChange={(checked) => {
-            const next = checked === true;
-            onChange(next);
-            if (!isAddMode) onCommit?.(next);
+          onCheckedChange={(c) => {
+            onChange(c === true);
+            if (!isAddMode) onCommit?.(c === true);
           }}
         />
       </div>
     );
   }
 
-  if (type === "select") {
+  if (type === "select" || type === "status") {
+    const options = Array.isArray(meta?.options) ? meta.options : [];
+    const selectedOption = options.find(
+      (o: any) =>
+        String(o.value).toLowerCase() ===
+        String(value ?? "")
+          .trim()
+          .toLowerCase(),
+    );
+    const selectedIndex = findSelectOptionIndex(options, value);
     return (
       <Select
         value={String(value ?? "")}
@@ -94,16 +100,37 @@ export const SmartEditor = ({
         }}
       >
         <SelectTrigger className={baseSelectTriggerClass}>
-          <SelectValue placeholder={placeholder || "Select..."} />
+          {selectedOption ? (
+            <span
+              className={cn(
+                "inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold",
+                getSemanticOptionTone(selectedOption.label, selectedIndex),
+              )}
+            >
+              {selectedOption.label}
+            </span>
+          ) : (
+            <SelectValue placeholder={placeholder || "Select..."} />
+          )}
         </SelectTrigger>
         <SelectContent className={selectContentClass}>
-          {(meta?.options ?? []).map((option: any) => (
+          {options.map((o: any) => (
             <SelectItem
               className={selectItemClass}
-              key={String(option.value)}
-              value={String(option.value)}
+              key={String(o.value)}
+              value={String(o.value)}
             >
-              {option.label}
+              <span
+                className={cn(
+                  "inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold",
+                  getSemanticOptionTone(
+                    o.label,
+                    findSelectOptionIndex(options, o.value),
+                  ),
+                )}
+              >
+                {o.label}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>
@@ -121,11 +148,11 @@ export const SmartEditor = ({
             ? JSON.stringify(value)
             : (value ?? "")
         }
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         onBlur={() => !isAddMode && onCommit?.()}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") onCommit?.();
-          if (event.key === "Escape") onCancel?.();
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onCommit?.();
+          if (e.key === "Escape") onCancel?.();
         }}
         className={`${baseInputClass} font-mono text-[11px]`}
       />
@@ -140,74 +167,91 @@ export const SmartEditor = ({
     const current =
       value && typeof value === "object" && !Array.isArray(value)
         ? (value as { amount?: unknown; currency?: unknown })
-        : { amount: value, currency: options[0]?.value ?? "USD" };
+        : { amount: value, currency: undefined };
     const currentCurrency = String(
-      current.currency ?? options[0]?.value ?? "USD",
+      current.currency ?? options[0]?.value ?? "ETB",
     );
     const currentAmount =
       current.amount === null || current.amount === undefined
         ? ""
         : String(current.amount);
 
+    const handleCurrencyCommit = () => {
+      if (!isAddMode)
+        onCommit?.({
+          amount: currentAmount === "" ? null : Number(currentAmount),
+          currency: currentCurrency,
+        });
+    };
+
     return (
       <div
-        className={
-          isAddMode
-            ? "grid w-full grid-cols-[minmax(0,1fr)_120px] gap-2"
-            : "grid w-full grid-cols-[minmax(0,1fr)_120px] items-center gap-2"
-        }
+        className={cn(
+          "grid w-full grid-cols-[minmax(0,1fr)_120px] gap-2",
+          !isAddMode && "items-center",
+        )}
       >
         <Input
           ref={!isAddMode && inputRef ? inputRef : undefined}
           type="number"
           placeholder="Amount"
           value={currentAmount}
-          onChange={(event) => {
-            const amount =
-              event.target.value === "" ? null : Number(event.target.value);
+          onChange={(e) => {
+            const amt = e.target.value === "" ? null : Number(e.target.value);
             onChange({
-              amount:
-                event.target.value === "" || Number.isNaN(amount)
-                  ? null
-                  : amount,
+              amount: Number.isNaN(amt) ? null : amt,
               currency: currentCurrency,
             });
           }}
-          onBlur={() => {
-            if (isAddMode) return;
-            const amount = currentAmount === "" ? null : Number(currentAmount);
-            onCommit?.({
-              amount:
-                currentAmount === "" || Number.isNaN(amount) ? null : amount,
-              currency: currentCurrency,
-            });
-          }}
+          onBlur={handleCurrencyCommit}
           className={baseInputClass}
         />
         <Select
           value={currentCurrency}
-          onValueChange={(nextCurrency) => {
-            const amount = currentAmount === "" ? null : Number(currentAmount);
-            const nextValue = {
-              amount:
-                currentAmount === "" || Number.isNaN(amount) ? null : amount,
-              currency: nextCurrency,
+          onValueChange={(c) => {
+            const amt = currentAmount === "" ? null : Number(currentAmount);
+            const next = {
+              amount: Number.isNaN(amt) ? null : amt,
+              currency: c,
             };
-            onChange(nextValue);
-            if (!isAddMode) onCommit?.(nextValue);
+            onChange(next);
+            if (!isAddMode) onCommit?.(next);
           }}
         >
-          <SelectTrigger className={baseSelectTriggerClass}>
-            <SelectValue />
+          <SelectTrigger
+            className={baseSelectTriggerClass}
+            onBlur={handleCurrencyCommit}
+          >
+            <span
+              className={cn(
+                "inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold",
+                getSemanticOptionTone(
+                  currentCurrency,
+                  findSelectOptionIndex(options, currentCurrency),
+                ),
+              )}
+            >
+              {currentCurrency}
+            </span>
           </SelectTrigger>
           <SelectContent className={selectContentClass}>
-            {options.map((option: any) => (
+            {options.map((o: any) => (
               <SelectItem
                 className={selectItemClass}
-                key={String(option.value)}
-                value={String(option.value)}
+                key={String(o.value)}
+                value={String(o.value)}
               >
-                {option.label}
+                <span
+                  className={cn(
+                    "inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold",
+                    getSemanticOptionTone(
+                      o.label,
+                      findSelectOptionIndex(options, o.value),
+                    ),
+                  )}
+                >
+                  {o.label}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -223,8 +267,8 @@ export const SmartEditor = ({
         <Input
           type="date"
           value={parts.date}
-          onChange={(event) =>
-            onChange(buildDateTimeValue(event.target.value, parts.time))
+          onChange={(e) =>
+            onChange(buildDateTimeValue(e.target.value, parts.time))
           }
           onBlur={() => !isAddMode && onCommit?.()}
           className={baseInputClass}
@@ -232,8 +276,8 @@ export const SmartEditor = ({
         <Input
           type="time"
           value={parts.time}
-          onChange={(event) =>
-            onChange(buildDateTimeValue(parts.date, event.target.value))
+          onChange={(e) =>
+            onChange(buildDateTimeValue(parts.date, e.target.value))
           }
           onBlur={() => !isAddMode && onCommit?.()}
           className={baseInputClass}
@@ -242,40 +286,54 @@ export const SmartEditor = ({
     );
   }
 
-  if (type === "text") {
+  if (type === "date")
+    return (
+      <Input
+        ref={!isAddMode && inputRef ? inputRef : undefined}
+        type="date"
+        placeholder={placeholder}
+        value={String(value ?? "")}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => !isAddMode && onCommit?.()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onCommit?.();
+          if (e.key === "Escape") onCancel?.();
+        }}
+        className={baseInputClass}
+      />
+    );
+  if (type === "text")
     return (
       <textarea
         placeholder={placeholder}
         value={String(value ?? "")}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         onBlur={() => !isAddMode && onCommit?.()}
-        onKeyDown={(event) => {
-          if ((event.ctrlKey || event.metaKey) && event.key === "Enter")
-            onCommit?.();
-          if (event.key === "Escape") onCancel?.();
+        onKeyDown={(e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") onCommit?.();
+          if (e.key === "Escape") onCancel?.();
         }}
         className="min-h-[72px] w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm leading-5 shadow-none focus:outline-none focus:ring-1 focus:ring-blue-500"
       />
     );
-  }
 
   return (
     <Input
       ref={!isAddMode && inputRef ? inputRef : undefined}
-      type={type === "number" ? "number" : type === "date" ? "date" : "text"}
+      type={type === "number" ? "number" : "text"}
       placeholder={placeholder}
       value={value ?? ""}
-      onChange={(event) => {
+      onChange={(e) => {
         if (type === "number")
           return onChange(
-            event.target.value === "" ? null : Number(event.target.value),
+            e.target.value === "" ? null : Number(e.target.value),
           );
-        onChange(event.target.value);
+        onChange(e.target.value);
       }}
       onBlur={() => !isAddMode && onCommit?.()}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") onCommit?.();
-        if (event.key === "Escape") onCancel?.();
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onCommit?.();
+        if (e.key === "Escape") onCancel?.();
       }}
       className={baseInputClass}
     />
