@@ -4,6 +4,7 @@ import { useState } from "react";
 import { SidebarNav } from "./sidebar-nav";
 import { DashboardHeader } from "./dashboard-header";
 import { ChatbarNav } from "./chatbar-nav";
+import { DashboardBreadcrumbs } from "./dashboard-breadcrumbs";
 import { cn } from "@/lib/utils";
 import { useLayoutStore } from "@/store/layout-store";
 import { Bot, Sparkles } from "lucide-react";
@@ -57,6 +58,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/20 custom-scrollbar">
           <div className="mx-auto w-full p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="mb-5">
+              <DashboardBreadcrumbs />
+            </div>
             {children}
           </div>
         </main>
