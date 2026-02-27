@@ -97,6 +97,7 @@ export const crmActivityStandardSchema = z.object({
     emptyToUndefined,
     crmActivityTypeSchema.optional().default("task"),
   ),
+  status: optionalInput(z.string().max(120)),
   subject: optionalInput(z.string().max(255)),
   notes: optionalInput(z.string().max(5000)),
   due_date: optionalNullableDateTimeInput,
@@ -111,7 +112,8 @@ export const crmActivityStandardSchema = z.object({
 export const crmTableViewInputSchema = crmCompanyScopeSchema.extend({
   table: crmTableSchema,
   page: z.coerce.number().int().positive().optional().default(1),
-  pageSize: z.coerce.number().int().positive().optional().default(50),
+  pageSize: z.coerce.number().int().positive().max(200).optional().default(50),
+  search: optionalInput(z.string().max(120)),
 });
 
 export const crmCreateCustomFieldInputSchema = crmCompanyScopeSchema.extend({
