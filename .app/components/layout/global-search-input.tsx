@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   RefObject,
   useCallback,
@@ -10,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Search, Loader2 } from "lucide-react";
 import { getGlobalSearchResultsAction } from "@/app/api/crm/crm";
@@ -45,8 +45,10 @@ export function GlobalSearchInput({
   iconClassName,
   inputRef,
 }: Props) {
+  const router = useRouter();
   const instanceId = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<GlobalHit[]>([]);
   const [open, setOpen] = useState(false);
@@ -93,6 +95,21 @@ export function GlobalSearchInput({
   }, [open, updatePanelRect]);
 
   useEffect(() => {
+    if (!open) return;
+    const onOutsidePointer = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      const isInsideInput = !!(target && rootRef.current?.contains(target));
+      const isInsidePanel = !!(target && panelRef.current?.contains(target));
+      if (isInsideInput || isInsidePanel) return;
+      setOpen(false);
+      setResults([]);
+      onChange("");
+    };
+    document.addEventListener("mousedown", onOutsidePointer);
+    return () => document.removeEventListener("mousedown", onOutsidePointer);
+  }, [onChange, open]);
+
+  useEffect(() => {
     const query = value.trim();
     if (!query) return;
 
@@ -129,7 +146,7 @@ export function GlobalSearchInput({
 
   return (
     <div ref={rootRef} className={cn("relative", className)}>
-      <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-2">
+      <div className="flex items-center gap-2 rounded-xl border border-[#BEC9DD] bg-background px-2">
         <Search
           className={cn("h-4 w-4 text-blue-500 shrink-0", iconClassName)}
         />
@@ -138,7 +155,13 @@ export function GlobalSearchInput({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onFocus={() => value.trim() && openPanel()}
-          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          onBlur={() =>
+            setTimeout(() => {
+              setOpen(false);
+              setResults([]);
+              onChange("");
+            }, 120)
+          }
           placeholder={placeholder}
           className={cn(
             "h-9 border-0 bg-transparent shadow-none focus-visible:ring-0 px-0",
@@ -150,6 +173,7 @@ export function GlobalSearchInput({
       {showResults && canPortal
         ? createPortal(
             <div
+              ref={panelRef}
               className="fixed z-[99999] rounded-xl border-2 border-border bg-background shadow-2xl p-2 max-h-[420px] overflow-auto"
               style={{
                 top: panelRect.top,
@@ -173,11 +197,17 @@ export function GlobalSearchInput({
                       {category}
                     </p>
                     {hits.map((hit) => (
-                      <Link
+                      <button
                         key={hit.id}
-                        href={hit.href}
-                        onClick={() => setOpen(false)}
-                        className="block rounded-lg px-2 py-2 hover:bg-muted/60 transition-colors border border-transparent hover:border-border/60"
+                        type="button"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          setOpen(false);
+                          setResults([]);
+                          onChange("");
+                          router.push(hit.href);
+                        }}
+                        className="block w-full text-left rounded-lg px-2 py-2 hover:bg-muted/60 transition-colors border border-transparent hover:border-border/60"
                       >
                         <p className="text-sm font-medium text-foreground truncate">
                           {hit.title}
@@ -187,7 +217,7 @@ export function GlobalSearchInput({
                             {hit.subtitle}
                           </p>
                         ) : null}
-                      </Link>
+                      </button>
                     ))}
                   </div>
                 ))
