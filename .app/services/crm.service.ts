@@ -29,6 +29,7 @@ type ListRowsParams = {
   companyId: string;
   page: number;
   pageSize: number;
+  search?: string;
 };
 
 type UpsertRowParams = {
@@ -40,6 +41,12 @@ type UpsertRowParams = {
 };
 
 type SelectOption = { label: string; value: string };
+type SelectListParams = {
+  supabase: SupabaseClient;
+  companyId: string;
+  page?: number;
+  pageSize?: number;
+};
 
 type CustomFieldPayload = {
   entityType: CrmEntityType;
@@ -69,6 +76,22 @@ type ColumnDefinition = {
 };
 
 type CrmMetadata = Partial<Record<CrmEntityType, ColumnDefinition[]>>;
+const MAX_TABLE_PAGE_SIZE = 200;
+const MAX_SELECT_PAGE_SIZE = 500;
+
+const buildPagedRange = (
+  page: number,
+  pageSize: number,
+  maxPageSize: number,
+) => {
+  const safePage = Number.isFinite(page) ? Math.max(1, Math.trunc(page)) : 1;
+  const safePageSize = Number.isFinite(pageSize)
+    ? Math.min(maxPageSize, Math.max(1, Math.trunc(pageSize)))
+    : maxPageSize;
+  const from = (safePage - 1) * safePageSize;
+  const to = from + safePageSize - 1;
+  return { from, to, safePage, safePageSize };
+};
 
 const toSnakeCase = (value: string) =>
   value
@@ -113,6 +136,7 @@ const mapActivityStandard = (input: Record<string, unknown>) => ({
   related_type: pickMappedValue(input, "relatedType", "related_type"),
   related_id: pickMappedValue(input, "relatedId", "related_id"),
   activity_type: pickMappedValue(input, "activityType", "activity_type"),
+  status: pickMappedValue(input, "status", "status"),
   subject: input.subject,
   notes: input.notes,
   due_date: pickMappedValue(input, "dueDate", "due_date"),
@@ -138,6 +162,87 @@ const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+
+const dealStageValues = [
+  "lead",
+  "qualified",
+  "proposal",
+  "negotiation",
+  "closed_won",
+  "closed_lost",
+] as const;
+
+const normalizeSearchToken = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+
+const getMatchingDealStages = (searchTerm: string) => {
+  const token = normalizeSearchToken(searchTerm);
+  if (!token) return [] as string[];
+  return dealStageValues.filter((stage) => {
+    const stageToken = stage.replace(/_/g, "");
+    return stageToken.includes(token) || token.includes(stageToken);
+  });
+};
+
+const normalizeOptionValues = (
+  fieldType: CustomFieldPayload["fieldType"],
+  values: string[] | undefined,
+) => {
+  const normalized = (values ?? [])
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => (fieldType === "currency" ? value.toUpperCase() : value));
+  const seen = new Set<string>();
+  return normalized.filter((value) => {
+    const key = value.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const hasMeaningfulValue = (value: unknown): boolean => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (typeof value === "number") return !Number.isNaN(value);
+  if (typeof value === "boolean") return true;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    if ("amount" in obj || "currency" in obj) {
+      const amount = obj.amount;
+      const currency = String(obj.currency ?? "").trim();
+      return (
+        (amount !== null &&
+          amount !== undefined &&
+          String(amount).trim() !== "") ||
+        currency.length > 0
+      );
+    }
+    return Object.keys(obj).length > 0;
+  }
+  return false;
+};
+
+const getUsedOptionValue = (
+  fieldType: CustomFieldPayload["fieldType"],
+  value: unknown,
+): string | null => {
+  if (!hasMeaningfulValue(value)) return null;
+  if (fieldType === "currency") {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const currency = String((value as Record<string, unknown>).currency ?? "")
+        .trim()
+        .toUpperCase();
+      return currency || null;
+    }
+    return null;
+  }
+  return String(value).trim();
+};
 
 const titleCase = (value: string) =>
   value
@@ -326,17 +431,126 @@ export const crmService = {
     companyId,
     page,
     pageSize,
+    search,
   }: ListRowsParams): Promise<
     ServiceResult<{ data: Record<string, unknown>[]; count: number }>
   > {
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    const { from, to } = buildPagedRange(page, pageSize, MAX_TABLE_PAGE_SIZE);
+    const searchTerm = search?.trim();
+    if (!searchTerm) {
+      const { data, error, count } = await supabase
+        .from(table)
+        .select("*", { count: "exact" })
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { data: { data: data ?? [], count: count ?? 0 } };
+    }
+
+    const q = `%${searchTerm}%`;
+    if (table === "customers") {
+      const { data, error, count } = await supabase
+        .from("customers")
+        .select("*", { count: "exact" })
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .or(`name.ilike.${q},email.ilike.${q},phone.ilike.${q}`)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { data: { data: data ?? [], count: count ?? 0 } };
+    }
+
+    const { data: matchedCustomers, error: matchedCustomersError } =
+      await supabase
+        .from("customers")
+        .select("id")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .or(`name.ilike.${q},email.ilike.${q},phone.ilike.${q}`)
+        .limit(500);
+
+    if (matchedCustomersError) {
+      return { error: matchedCustomersError.message };
+    }
+
+    const customerIds = (matchedCustomers ?? []).map((row) => row.id);
+    const stageMatches = getMatchingDealStages(searchTerm);
+
+    if (table === "deals") {
+      const orParts = [`title.ilike.${q}`, `description.ilike.${q}`];
+      if (customerIds.length) {
+        orParts.push(`customer_id.in.(${customerIds.join(",")})`);
+      }
+      stageMatches.forEach((stage) => orParts.push(`stage.eq.${stage}`));
+
+      const { data, error, count } = await supabase
+        .from("deals")
+        .select("*", { count: "exact" })
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .or(orParts.join(","))
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { data: { data: data ?? [], count: count ?? 0 } };
+    }
+
+    const dealSearchParts = [`title.ilike.${q}`, `description.ilike.${q}`];
+    if (customerIds.length) {
+      dealSearchParts.push(`customer_id.in.(${customerIds.join(",")})`);
+    }
+    stageMatches.forEach((stage) => dealSearchParts.push(`stage.eq.${stage}`));
+
+    const { data: matchedDeals, error: matchedDealsError } = await supabase
+      .from("deals")
+      .select("id")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .or(dealSearchParts.join(","))
+      .limit(500);
+
+    if (matchedDealsError) {
+      return { error: matchedDealsError.message };
+    }
+
+    const dealIds = (matchedDeals ?? []).map((row) => row.id);
+    const activityOrParts = [
+      `subject.ilike.${q}`,
+      `notes.ilike.${q}`,
+      `activity_type.ilike.${q}`,
+    ];
+    if (customerIds.length) {
+      activityOrParts.push(
+        `and(related_type.eq.customer,related_id.in.(${customerIds.join(",")}))`,
+      );
+    }
+    if (dealIds.length) {
+      activityOrParts.push(
+        `and(related_type.eq.deal,related_id.in.(${dealIds.join(",")}))`,
+      );
+    }
 
     const { data, error, count } = await supabase
-      .from(table)
+      .from("activities")
       .select("*", { count: "exact" })
       .eq("company_id", companyId)
       .is("deleted_at", null)
+      .or(activityOrParts.join(","))
       .order("created_at", { ascending: false })
       .range(from, to);
 
@@ -365,7 +579,7 @@ export const crmService = {
       .insert({
         company_id: companyId,
         ...sanitizedStandardData,
-        ...(payload.table === "customers" && payload.customData !== undefined
+        ...(payload.customData !== undefined
           ? { custom_fields: payload.customData }
           : {}),
       })
@@ -417,12 +631,19 @@ export const crmService = {
       }
     }
 
-    const updatePayload = withoutUndefined({
+    let updatePayload = withoutUndefined({
       ...standardData,
       ...(mergedCustomFields !== undefined
         ? { custom_fields: mergedCustomFields }
         : {}),
     });
+
+    if (Object.keys(updatePayload).length === 0) {
+      // Avoid PostgREST single() coercion errors on no-op updates.
+      updatePayload = {
+        updated_at: new Date().toISOString(),
+      };
+    }
 
     const { data, error } = await supabase
       .from(payload.table)
@@ -754,7 +975,10 @@ export const crmService = {
         field_type: payload.fieldType,
         field_options:
           payload.fieldType === "select" || payload.fieldType === "currency"
-            ? (payload.fieldOptions ?? [])
+            ? normalizeOptionValues(
+                payload.fieldType,
+                payload.fieldOptions ?? [],
+              )
             : null,
         is_required: payload.isRequired ?? false,
         is_active: true,
@@ -797,6 +1021,61 @@ export const crmService = {
       return { error: "Custom field definition was not found." };
     }
 
+    const isTypeChange = existing.field_type !== payload.fieldType;
+    const optionBasedType =
+      payload.fieldType === "select" || payload.fieldType === "currency";
+    const existingOptions = normalizeOptionValues(
+      payload.fieldType,
+      existing.field_options ?? [],
+    );
+    const incomingOptions = optionBasedType
+      ? normalizeOptionValues(payload.fieldType, payload.fieldOptions ?? [])
+      : [];
+
+    const { data: rowsWithCustomFields, error: rowsError } = await supabase
+      .from(payload.entityType)
+      .select("custom_fields")
+      .eq("company_id", companyId)
+      .is("deleted_at", null);
+
+    if (rowsError) {
+      return { error: rowsError.message };
+    }
+
+    const usedValues = new Set<string>();
+    const hasAnyValue = (rowsWithCustomFields ?? []).some((row) => {
+      const fieldValue = asRecord(row.custom_fields)[existing.field_name];
+      const used = getUsedOptionValue(payload.fieldType, fieldValue);
+      if (used) usedValues.add(used.toLowerCase());
+      return hasMeaningfulValue(fieldValue);
+    });
+
+    if (isTypeChange && hasAnyValue) {
+      return {
+        error:
+          "Cannot change this column data type because existing row values are present.",
+      };
+    }
+
+    let nextOptions: string[] | null = null;
+    if (optionBasedType) {
+      const requestedOptions =
+        incomingOptions.length > 0 ? incomingOptions : existingOptions;
+      const requestedKeys = new Set(
+        requestedOptions.map((value) => value.toLowerCase()),
+      );
+      const missingUsed = Array.from(usedValues).filter(
+        (value) => !requestedKeys.has(value),
+      );
+      if (missingUsed.length > 0) {
+        return {
+          error:
+            "Cannot remove options already used by existing rows. Add new options instead.",
+        };
+      }
+      nextOptions = requestedOptions;
+    }
+
     const response = await this.saveColumnDefinition({
       supabase,
       companyId,
@@ -807,10 +1086,7 @@ export const crmService = {
         field_name: payload.fieldName || existing.field_name,
         field_label: payload.fieldLabel,
         field_type: payload.fieldType,
-        field_options:
-          payload.fieldType === "select" || payload.fieldType === "currency"
-            ? (payload.fieldOptions ?? [])
-            : null,
+        field_options: nextOptions,
         is_required: payload.isRequired ?? false,
         is_active: true,
       },
@@ -873,15 +1149,19 @@ export const crmService = {
   async listUsersForSelect({
     supabase,
     companyId,
-  }: {
-    supabase: SupabaseClient;
-    companyId: string;
-  }): Promise<ServiceResult<{ label: string; value: string }[]>> {
+    page = 1,
+    pageSize = MAX_SELECT_PAGE_SIZE,
+  }: SelectListParams): Promise<
+    ServiceResult<{ label: string; value: string }[]>
+  > {
+    const { from, to } = buildPagedRange(page, pageSize, MAX_SELECT_PAGE_SIZE);
     const { data, error } = await supabase
       .from("profiles")
       .select("id, full_name, email")
       .eq("company_id", companyId)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .order("full_name", { ascending: true })
+      .range(from, to);
 
     if (error) {
       return { error: error.message };
@@ -909,22 +1189,26 @@ export const crmService = {
   async listCustomersForSelect({
     supabase,
     companyId,
-  }: {
-    supabase: SupabaseClient;
-    companyId: string;
-  }): Promise<ServiceResult<{ label: string; value: string }[]>> {
+    page = 1,
+    pageSize = MAX_SELECT_PAGE_SIZE,
+  }: SelectListParams): Promise<
+    ServiceResult<{ label: string; value: string }[]>
+  > {
+    const { from, to } = buildPagedRange(page, pageSize, MAX_SELECT_PAGE_SIZE);
     const { data, error } = await supabase
       .from("customers")
       .select("id, name")
       .eq("company_id", companyId)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .order("name", { ascending: true })
+      .range(from, to);
 
     if (error) {
       return { error: error.message };
     }
 
     const options =
-      data?.map((customer) => ({
+      (data ?? []).map((customer) => ({
         label: customer.name || "Unnamed Customer",
         value: customer.id,
       })) ?? [];
@@ -935,15 +1219,17 @@ export const crmService = {
   async listDealsForSelect({
     supabase,
     companyId,
-  }: {
-    supabase: SupabaseClient;
-    companyId: string;
-  }): Promise<ServiceResult<SelectOption[]>> {
+    page = 1,
+    pageSize = MAX_SELECT_PAGE_SIZE,
+  }: SelectListParams): Promise<ServiceResult<SelectOption[]>> {
+    const { from, to } = buildPagedRange(page, pageSize, MAX_SELECT_PAGE_SIZE);
     const { data, error } = await supabase
       .from("deals")
       .select("id, title")
       .eq("company_id", companyId)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .order("title", { ascending: true })
+      .range(from, to);
 
     if (error) {
       return { error: error.message };
