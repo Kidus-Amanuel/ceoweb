@@ -127,7 +127,44 @@ export class FleetService {
   }
 
   /**
-   * 4. Assigns a Device to a specific Traccar User
+   * 4. Updates an existing Device in Traccar
+   */
+  public static async updateDevice(deviceId: number, payload: TraccarDevicePayload) {
+    return this.fetchTraccar(`/devices/${deviceId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...payload,
+        id: deviceId,
+      }),
+    });
+  }
+
+  /**
+   * 5. Deletes a Device from Traccar
+   */
+  public static async deleteDevice(deviceId: number) {
+    return this.fetchTraccar(`/devices/${deviceId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * 6. Gets all devices from Traccar (optional filtering)
+   */
+  public static async getDevices(params?: URLSearchParams) {
+    const endpoint = params ? `/devices?${params.toString()}` : '/devices';
+    return this.fetchTraccar(endpoint);
+  }
+
+  /**
+   * 7. Gets latest positions for all devices
+   */
+  public static async getPositions() {
+    return this.fetchTraccar('/positions');
+  }
+
+  /**
+   * 8. Assigns a Device to a specific Traccar User
    */
   public static async assignDeviceToUser(deviceId: number, userId: number) {
     return this.fetchTraccar('/permissions', {
@@ -174,12 +211,12 @@ export class FleetService {
 
   /**
    * Syncs an ERP Vehicle to Traccar.
-   * If not already mapped, creates a device in Traccar and links it.
+   * Resolves existing devices by uniqueId to prevent duplicates.
    */
   public static async syncVehicleToTraccar(vehicleId: string) {
     const supabase = await createClient();
 
-    // 1. Get vehicle and company mapping details
+    // 1. Get vehicle and identifiers
     const { data: vehicle, error: vError } = await supabase
       .from('vehicles')
       .select('*, vehicle_types(name)')
@@ -188,10 +225,22 @@ export class FleetService {
 
     if (vError || !vehicle) throw new Error('Vehicle not found');
 
-    // 2. Ensure Traccar Tenant User exists for this company
+    const gpsId = vehicle.custom_fields?.gps_id;
+    const plate = vehicle.license_plate;
+    
+    // Identifier for Traccar is strictly GPS ID if available, else we can't track it
+    const uniqueId = gpsId || plate;
+    
+    if (!uniqueId) {
+       console.log(`[FleetService] Skipping Traccar sync for vehicle ${vehicleId} (No GPS ID or Plate).`);
+       return null;
+    }
+
+    const traccarName = plate || vehicle.vehicle_number || uniqueId;
     const traccarUserId = await this.getOrCreateTenantMapping(supabase, vehicle.company_id);
 
-    // 2. Check if already mapped
+    // 2. Resolve Mapping or Find existing device in Traccar
+    let traccarDeviceId: number | null = null;
     const { data: deviceMapping } = await supabase
       .from('traccar_device_mappings')
       .select('traccar_device_id')
@@ -199,37 +248,107 @@ export class FleetService {
       .single();
 
     if (deviceMapping) {
-      // Update existing device
-      await this.fetchTraccar(`/devices/${deviceMapping.traccar_device_id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          id: deviceMapping.traccar_device_id,
-          name: vehicle.vehicle_number,
-          uniqueId: vehicle.vin || vehicle.license_plate || vehicle.id,
-        } as TraccarDevicePayload & { id: number }),
-      });
-      return deviceMapping.traccar_device_id;
+      traccarDeviceId = deviceMapping.traccar_device_id;
+    } else {
+      // Try to find by uniqueId in Traccar directly
+      console.log(`[FleetService] No mapping for ${vehicleId}, searching Traccar for uniqueId: ${uniqueId}`);
+      try {
+        const search = await this.getDevices(new URLSearchParams({ uniqueId }));
+        if (Array.isArray(search) && search.length > 0) {
+          traccarDeviceId = search[0].id;
+          console.log(`[FleetService] Found existing device in Traccar by identity: ${traccarDeviceId}`);
+        }
+      } catch (e) {
+        console.warn(`[FleetService] Search failed for ${uniqueId}`);
+      }
     }
 
-    // 3. Create new device
-    const traccarDevice = await this.createDevice({
-      name: vehicle.vehicle_number,
-      uniqueId: vehicle.vin || vehicle.license_plate || vehicle.id,
-    });
+    if (traccarDeviceId) {
+      // Update existing
+      console.log(`[FleetService] Updating Traccar device ${traccarDeviceId} (name: ${traccarName}, uniqueId: ${uniqueId})`);
+      await this.updateDevice(traccarDeviceId, {
+        name: traccarName,
+        uniqueId: uniqueId,
+      });
+    } else {
+      // Create new
+      console.log(`[FleetService] Creating new Traccar device (name: ${traccarName}, uniqueId: ${uniqueId})`);
+      const traccarDevice = await this.createDevice({
+        name: traccarName,
+        uniqueId: uniqueId,
+      });
+      traccarDeviceId = traccarDevice.id;
+    }
 
-    // 4. Link device to company user
-    await this.assignDeviceToUser(traccarDevice.id, traccarUserId);
+    // 3. Ensure permissions and mapping
+    try {
+      await this.assignDeviceToUser(traccarDeviceId!, traccarUserId);
+    } catch (permError) {
+      // ignore if already assigned
+    }
 
-    // 5. Save mapping
-    await supabase.from('traccar_device_mappings').insert({
+    await supabase.from('traccar_device_mappings').upsert({
       company_id: vehicle.company_id,
       erp_vehicle_id: vehicle.id,
-      traccar_device_id: traccarDevice.id,
+      traccar_device_id: traccarDeviceId,
       sync_status: 'synced',
       last_sync_at: new Date().toISOString(),
-    });
+    }, { onConflict: 'erp_vehicle_id' });
 
-    return traccarDevice.id;
+    return traccarDeviceId;
+  }
+
+  /**
+   * Deletes a vehicle mapping and the device in Traccar.
+   * Includes fallback to search by uniqueId if mapping is missing.
+   */
+  public static async deleteVehicleFromTraccar(vehicleId: string) {
+    const supabase = await createClient();
+
+    // 1. Get identifiers from CEO for cleanup search
+    const { data: vehicle } = await supabase.from('vehicles').select('*').eq('id', vehicleId).single();
+    const identifiers = vehicle ? [vehicle.custom_fields?.gps_id, vehicle.license_plate].filter(Boolean) : [];
+
+    // 2. Try mapping first
+    const { data: mapping } = await supabase
+      .from('traccar_device_mappings')
+      .select('traccar_device_id')
+      .eq('erp_vehicle_id', vehicleId)
+      .single();
+
+    let deletedFromTraccar = false;
+
+    if (mapping) {
+      console.log(`[FleetService] Deleting Traccar device by mapping: ${mapping.traccar_device_id}`);
+      try {
+        await this.deleteDevice(mapping.traccar_device_id);
+        deletedFromTraccar = true;
+      } catch (traccarError) {
+        console.warn(`[FleetService] Mapping delete failed, item might be gone or ID changed. Trying identifier search.`);
+      }
+    }
+
+    // 3. Fallback: Search Traccar by known identifiers (GPS ID or Plate)
+    if (!deletedFromTraccar) {
+       for (const uniqueId of identifiers) {
+          try {
+             console.log(`[FleetService] Searching Traccar for uniqueId ${uniqueId} to delete...`);
+             const search = await this.getDevices(new URLSearchParams({ uniqueId }));
+             if (Array.isArray(search) && search.length > 0) {
+                await this.deleteDevice(search[0].id);
+                console.log(`[FleetService] Successfully deleted Traccar device ${search[0].id} found via identifier.`);
+                deletedFromTraccar = true;
+                break;
+             }
+          } catch (e) {
+             // continue
+          }
+       }
+    }
+
+    // 4. Cleanup mapping table
+    await supabase.from('traccar_device_mappings').delete().eq('erp_vehicle_id', vehicleId);
+    console.log(`[FleetService] Finished cleanup for vehicle ${vehicleId}`);
   }
 
   /**
