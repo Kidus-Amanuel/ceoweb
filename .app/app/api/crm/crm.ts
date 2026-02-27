@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -20,6 +20,30 @@ type ActionResult<T> = {
   success: boolean;
   error?: string;
   data?: T;
+};
+
+const dealStageValues = [
+  "lead",
+  "qualified",
+  "proposal",
+  "negotiation",
+  "closed_won",
+  "closed_lost",
+] as const;
+
+const normalizeSearchToken = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+
+const getMatchingDealStages = (searchTerm: string) => {
+  const token = normalizeSearchToken(searchTerm);
+  if (!token) return [] as string[];
+  return dealStageValues.filter((stage) => {
+    const stageToken = stage.replace(/_/g, "");
+    return stageToken.includes(token) || token.includes(stageToken);
+  });
 };
 
 type AuthContext = {
@@ -147,6 +171,7 @@ export async function getCrmTableViewAction(input: unknown): Promise<
         companyId: auth.data.companyId,
         page: parsed.data.page,
         pageSize: parsed.data.pageSize,
+        search: parsed.data.search,
       }),
       crmService.getColumnDefinitions({
         supabase: auth.data.supabase,
@@ -157,18 +182,24 @@ export async function getCrmTableViewAction(input: unknown): Promise<
         ? crmService.listUsersForSelect({
             supabase: auth.data.supabase,
             companyId: auth.data.companyId,
+            page: 1,
+            pageSize: 500,
           })
         : Promise.resolve(emptySelectResult),
       needsCustomers
         ? crmService.listCustomersForSelect({
             supabase: auth.data.supabase,
             companyId: auth.data.companyId,
+            page: 1,
+            pageSize: 500,
           })
         : Promise.resolve(emptySelectResult),
       needsDeals
         ? crmService.listDealsForSelect({
             supabase: auth.data.supabase,
             companyId: auth.data.companyId,
+            page: 1,
+            pageSize: 500,
           })
         : Promise.resolve(emptySelectResult),
     ]);
@@ -427,6 +458,7 @@ export async function getGlobalSearchResultsAction(input: unknown): Promise<
   }
 
   const query = parsed.data.query.trim();
+  const encodedQuery = encodeURIComponent(query);
   const q = `%${query}%`;
 
   const navHits = NAV_CONFIG.flatMap((item) => {
@@ -464,52 +496,118 @@ export async function getGlobalSearchResultsAction(input: unknown): Promise<
   }
 
   const { supabase, companyId } = auth.data;
-  const [customersRes, dealsRes, activitiesRes] = await Promise.all([
-    supabase
-      .from("customers")
-      .select("id,name,email")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .or(`name.ilike.${q},email.ilike.${q},phone.ilike.${q}`)
-      .limit(6),
-    supabase
-      .from("deals")
-      .select("id,title,stage")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .or(`title.ilike.${q},description.ilike.${q},stage.ilike.${q}`)
-      .limit(6),
-    supabase
-      .from("activities")
-      .select("id,subject,activity_type,status")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .or(`subject.ilike.${q},notes.ilike.${q},activity_type.ilike.${q}`)
-      .limit(6),
-  ]);
+  const customersRes = await supabase
+    .from("customers")
+    .select("id,name,email")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .or(`name.ilike.${q},email.ilike.${q},phone.ilike.${q}`)
+    .limit(12);
+
+  const customerRows = customersRes.data ?? [];
+  const matchedCustomerIds = customerRows.map((row) => row.id);
+  const stageMatches = getMatchingDealStages(query);
+  const dealTextOr = [`title.ilike.${q}`, `description.ilike.${q}`];
+  stageMatches.forEach((stage) => dealTextOr.push(`stage.eq.${stage}`));
+  const dealsTextRes = await supabase
+    .from("deals")
+    .select("id,title,stage,customer_id")
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .or(dealTextOr.join(","))
+    .limit(12);
+  const dealsByCustomerRes = matchedCustomerIds.length
+    ? await supabase
+        .from("deals")
+        .select("id,title,stage,customer_id")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("customer_id", matchedCustomerIds)
+        .limit(12)
+    : { data: [] as any[], error: null };
+
+  const dealsMap = new Map<string, any>();
+  [...(dealsTextRes.data ?? []), ...(dealsByCustomerRes.data ?? [])].forEach(
+    (row) => dealsMap.set(row.id, row),
+  );
+  const dealsRows = Array.from(dealsMap.values());
+  const matchedDealIds = dealsRows.map((row) => row.id);
+
+  const [activitiesTextRes, activitiesByCustomerRes, activitiesByDealRes] =
+    await Promise.all([
+      supabase
+        .from("activities")
+        .select("id,subject,activity_type,status,related_type,related_id")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .or(`subject.ilike.${q},notes.ilike.${q},activity_type.ilike.${q}`)
+        .limit(12),
+      matchedCustomerIds.length
+        ? supabase
+            .from("activities")
+            .select("id,subject,activity_type,status,related_type,related_id")
+            .eq("company_id", companyId)
+            .is("deleted_at", null)
+            .eq("related_type", "customer")
+            .in("related_id", matchedCustomerIds)
+            .limit(12)
+        : Promise.resolve({ data: [] as any[], error: null }),
+      matchedDealIds.length
+        ? supabase
+            .from("activities")
+            .select("id,subject,activity_type,status,related_type,related_id")
+            .eq("company_id", companyId)
+            .is("deleted_at", null)
+            .eq("related_type", "deal")
+            .in("related_id", matchedDealIds)
+            .limit(12)
+        : Promise.resolve({ data: [] as any[], error: null }),
+    ]);
+
+  const customerLabelById = new Map(
+    customerRows.map((row) => [row.id, row.name || "Unnamed Customer"]),
+  );
+  const dealLabelById = new Map(
+    dealsRows.map((row) => [row.id, row.title || "Untitled Deal"]),
+  );
+  const activitiesMap = new Map<string, any>();
+  [
+    ...(activitiesTextRes.data ?? []),
+    ...(activitiesByCustomerRes.data ?? []),
+    ...(activitiesByDealRes.data ?? []),
+  ].forEach((row) => activitiesMap.set(row.id, row));
+  const activitiesRows = Array.from(activitiesMap.values());
 
   const crmHits = [
-    ...(customersRes.data ?? []).map((row) => ({
+    ...customerRows.map((row) => ({
       id: `customer:${row.id}`,
       title: row.name || "Unnamed Customer",
       subtitle: row.email || "Customer",
-      href: "/crm/customers",
+      href: `/crm/customers?q=${encodedQuery}&rowId=${row.id}`,
       category: "Customers",
     })),
-    ...(dealsRes.data ?? []).map((row) => ({
+    ...dealsRows.map((row) => ({
       id: `deal:${row.id}`,
       title: row.title || "Untitled Deal",
-      subtitle: row.stage || "Deal",
-      href: "/crm/deals",
+      subtitle: customerLabelById.get(row.customer_id) || row.stage || "Deal",
+      href: `/crm/deals?q=${encodedQuery}&rowId=${row.id}`,
       category: "Deals",
     })),
-    ...(activitiesRes.data ?? []).map((row) => ({
-      id: `activity:${row.id}`,
-      title: row.subject || "Untitled Activity",
-      subtitle: `${row.activity_type || "activity"} • ${row.status || "pending"}`,
-      href: "/crm/activities",
-      category: "Activities",
-    })),
+    ...activitiesRows.map((row) => {
+      const relatedLabel =
+        row.related_type === "customer"
+          ? customerLabelById.get(row.related_id)
+          : row.related_type === "deal"
+            ? dealLabelById.get(row.related_id)
+            : undefined;
+      return {
+        id: `activity:${row.id}`,
+        title: row.subject || relatedLabel || "Untitled Activity",
+        subtitle: `${row.activity_type || "activity"} • ${row.status || "pending"}`,
+        href: `/crm/activities?q=${encodedQuery}&rowId=${row.id}`,
+        category: "Activities",
+      };
+    }),
     {
       id: "report:crm",
       title: "CRM Reports",
@@ -519,5 +617,5 @@ export async function getGlobalSearchResultsAction(input: unknown): Promise<
     },
   ];
 
-  return { success: true, data: [...crmHits, ...navHits].slice(0, 30) };
+  return { success: true, data: [...crmHits, ...navHits].slice(0, 60) };
 }
