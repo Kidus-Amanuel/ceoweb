@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { EditableTable } from "@/components/shared/table/EditableTable";
-import { Truck, Plus, Map, List, User, Search, Filter } from "lucide-react";
+import { Truck, Plus, Map, List, Search, Filter } from "lucide-react";
 import { Button } from "@/components/shared/ui/button/Button";
 import { Badge } from "@/components/shared/ui/badge/Badge";
 import { Input } from "@/components/shared/ui/input/Input";
@@ -16,7 +16,8 @@ const VehicleMap = dynamic(() => import('@/components/fleet/vehicles/VehicleMap'
 
 export default function VehiclesPage() {
   const [data, setData] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
+  // drivers: shaped records from driver_assignments (each has driver_id + driver_name)
+  const [drivers, setDrivers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [searchTerm, setSearchTerm] = useState("");
@@ -25,18 +26,18 @@ export default function VehiclesPage() {
   const loadInitialData = async () => {
     try {
       setLoading(true);
-      const [vRes, eRes] = await Promise.all([
+      const [vRes, dRes] = await Promise.all([
         fetch('/api/fleet/vehicles'),
-        fetch('/api/hr/employees')
+        fetch('/api/fleet/drivers'),  // only actual drivers, not all employees
       ]);
       
-      const [vehicles, empList] = await Promise.all([
+      const [vehicles, driverList] = await Promise.all([
         vRes.ok ? vRes.json() : [],
-        eRes.ok ? eRes.json() : []
+        dRes.ok ? dRes.json() : [],
       ]);
       
       setData(vehicles || []);
-      setEmployees(empList || []);
+      setDrivers(driverList || []);
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -48,9 +49,22 @@ export default function VehiclesPage() {
     loadInitialData();
   }, []);
 
-  const employeeOptions = useMemo(() => 
-    employees.map(e => ({ label: e.name, value: e.id })), 
-  [employees]);
+  // Build unique driver options from driver_assignments.
+  // driver_id is the UUID of the employee; driver_name is the display label.
+  // Use 'none' as the sentinel for "Unassigned" — never use '' as a Select value.
+  const driverOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: { label: string; value: string }[] = [
+      { label: '— Unassigned —', value: 'none' },
+    ];
+    for (const d of drivers) {
+      if (d.driver_id && !seen.has(d.driver_id)) {
+        seen.add(d.driver_id);
+        opts.push({ label: d.driver_name || d.driver_id, value: d.driver_id });
+      }
+    }
+    return opts;
+  }, [drivers]);
 
   const columns = useMemo(
     () => [
@@ -74,19 +88,28 @@ export default function VehiclesPage() {
         accessorKey: "assigned_driver_id",
         meta: { 
           type: "select" as const, 
-          options: employeeOptions 
+          options: driverOptions,
         },
         cell: ({ row }: any) => {
           const driverId = row.original.assigned_driver_id;
-          const driver = employees.find(e => e.id === driverId);
-          if (!driver) return <span className="text-muted-foreground italic text-xs">Unassigned</span>;
+          // Find the driver record from driver_assignments that matches this vehicle's assigned driver
+          const driverRecord = drivers.find(d => d.driver_id === driverId);
+          if (!driverId || !driverRecord)
+            return <span className="text-muted-foreground italic text-xs">Unassigned</span>;
           return (
             <div className="flex items-center gap-2">
-              <User className="w-3 h-3 text-slate-400" />
-              <span className="text-xs font-medium text-slate-700">{driver.name}</span>
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white text-[9px] font-black flex-shrink-0">
+                {(driverRecord.driver_name || '?').split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-700 leading-tight">{driverRecord.driver_name}</p>
+                {driverRecord.driver_title && (
+                  <p className="text-[9px] text-slate-400 leading-tight">{driverRecord.driver_title}</p>
+                )}
+              </div>
             </div>
           );
-        }
+        },
       },
       {
         header: "GPS Status",
@@ -142,13 +165,13 @@ export default function VehiclesPage() {
         }
       }
     ],
-    [employeeOptions, employees],
+    [driverOptions, drivers],
   );
 
   const filteredData = useMemo(() => {
     return data.filter((v) => {
-      const driver = employees.find(e => e.id === v.assigned_driver_id);
-      const searchStr = `${v.make} ${v.model} ${v.license_plate} ${driver?.name || ''} ${v.custom_fields?.gps_id || ''}`.toLowerCase();
+      const driverRecord = drivers.find(d => d.driver_id === v.assigned_driver_id);
+      const searchStr = `${v.make} ${v.model} ${v.license_plate} ${driverRecord?.driver_name || ''} ${v.custom_fields?.gps_id || ''}`.toLowerCase();
       const matchesSearch = searchStr.includes(searchTerm.toLowerCase());
       
       const isActive = v.is_active || v.traccar_status?.trim() === 'online';
@@ -158,7 +181,7 @@ export default function VehiclesPage() {
                            
       return matchesSearch && matchesStatus;
     });
-  }, [data, searchTerm, statusFilter, employees]);
+  }, [data, searchTerm, statusFilter, drivers]);
 
   const handleUpdate = async (id: string, updatedFields: any) => {
     // Optimistic update
@@ -172,6 +195,14 @@ export default function VehiclesPage() {
     try {
       // Normalize body for API
       const body: any = { ...updatedFields };
+
+      // Normalize driver sentinel: 'none' means unassign
+      if ('assigned_driver_id' in body) {
+        body.assigned_driver_id =
+          body.assigned_driver_id === 'none' || !body.assigned_driver_id
+            ? null
+            : body.assigned_driver_id;
+      }
       
       // Handle custom fields (GPS ID, GPS Status, etc)
       if ('gps_id' in updatedFields || 'gps_status' in updatedFields || 'assignment_status' in updatedFields) {
@@ -208,14 +239,21 @@ export default function VehiclesPage() {
   const handleAdd = async (newItem: any) => {
     try {
       console.log("Creating vehicle...");
+
+      // Normalize driver sentinel before sending
+      const assignedDriverId =
+        newItem.assigned_driver_id === 'none' || !newItem.assigned_driver_id
+          ? null
+          : newItem.assigned_driver_id;
       
       // Prepare body with custom fields
       const body = {
         ...newItem,
+        assigned_driver_id: assignedDriverId,
         custom_fields: {
           gps_id: newItem.gps_id,
           gps_status: newItem.gps_status || 'inactive',
-          assignment_status: newItem.assignment_status || (newItem.assigned_driver_id ? 'assigned' : 'unassigned')
+          assignment_status: newItem.assignment_status || (assignedDriverId ? 'assigned' : 'unassigned')
         }
       };
       delete body.gps_id;

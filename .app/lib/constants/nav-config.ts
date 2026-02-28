@@ -84,13 +84,6 @@ export const NAV_CONFIG: NavItem[] = [
         iconClassName: "text-cyan-500",
       },
       {
-        id: "fleet-shipments",
-        label: "Shipments",
-        href: "/fleet/shipments",
-        icon: Ship,
-        iconClassName: "text-blue-500",
-      },
-      {
         id: "fleet-vehicles",
         label: "Vehicles",
         href: "/fleet/vehicles",

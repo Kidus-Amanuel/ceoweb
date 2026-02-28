@@ -65,9 +65,9 @@ export default function DriversPage() {
       );
 
       setVehicleOptions([
-        { label: "— No Vehicle —", value: "none" },
+        { label: '— No Vehicle (assign later) —', value: 'none' },
         ...(vehList || []).map((v: any) => ({
-          label: `${v.make || ""} ${v.model || ""} ${v.license_plate ? "· " + v.license_plate : ""}`.trim(),
+          label: `${v.make || ''} ${v.model || ''} ${v.license_plate ? '· ' + v.license_plate : ''}`.trim(),
           value: v.id,
         })),
       ]);
@@ -246,7 +246,9 @@ export default function DriversPage() {
 
   const handleAdd = async (newItem: any) => {
     try {
-      const vehicleId = newItem.vehicle_id === "none" || !newItem.vehicle_id ? null : newItem.vehicle_id;
+      // Normalize vehicle sentinel: 'none' or empty → null (vehicle is optional)
+      const vehicleId =
+        newItem.vehicle_id === 'none' || !newItem.vehicle_id ? null : newItem.vehicle_id;
       const res = await fetch("/api/fleet/drivers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -271,10 +273,18 @@ export default function DriversPage() {
       prev.map((a) => (a.id === id ? { ...a, ...updatedFields } : a))
     );
     try {
+      // Normalize vehicle sentinel
+      const normalized = { ...updatedFields };
+      if ('vehicle_id' in normalized) {
+        normalized.vehicle_id =
+          normalized.vehicle_id === 'none' || !normalized.vehicle_id
+            ? null
+            : normalized.vehicle_id;
+      }
       const res = await fetch("/api/fleet/drivers", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...updatedFields }),
+        body: JSON.stringify({ id, ...normalized }),
       });
       if (!res.ok) throw new Error("Update failed");
       await loadAll();
@@ -348,8 +358,8 @@ export default function DriversPage() {
           </div>
         ) : (
           <EditableTable
-            title="Driver Assignments"
-            description="Link employees to vehicles. Use the + button to create a new assignment."
+            title="Driver Registry"
+            description="Register drivers and optionally assign a vehicle. Vehicle can be assigned anytime later."
             data={filteredData}
             columns={columns}
             onAdd={handleAdd}

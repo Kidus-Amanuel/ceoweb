@@ -380,4 +380,70 @@ export class FleetService {
       }))
     };
   }
+
+  // ─── Maintenance ────────────────────────────────────────────────────────────
+
+  /**
+   * Fetches all Traccar maintenance schedules (tc_maintenances) for reference.
+   * These are the global service intervals defined in the Traccar system.
+   */
+  public static async getTraccarMaintenanceSchedules() {
+    // Traccar exposes maintenances via /api/maintenance
+    return this.fetchTraccar('/maintenance');
+  }
+
+  /**
+   * Fetches Traccar maintenance schedules assigned to a specific device.
+   * Useful for enriching CEO DB maintenance records with Traccar service intervals.
+   */
+  public static async getTraccarDeviceMaintenances(deviceId: number) {
+    return this.fetchTraccar(`/maintenance?deviceId=${deviceId}`);
+  }
+
+  /**
+   * Returns a comprehensive maintenance cost summary per vehicle for AI / reporting.
+   */
+  public static async getMaintenanceSummary(companyId: string) {
+    const supabase = await createClient();
+
+    const { data: records, error } = await supabase
+      .from('vehicle_maintenance')
+      .select(`
+        id,
+        vehicle_id,
+        type,
+        cost,
+        maintenance_date,
+        next_due_date,
+        vehicles ( vehicle_number, make, model, license_plate )
+      `)
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .order('maintenance_date', { ascending: false });
+
+    if (error) throw error;
+
+    const now = new Date();
+    const totalCost = records.reduce((s: number, r: any) => s + (r.cost ?? 0), 0);
+    const overdue = records.filter(
+      (r: any) => r.next_due_date && new Date(r.next_due_date) < now
+    );
+
+    return {
+      total_records: records.length,
+      total_cost: totalCost,
+      overdue_count: overdue.length,
+      overdue_vehicles: overdue.map((r: any) => ({
+        vehicle_number: r.vehicles?.vehicle_number,
+        next_due_date: r.next_due_date,
+      })),
+      by_type: ['routine', 'repair', 'inspection', 'emergency'].map((t) => ({
+        type: t,
+        count: records.filter((r: any) => r.type === t).length,
+        cost: records
+          .filter((r: any) => r.type === t)
+          .reduce((s: number, r: any) => s + (r.cost ?? 0), 0),
+      })),
+    };
+  }
 }

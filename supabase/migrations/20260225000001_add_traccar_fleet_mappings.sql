@@ -107,3 +107,7 @@ BEGIN
 END $poly$;
 
 DROP FUNCTION IF EXISTS _internal_create_policy_if_not_exists(text, text, text, text, text);
+
+
+ALTER TABLE public.driver_assignments
+  ALTER COLUMN vehicle_id DROP NOT NULL;
