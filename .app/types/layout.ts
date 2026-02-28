@@ -1,11 +1,3 @@
-export type ModuleType =
-  | "dashboard"
-  | "fleet"
-  | "crm"
-  | "inventory"
-  | "hrm"
-  | "settings";
-
 export interface AIInsight {
   id: string;
   type: "prediction" | "alert" | "recommendation" | "forecast";
@@ -19,7 +11,6 @@ export interface LayoutState {
   rightSidebarOpen: boolean;
   leftSidebarWidth: number;
   rightSidebarWidth: number;
-  currentModule: ModuleType;
   selectedCompanyId: string | null;
   toggleLeftSidebar: () => void;
   toggleRightSidebar: () => void;
@@ -27,6 +18,5 @@ export interface LayoutState {
   setRightSidebarOpen: (open: boolean) => void;
   setLeftSidebarWidth: (width: number) => void;
   setRightSidebarWidth: (width: number) => void;
-  setCurrentModule: (module: ModuleType) => void;
   setSelectedCompanyId: (id: string | null) => void;
 }
