@@ -304,16 +304,17 @@ export const SmartEditor = ({
     );
   if (type === "text")
     return (
-      <textarea
+      <Input
+        ref={!isAddMode && inputRef ? inputRef : undefined}
         placeholder={placeholder}
         value={String(value ?? "")}
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => !isAddMode && onCommit?.()}
         onKeyDown={(e) => {
-          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") onCommit?.();
+          if (e.key === "Enter") onCommit?.();
           if (e.key === "Escape") onCancel?.();
         }}
-        className="min-h-[72px] w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm leading-5 shadow-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className={baseInputClass}
       />
     );
 

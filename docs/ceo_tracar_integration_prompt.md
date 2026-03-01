@@ -1,6 +1,7 @@
 # CEO ERP + Traccar Fleet Integration Discussion
 
 ## Objective
+
 Integrate Traccar fleet management into the CEO ERP platform such that users can manage vehicles, drivers, and maintenance entirely from ERP tables, and access **detailed fleet views (maps, geofences, trip logs)** in Traccar without logging in. The ERP will handle all authentication, authorization, and AI agent access.
 
 ---
@@ -29,6 +30,7 @@ Integrate Traccar fleet management into the CEO ERP platform such that users can
 ## 2. Technical Considerations
 
 ### a. Authentication & Token Management
+
 - ERP issues **time-limited tokens** or signed URLs for Traccar access.
 - Tokens include:
   - `company_id` for multi-tenancy filtering
@@ -37,12 +39,14 @@ Integrate Traccar fleet management into the CEO ERP platform such that users can
 - Traccar backend validates token and maps ERP user → Traccar session.
 
 ### b. Data Mapping
+
 - Maintain a **mapping table** in ERP:
   - `erp_vehicle_id ↔ traccar_device_id`
   - `erp_driver_id ↔ traccar_user_id`
 - Ensure **multi-tenant isolation**: each company sees only its own vehicles/drivers in Traccar.
 
 ### c. Data Synchronization
+
 - **ERP → Traccar:**
   - Vehicle creation/updates
   - Driver assignments
@@ -53,6 +57,7 @@ Integrate Traccar fleet management into the CEO ERP platform such that users can
   - Geofence events
 
 ### d. Frontend Integration Options
+
 1. **Redirect:**
    - Users click “View in Traccar” → ERP generates signed URL → Traccar opens in new tab.
 2. **Iframe Embed:**
@@ -62,6 +67,7 @@ Integrate Traccar fleet management into the CEO ERP platform such that users can
    - ERP frontend consumes Traccar API → displays map + geofences in ERP UI.
 
 ### e. Error Handling
+
 - Handle Traccar API failures gracefully:
   - Fallback to ERP table view with offline status.
   - Retry or queue updates for ERP → Traccar sync.
@@ -69,6 +75,7 @@ Integrate Traccar fleet management into the CEO ERP platform such that users can
 ---
 
 ## 3. Multi-Tenancy & Security
+
 - ERP enforces **Row-Level Security (RLS)** via `company_id`.
 - Traccar access is filtered based on ERP-issued token.
 - No sensitive Traccar credentials stored on frontend.
@@ -77,6 +84,7 @@ Integrate Traccar fleet management into the CEO ERP platform such that users can
 ---
 
 ## 4. AI Agent Access
+
 - Queries ERP for table-based summaries: maintenance, driver assignments.
 - Queries Traccar API for real-time location, trips, geofences.
 - Response aggregation example:
@@ -85,6 +93,7 @@ Integrate Traccar fleet management into the CEO ERP platform such that users can
 ---
 
 ## 5. Discussion Questions
+
 1. Should we **embed Traccar UI via iframe** or redirect with a signed token?
 2. What is the **best method for ERP-issued Traccar tokens**? JWT, HMAC-signed URL, or session API?
 3. Should **Traccar → ERP synchronization** be **real-time via webhooks** or **scheduled jobs**?
@@ -95,5 +104,4 @@ Integrate Traccar fleet management into the CEO ERP platform such that users can
 
 ---
 
-*This document can be shared with developers or stakeholders to scope the integration and plan implementation.*
-
+_This document can be shared with developers or stakeholders to scope the integration and plan implementation._

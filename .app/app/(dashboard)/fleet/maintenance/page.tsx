@@ -1,7 +1,16 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
-import { EditableTable } from "@/components/shared/table/EditableTable";
+import {
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+  useTransition,
+} from "react";
+import {
+  EditableTable,
+  type VirtualColumn,
+} from "@/components/shared/table/EditableTable";
 import { Badge } from "@/components/shared/ui/badge/Badge";
 import { Input } from "@/components/shared/ui/input/Input";
 import { Button } from "@/components/shared/ui/button/Button";
@@ -18,10 +27,16 @@ import {
   User,
   Gauge,
   FileText,
-  RefreshCw,
   CalendarClock,
   TrendingDown,
 } from "lucide-react";
+import { useCompanies } from "@/hooks/use-companies";
+import {
+  getFleetTableViewAction,
+  createFleetCustomFieldAction,
+  updateFleetCustomFieldAction,
+  deleteFleetCustomFieldAction,
+} from "@/app/api/fleet/fleet";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -43,6 +58,8 @@ interface MaintenanceRecord {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  custom_fields?: Record<string, any>;
+  customValues?: Record<string, any>;
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -114,7 +131,9 @@ function StatCard({
           {value}
         </p>
         {sub && (
-          <p className="text-[10px] text-slate-400 font-medium truncate">{sub}</p>
+          <p className="text-[10px] text-slate-400 font-medium truncate">
+            {sub}
+          </p>
         )}
       </div>
     </div>
@@ -153,48 +172,68 @@ function DueDateCell({ date }: { date: string | null }) {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MaintenancePage() {
+  const { selectedCompany } = useCompanies();
+  const companyId = selectedCompany?.id;
+
   const [data, setData] = useState<MaintenanceRecord[]>([]);
+  const [columnDefs, setColumnDefs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [, startTransition] = useTransition();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | MaintenanceType>("all");
   const [vehicleOptions, setVehicleOptions] = useState<
     { label: string; value: string }[]
   >([]);
 
-  // ── Load ───────────────────────────────────────────────────────────────────
-
-  const loadAll = useCallback(async (isRefresh = false) => {
+  const loadAll = useCallback(async () => {
     try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-
-      const [maintRes, vehRes] = await Promise.all([
+      setLoading(true);
+      const [mRes, vehRes] = await Promise.all([
         fetch("/api/fleet/maintenance"),
         fetch("/api/fleet/vehicles"),
       ]);
 
-      const [maintData, vehList] = await Promise.all([
-        maintRes.ok ? maintRes.json() : [],
+      const [mData, vehList] = await Promise.all([
+        mRes.ok ? mRes.json() : [],
         vehRes.ok ? vehRes.json() : [],
       ]);
 
-      setData(maintData || []);
+      const rows = (mData || []).map((r: any) => ({
+        ...r,
+        customValues: r.custom_fields || {},
+      }));
+      setData(rows);
+
       setVehicleOptions(
         (vehList || []).map((v: any) => ({
           label: `${v.make ?? ""} ${v.model ?? ""} ${
             v.license_plate ? "· " + v.license_plate : ""
           }`.trim(),
           value: v.id,
-        }))
+        })),
       );
+
+      // Load virtual column definitions separately (non-blocking)
+      if (companyId) {
+        getFleetTableViewAction({
+          companyId,
+          table: "maintenance",
+          page: 1,
+          pageSize: 1,
+        })
+          .then((res) => {
+            if (res.success && res.data) {
+              setColumnDefs(res.data.columnDefinitions || []);
+            }
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       console.error("[Maintenance Page] Load failed:", err);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     loadAll();
@@ -206,7 +245,7 @@ export default function MaintenancePage() {
     const now = new Date();
     const totalCost = data.reduce((s, r) => s + (r.cost ?? 0), 0);
     const overdue = data.filter(
-      (r) => r.next_due_date && new Date(r.next_due_date) < now
+      (r) => r.next_due_date && new Date(r.next_due_date) < now,
     ).length;
     const dueSoon = data.filter((r) => {
       if (!r.next_due_date) return false;
@@ -239,6 +278,21 @@ export default function MaintenancePage() {
       return matchesSearch && matchesType;
     });
   }, [data, searchTerm, typeFilter]);
+
+  // ── Virtual Columns ────────────────────────────────────────────────────────
+
+  const virtualColumns = useMemo((): VirtualColumn[] => {
+    return columnDefs.map((def) => ({
+      id: def.id,
+      label: def.field_label,
+      key: def.field_name,
+      type: def.field_type as any,
+      options: (def.field_options || []).map((o: string) => ({
+        label: o,
+        value: o,
+      })),
+    }));
+  }, [columnDefs]);
 
   // ── Columns ────────────────────────────────────────────────────────────────
 
@@ -279,7 +333,10 @@ export default function MaintenancePage() {
         accessorKey: "type",
         meta: {
           type: "select" as const,
-          options: TYPE_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
+          options: TYPE_OPTIONS.map((o) => ({
+            label: o.label,
+            value: o.value,
+          })),
         },
         cell: ({ row }: any) => {
           const t = row.original.type as MaintenanceType | null;
@@ -401,78 +458,155 @@ export default function MaintenancePage() {
         ),
       },
     ],
-    [vehicleOptions]
+    [vehicleOptions],
   );
 
   // ── CRUD Handlers ──────────────────────────────────────────────────────────
 
   const handleAdd = async (newItem: any) => {
-    try {
-      const res = await fetch("/api/fleet/maintenance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          vehicle_id: newItem.vehicle_id || null,
-          maintenance_date:
-            newItem.maintenance_date ||
-            new Date().toISOString().split("T")[0],
-          type: newItem.type || "routine",
-          description: newItem.description || "",
-          cost: newItem.cost || null,
-          odometer_reading: newItem.odometer_reading || null,
-          performed_by: newItem.performed_by || null,
-          next_due_date: newItem.next_due_date || null,
-          notes: newItem.notes || null,
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to create record");
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/fleet/maintenance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            vehicle_id: newItem.vehicle_id || null,
+            maintenance_date:
+              newItem.maintenance_date ||
+              new Date().toISOString().split("T")[0],
+            type: newItem.type || "routine",
+            description: newItem.description || null,
+            cost: newItem.cost || null,
+            odometer_reading: newItem.odometer_reading || null,
+            performed_by: newItem.performed_by || null,
+            next_due_date: newItem.next_due_date || null,
+            notes: newItem.notes || null,
+            custom_fields: newItem.customValues || {},
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) console.error("[Maintenance] Create failed:", json.error);
+        else loadAll();
+      } catch (err) {
+        console.error("[Maintenance] Create error:", err);
       }
-      await loadAll(true);
-    } catch (err) {
-      console.error("[Maintenance] Add error:", err);
-      throw err;
-    }
+    });
   };
 
   const handleUpdate = async (id: string, updatedFields: any) => {
-    // Optimistic update
-    const previous = [...data];
-    setData((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, ...updatedFields } : r))
-    );
-    try {
-      const res = await fetch("/api/fleet/maintenance", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...updatedFields }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Update failed");
+    startTransition(async () => {
+      try {
+        const standardKeys = [
+          "vehicle_id",
+          "maintenance_date",
+          "type",
+          "description",
+          "cost",
+          "odometer_reading",
+          "performed_by",
+          "next_due_date",
+          "notes",
+        ];
+        const updatePayload: any = { id };
+        const customData: any = updatedFields.customValues || {};
+
+        Object.keys(updatedFields).forEach((key) => {
+          if (standardKeys.includes(key)) {
+            let val = updatedFields[key];
+            if (val === "none") val = null;
+            updatePayload[key] = val;
+          }
+        });
+
+        const existing = data.find((r) => r.id === id);
+        const mergedCustom = {
+          ...(existing?.custom_fields || {}),
+          ...customData,
+        };
+
+        if (Object.keys(mergedCustom).length > 0) {
+          updatePayload.custom_fields = mergedCustom;
+        }
+
+        const res = await fetch("/api/fleet/maintenance", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatePayload),
+        });
+
+        const json = await res.json();
+        if (!res.ok) console.error("[Maintenance] Update failed:", json.error);
+        else loadAll();
+      } catch (err) {
+        console.error("[Maintenance] Update error:", err);
       }
-      await loadAll(true);
-    } catch (err) {
-      setData(previous);
-      console.error("[Maintenance] Update error:", err);
-      throw err;
-    }
+    });
   };
 
   const handleDelete = async (id: string) => {
-    try {
-      const res = await fetch(`/api/fleet/maintenance?id=${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Delete failed");
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/fleet/maintenance?id=${id}`, {
+          method: "DELETE",
+        });
+        const json = await res.json();
+        if (!res.ok) console.error("[Maintenance] Delete failed:", json.error);
+        else setData((prev) => prev.filter((r) => r.id !== id));
+      } catch (err) {
+        console.error("[Maintenance] Delete error:", err);
       }
-      setData((prev) => prev.filter((r) => r.id !== id));
-    } catch (err) {
-      console.error("[Maintenance] Delete error:", err);
-      throw err;
+    });
+  };
+
+  const handleColumnAdd = async (payload: any) => {
+    if (!companyId) return;
+    const res = await createFleetCustomFieldAction({
+      companyId,
+      entityType: "maintenance",
+      fieldLabel: payload.label,
+      fieldName: payload.key,
+      fieldType: payload.type === "status" ? "select" : payload.type,
+      fieldOptions: (payload.options ?? []).map((o: any) =>
+        String(o.value ?? o.label),
+      ),
+    });
+    if (res.success) {
+      loadAll();
+    } else {
+      console.error("[Maintenance] Column creation failed:", res.error);
+    }
+  };
+
+  const handleColumnUpdate = async (fieldId: string, payload: any) => {
+    if (!companyId) return;
+    const res = await updateFleetCustomFieldAction({
+      companyId,
+      entityType: "maintenance",
+      fieldId,
+      fieldLabel: payload.label,
+      fieldName: payload.key,
+      fieldType: payload.type === "status" ? "select" : payload.type,
+      fieldOptions: (payload.options ?? []).map((o: any) =>
+        String(o.value ?? o.label),
+      ),
+    });
+    if (res.success) {
+      loadAll();
+    } else {
+      console.error("[Maintenance] Column update failed:", res.error);
+    }
+  };
+
+  const handleColumnDelete = async (fieldId: string) => {
+    if (!companyId) return;
+    const res = await deleteFleetCustomFieldAction({
+      companyId,
+      fieldId,
+    });
+    if (res.success) {
+      loadAll();
+    } else {
+      console.error("[Maintenance] Column deletion failed:", res.error);
     }
   };
 
@@ -480,8 +614,6 @@ export default function MaintenancePage() {
 
   return (
     <div className="space-y-5">
-    
-
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
@@ -557,7 +689,7 @@ export default function MaintenancePage() {
                   {cfg.label}
                 </Button>
               );
-            }
+            },
           )}
         </div>
 
@@ -582,9 +714,14 @@ export default function MaintenancePage() {
             description="Click any row to edit inline. Use the + button to log a new service event."
             data={filteredData}
             columns={columns}
+            virtualColumns={virtualColumns}
             onAdd={handleAdd}
+            hideHeader={true}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
+            onColumnAdd={handleColumnAdd}
+            onColumnUpdate={handleColumnUpdate}
+            onColumnDelete={handleColumnDelete}
           />
         )}
       </div>

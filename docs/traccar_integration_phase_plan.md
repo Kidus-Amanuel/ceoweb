@@ -17,6 +17,7 @@ This roadmap breaks the integration into controlled phases to minimize risk and 
 # 🧩 PHASE 1 — Backend Connectivity & Authentication (No UI Yet)
 
 ## Goal
+
 Establish secure backend-to-backend communication between ERP and Traccar.
 
 ## Tasks
@@ -49,6 +50,7 @@ Establish secure backend-to-backend communication between ERP and Traccar.
 # 🧩 PHASE 2 — Vehicle Sync (ERP → Traccar)
 
 ## Goal
+
 Ensure vehicles created or updated in ERP sync correctly into Traccar.
 
 ## Tasks
@@ -81,6 +83,7 @@ Ensure vehicles created or updated in ERP sync correctly into Traccar.
 # 🧩 PHASE 3 — Iframe Map Access (Read-Only View)
 
 ## Goal
+
 Embed Traccar map into ERP securely using token-based access.
 
 ## Tasks
@@ -115,6 +118,7 @@ Embed Traccar map into ERP securely using token-based access.
 # 🧩 PHASE 4 — Webhook Integration (Traccar → ERP)
 
 ## Goal
+
 Enable real-time GPS location caching inside ERP.
 
 ## Tasks
@@ -144,6 +148,7 @@ Enable real-time GPS location caching inside ERP.
 # 🧩 PHASE 5 — AI Agent Fleet Intelligence
 
 ## Goal
+
 Allow AI agent to query ERP and fleet telemetry safely.
 
 ## Tasks
@@ -160,6 +165,7 @@ Allow AI agent to query ERP and fleet telemetry safely.
 ## Deliverable
 
 AI can answer:
+
 - "How many vehicles are active?"
 - "Which vehicles are outside geofence?"
 - "When was the last movement?"
@@ -193,13 +199,13 @@ AI can answer:
 
 # 📊 Deployment Strategy
 
-| Phase | Risk Level | Deployable Independently |
-|--------|------------|--------------------------|
-| Phase 1 | Low | Yes |
-| Phase 2 | Medium | Yes |
-| Phase 3 | Medium | Yes |
-| Phase 4 | Medium | Yes |
-| Phase 5 | Low | Yes |
+| Phase   | Risk Level | Deployable Independently |
+| ------- | ---------- | ------------------------ |
+| Phase 1 | Low        | Yes                      |
+| Phase 2 | Medium     | Yes                      |
+| Phase 3 | Medium     | Yes                      |
+| Phase 4 | Medium     | Yes                      |
+| Phase 5 | Low        | Yes                      |
 
 Each phase can be tested and deployed separately without blocking the next.
 
@@ -215,4 +221,4 @@ Each phase can be tested and deployed separately without blocking the next.
 
 ---
 
-*This document serves as the official phased roadmap for Traccar integration into the CEO ERP p
+\*This document serves as the official phased roadmap for Traccar integration into the CEO ERP p

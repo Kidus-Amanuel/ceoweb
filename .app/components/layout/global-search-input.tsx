@@ -196,59 +196,59 @@ export function GlobalSearchInput({
 
       {showResults && canPortal
         ? createPortal(
-          <div
-            ref={panelRef}
-            className="fixed z-[99999] rounded-xl border-2 border-border bg-background shadow-2xl p-2 max-h-[420px] overflow-auto"
-            style={{
-              top: panelRect.top,
-              left: panelRect.left,
-              width: panelRect.width,
-            }}
-          >
-            {loading ? (
-              <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t("common.searching")}
-              </div>
-            ) : results.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-muted-foreground">
-                {t("common.no_results")}
-              </div>
-            ) : (
-              grouped.map(([category, hits]) => (
-                <div key={category} className="mb-2 last:mb-0">
-                  <p className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                    {getTranslatedCategory(category)}
-                  </p>
-                  {hits.map((hit) => (
-                    <button
-                      key={hit.id}
-                      type="button"
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        setOpen(false);
-                        setResults([]);
-                        onChange("");
-                        router.push(hit.href);
-                      }}
-                      className="block w-full text-left rounded-lg px-2 py-2 hover:bg-muted/60 transition-colors border border-transparent hover:border-border/60"
-                    >
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {hit.title}
-                      </p>
-                      {hit.subtitle ? (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {hit.subtitle}
-                        </p>
-                      ) : null}
-                    </button>
-                  ))}
+            <div
+              ref={panelRef}
+              className="fixed z-[99999] rounded-xl border-2 border-border bg-background shadow-2xl p-2 max-h-[420px] overflow-auto"
+              style={{
+                top: panelRect.top,
+                left: panelRect.left,
+                width: panelRect.width,
+              }}
+            >
+              {loading ? (
+                <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t("common.searching")}
                 </div>
-              ))
-            )}
-          </div>,
-          document.body,
-        )
+              ) : results.length === 0 ? (
+                <div className="px-3 py-3 text-sm text-muted-foreground">
+                  {t("common.no_results")}
+                </div>
+              ) : (
+                grouped.map(([category, hits]) => (
+                  <div key={category} className="mb-2 last:mb-0">
+                    <p className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      {getTranslatedCategory(category)}
+                    </p>
+                    {hits.map((hit) => (
+                      <button
+                        key={hit.id}
+                        type="button"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          setOpen(false);
+                          setResults([]);
+                          onChange("");
+                          router.push(hit.href);
+                        }}
+                        className="block w-full text-left rounded-lg px-2 py-2 hover:bg-muted/60 transition-colors border border-transparent hover:border-border/60"
+                      >
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {hit.title}
+                        </p>
+                        {hit.subtitle ? (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {hit.subtitle}
+                          </p>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>,
+            document.body,
+          )
         : null}
     </div>
   );

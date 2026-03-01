@@ -1,14 +1,14 @@
 {
-	"folders": [
-		{
-			"path": ".."
-		},
-		{
-			"path": "../../../../../../Downloads/traccar-backend"
-		},
-		{
-			"path": "../../../../../../Downloads/traccar-frontend"
-		}
-	],
-	"settings": {}
+  "folders": [
+    {
+      "path": "..",
+    },
+    {
+      "path": "../../../../../../Downloads/traccar-backend",
+    },
+    {
+      "path": "../../../../../../Downloads/traccar-frontend",
+    },
+  ],
+  "settings": {},
 }

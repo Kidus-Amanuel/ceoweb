@@ -373,12 +373,22 @@ export function EditableTableContent<
                     <TableCell
                       key={cell.id}
                       className={cn(
-                        "py-2 border-b border-r border-border/70 align-top",
-                        isVirtual ? "min-w-[260px]" : "min-w-[180px]",
+                        "py-3 border-b border-r border-border/70 align-middle transition-all duration-200",
+                        isEditing
+                          ? "min-w-[400px]"
+                          : isVirtual
+                            ? "min-w-[160px]"
+                            : "min-w-[120px]",
                         i === 0 ? "pl-6" : "px-6",
+                        !meta?.readOnly &&
+                          "focus-within:min-w-[400px] cursor-pointer",
                       )}
                       onClick={() => {
-                        if (meta?.type !== "boolean" && !isEditing) {
+                        if (
+                          meta?.type !== "boolean" &&
+                          !meta?.readOnly &&
+                          !isEditing
+                        ) {
                           setEditingCell({
                             id: row.original.id,
                             columnId: cell.column.id,
@@ -432,9 +442,10 @@ export function EditableTableContent<
                     <TableCell
                       key={column.id}
                       className={cn(
-                        "py-2 border-b border-border/70 align-top",
-                        isVirtual ? "min-w-[260px]" : "min-w-[200px]",
+                        "py-2 border-b border-border/70 align-top transition-all duration-200",
+                        isVirtual ? "min-w-[160px]" : "min-w-[100px]",
                         i === 0 ? "pl-6" : "px-6",
+                        "focus-within:min-w-[400px]",
                       )}
                     >
                       <SmartEditor

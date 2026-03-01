@@ -19,6 +19,8 @@ vi.mock("react-i18next", () => ({
         "common.google_login": "Google",
         "common.dont_have_account": "Don't have an account?",
         "common.create_account": "Create an account",
+        "common.email_placeholder": "you@company.com",
+        "common.password_placeholder": "••••••••",
       };
       return translations[key] || key;
     },

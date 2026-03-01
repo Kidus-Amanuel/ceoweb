@@ -1,13 +1,16 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
   try {
     const supabase = await createClient();
-    
+
     // Get current user company
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -15,7 +18,8 @@ export async function GET() {
       .eq("id", user.id)
       .single();
 
-    if (!profile?.company_id) return NextResponse.json({ error: 'Company not found' }, { status: 403 });
+    if (!profile?.company_id)
+      return NextResponse.json({ error: "Company not found" }, { status: 403 });
 
     // Fetch employees for this company
     // Note: employees table uses first_name + last_name (no single 'name' column)
@@ -35,14 +39,14 @@ export async function GET() {
       name: `${e.first_name} ${e.last_name}`.trim(),
       first_name: e.first_name,
       last_name: e.last_name,
-      email: e.email || '',
-      job_title: e.job_title || '',
+      email: e.email || "",
+      job_title: e.job_title || "",
       status: e.status,
     }));
-    
+
     return NextResponse.json(shaped);
   } catch (error: any) {
-    console.error('[Employees API] GET Error:', error);
+    console.error("[Employees API] GET Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

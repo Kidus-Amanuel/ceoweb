@@ -4,68 +4,71 @@ This document outlines the architecture, requirements, and necessary changes req
 
 ## 1. Context
 
-The overarching goal is to present Traccar as a seamless part of the ERP (i.e. to "white-label" it). 
+The overarching goal is to present Traccar as a seamless part of the ERP (i.e. to "white-label" it).
 Users within the ERP are dynamically authenticated to the Traccar instance via tokens without manually entering credentials on standard login pages.
 
-*   **Repository Analyzed:** `traccar-backend/traccar-master`
-*   **ERP Project:** `ceo_web_project_v1`
+- **Repository Analyzed:** `traccar-backend/traccar-master`
+- **ERP Project:** `ceo_web_project_v1`
 
 ## 2. API Endpoints for Integration
 
 The Traccar REST API is well built for backend-to-backend integration. Based on the analysis of `SessionResource`, `UserResource`, and `TokenManager`, here are the flows the ERP must implement in order to function properly.
 
 ### 2.1. Dynamic User Generation (Multi-Tenancy)
+
 Whenever a company is created in the ERP (or upon the first initialization of the Fleet module for that company), an administrative "Company" Traccar User must be created to maintain data separation.
 
-*   **Endpoint:** `POST /api/users`
-*   **Authentication:** Super Admin Traccar Credentials (or Authorization header using a known admin token).
-*   **Payload structure:**
-    ```json
-    {
-      "name": "Company ABC Fleet Admin",
-      "email": "fleetadmin_{company_uuid}@yourdomain.com",
-      "password": "SecureRandomPasswordGeneratedByERP",
-      "readonly": true,       // (Optional) Enforce read-only UI at a user level
-      "limitCommands": true   // (Optional) Prevent them from sending device commands
-    }
-    ```
-*   **Usage:** Save the resulting Traccar `id` within the `traccar_tenant_mappings.traccar_user_id` column.
+- **Endpoint:** `POST /api/users`
+- **Authentication:** Super Admin Traccar Credentials (or Authorization header using a known admin token).
+- **Payload structure:**
+  ```json
+  {
+    "name": "Company ABC Fleet Admin",
+    "email": "fleetadmin_{company_uuid}@yourdomain.com",
+    "password": "SecureRandomPasswordGeneratedByERP",
+    "readonly": true, // (Optional) Enforce read-only UI at a user level
+    "limitCommands": true // (Optional) Prevent them from sending device commands
+  }
+  ```
+- **Usage:** Save the resulting Traccar `id` within the `traccar_tenant_mappings.traccar_user_id` column.
 
 ### 2.2 Token-Based "Single Sign-On"
+
 Traccar securely manages "Single Sign-On" via generated session tokens. When the ERP's frontend needs to load the "Fleet View" iframe, it requires a secure token.
 
 1.  **ERP Next.js Route (`/api/fleet/map-token`)** is invoked by the client.
 2.  Next.js makes an authenticated call mapping the ERP session's `company_id` to its `traccar_user_id`.
 3.  **Traccar Endpoint:** `POST /api/session/token`
-    *   **Authorization Header:** Use the Traccar Admin user's credentials, OR pass `userId` as the admin. (Alternatively, the ERP can impersonate the user).
-    *   **Form Payload:** `expiration=2026-03-01T...` 
-4.  **Returning the Token:** 
+    - **Authorization Header:** Use the Traccar Admin user's credentials, OR pass `userId` as the admin. (Alternatively, the ERP can impersonate the user).
+    - **Form Payload:** `expiration=2026-03-01T...`
+4.  **Returning the Token:**
     Once a token (`xyz...`) is acquired, the Next.js API route returns this to the React client.
     The React Component mounts the iframe targeting:
     `src="https://traccar.domain.com/?token=xyz..."`
 
 ### 2.3 Device Verification
-Any time the ERP modifies a `Vehicle`, it must sync those properties downward to Traccar. 
 
-*   **Endpoint:** `POST /api/devices` (Add) or `PUT /api/devices/{id}` (Update)
-*   **Payload structure:**
-    ```json
-    {
-       "name": "Vehicle 123",
-       "uniqueId": "IMEI_Or_TrackingCode",
-       "groupId": 0
-    }
-    ```
-*   **Linking Devices to Users:** 
-    Once the Traccar device is created, it must be assigned to the Traccar User mapped to that Company.
-    **Endpoint:** `POST /api/permissions`
-    **Payload:**
-    ```json
-    {
-      "deviceId": 8,
-      "userId": 12
-    }
-    ```
+Any time the ERP modifies a `Vehicle`, it must sync those properties downward to Traccar.
+
+- **Endpoint:** `POST /api/devices` (Add) or `PUT /api/devices/{id}` (Update)
+- **Payload structure:**
+  ```json
+  {
+    "name": "Vehicle 123",
+    "uniqueId": "IMEI_Or_TrackingCode",
+    "groupId": 0
+  }
+  ```
+- **Linking Devices to Users:**
+  Once the Traccar device is created, it must be assigned to the Traccar User mapped to that Company.
+  **Endpoint:** `POST /api/permissions`
+  **Payload:**
+  ```json
+  {
+    "deviceId": 8,
+    "userId": 12
+  }
+  ```
 
 ## 3. Webhook Handling (Traccar -> ERP)
 
@@ -74,6 +77,7 @@ Traccar must push GPS location updates into the ERP continuously so that the `ve
 Traccar offers **Event Forwarding**.
 
 Inside Traccar configuration (`traccar.xml`):
+
 ```xml
 <entry key='forward.enable'>true</entry>
 <entry key='forward.url'>https://your-erp-domain.com/api/webhooks/traccar</entry>
@@ -90,4 +94,5 @@ When an event occurs in Traccar (Status Online, Offline, Device Moving, etc.), i
 3.  **Iframe Permissions:** Ensure the Traccar instance does not block embedding by sending permissive `X-Frame-Options` headers (e.g. `ALLOW-FROM https://erp-domain.com`), otherwise the modern browser will block the Iframe due to standard CORS/Frame busting protections.
 
 ---
-*Generated by AI Agent contextually analyzing Traccar Repository architecture.*
+
+_Generated by AI Agent contextually analyzing Traccar Repository architecture._

@@ -1,20 +1,35 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
-import { EditableTable } from "@/components/shared/table/EditableTable";
+import {
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+  useTransition,
+} from "react";
+import {
+  EditableTable,
+  type VirtualColumn,
+} from "@/components/shared/table/EditableTable";
 import {
   Users,
   Car,
   Search,
   Calendar,
   Mail,
-  AlertCircle,
   Clock,
   BadgeCheck,
 } from "lucide-react";
 import { Badge } from "@/components/shared/ui/badge/Badge";
 import { Input } from "@/components/shared/ui/input/Input";
 import { Button } from "@/components/shared/ui/button/Button";
+import { useCompanies } from "@/hooks/use-companies";
+import {
+  getFleetTableViewAction,
+  createFleetCustomFieldAction,
+  updateFleetCustomFieldAction,
+  deleteFleetCustomFieldAction,
+} from "@/app/api/fleet/fleet";
 
 interface Assignment {
   id: string;
@@ -29,54 +44,88 @@ interface Assignment {
   driver_code: string;
   vehicle_label: string | null;
   vehicle_plate: string;
+  custom_fields?: Record<string, any>;
+  customValues?: Record<string, any>;
 }
 
 export default function DriversPage() {
-  const [data, setData] = useState<Assignment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "ended">("all");
+  const { selectedCompany } = useCompanies();
+  const companyId = selectedCompany?.id;
 
-  const [employeeOptions, setEmployeeOptions] = useState<{ label: string; value: string }[]>([]);
-  const [vehicleOptions, setVehicleOptions] = useState<{ label: string; value: string }[]>([]);
+  const [data, setData] = useState<Assignment[]>([]);
+  const [columnDefs, setColumnDefs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [, startTransition] = useTransition();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "ended">(
+    "all",
+  );
+
+  const [employeeOptions, setEmployeeOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
+  const [vehicleOptions, setVehicleOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
 
   const loadAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [assignRes, empRes, vehRes] = await Promise.all([
+      const [dRes, empRes, vehRes] = await Promise.all([
         fetch("/api/fleet/drivers"),
         fetch("/api/hr/employees"),
         fetch("/api/fleet/vehicles"),
       ]);
 
-      const [assignments, empList, vehList] = await Promise.all([
-        assignRes.ok ? assignRes.json() : [],
+      const [dData, empList, vehList] = await Promise.all([
+        dRes.ok ? dRes.json() : [],
         empRes.ok ? empRes.json() : [],
         vehRes.ok ? vehRes.json() : [],
       ]);
 
-      setData(assignments || []);
+      const rows = (dData || []).map((r: any) => ({
+        ...r,
+        customValues: r.custom_fields || {},
+      }));
+      setData(rows);
 
       setEmployeeOptions(
         (empList || []).map((e: any) => ({
           label: e.name || `${e.first_name || ""} ${e.last_name || ""}`.trim(),
           value: e.id,
-        }))
+        })),
       );
 
       setVehicleOptions([
-        { label: '— No Vehicle (assign later) —', value: 'none' },
+        { label: "— No Vehicle (assign later) —", value: "none" },
         ...(vehList || []).map((v: any) => ({
-          label: `${v.make || ''} ${v.model || ''} ${v.license_plate ? '· ' + v.license_plate : ''}`.trim(),
+          label:
+            `${v.make || ""} ${v.model || ""} ${v.license_plate ? "· " + v.license_plate : ""}`.trim(),
           value: v.id,
         })),
       ]);
+
+      // Load virtual column definitions separately (non-blocking)
+      if (companyId) {
+        getFleetTableViewAction({
+          companyId,
+          table: "drivers",
+          page: 1,
+          pageSize: 1,
+        })
+          .then((res) => {
+            if (res.success && res.data) {
+              setColumnDefs(res.data.columnDefinitions || []);
+            }
+          })
+          .catch(() => {});
+      }
     } catch (error) {
-      console.error("Failed to load driver assignments:", error);
+      console.error("[DriversPage] Failed to load driver assignments:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     loadAll();
@@ -105,8 +154,21 @@ export default function DriversPage() {
       active: data.filter(isActive).length,
       withVehicle: data.filter((a) => a.vehicle_id && isActive(a)).length,
     }),
-    [data]
+    [data],
   );
+
+  const virtualColumns = useMemo((): VirtualColumn[] => {
+    return columnDefs.map((def) => ({
+      id: def.id,
+      label: def.field_label,
+      key: def.field_name,
+      type: def.field_type as any,
+      options: (def.field_options || []).map((o: string) => ({
+        label: o,
+        value: o,
+      })),
+    }));
+  }, [columnDefs]);
 
   const columns = useMemo(
     () => [
@@ -118,7 +180,7 @@ export default function DriversPage() {
           options: employeeOptions,
         },
         cell: ({ row }: any) => {
-          const initials = row.original.driver_name
+          const initials = (row.original.driver_name || "?")
             .split(" ")
             .map((n: string) => n[0] || "")
             .slice(0, 2)
@@ -127,7 +189,7 @@ export default function DriversPage() {
           return (
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center text-white font-black text-xs shadow-md flex-shrink-0">
-                {initials || "?"}
+                {initials}
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-800 leading-tight">
@@ -165,9 +227,13 @@ export default function DriversPage() {
                 <Car className="w-3.5 h-3.5 text-blue-500" />
               </div>
               <div>
-                <p className="text-[12px] font-bold text-slate-700">{vehicle_label}</p>
+                <p className="text-[12px] font-bold text-slate-700">
+                  {vehicle_label}
+                </p>
                 {vehicle_plate && (
-                  <p className="text-[9px] font-mono text-slate-400">{vehicle_plate}</p>
+                  <p className="text-[9px] font-mono text-slate-400">
+                    {vehicle_plate}
+                  </p>
                 )}
               </div>
             </div>
@@ -241,73 +307,153 @@ export default function DriversPage() {
         },
       },
     ],
-    [employeeOptions, vehicleOptions]
+    [employeeOptions, vehicleOptions],
   );
 
   const handleAdd = async (newItem: any) => {
-    try {
-      // Normalize vehicle sentinel: 'none' or empty → null (vehicle is optional)
-      const vehicleId =
-        newItem.vehicle_id === 'none' || !newItem.vehicle_id ? null : newItem.vehicle_id;
-      const res = await fetch("/api/fleet/drivers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          driver_id: newItem.driver_id,
-          vehicle_id: vehicleId,
-          start_date: newItem.start_date || new Date().toISOString().split("T")[0],
-          end_date: newItem.end_date || null,
-          notes: newItem.notes || null,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to add assignment");
-      await loadAll();
-    } catch (err) {
-      console.error("Failed to add assignment:", err);
-    }
+    startTransition(async () => {
+      try {
+        const vehicleId =
+          newItem.vehicle_id === "none" || !newItem.vehicle_id
+            ? null
+            : newItem.vehicle_id;
+        const res = await fetch("/api/fleet/drivers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            driver_id: newItem.driver_id,
+            vehicle_id: vehicleId,
+            start_date:
+              newItem.start_date || new Date().toISOString().split("T")[0],
+            end_date: newItem.end_date || null,
+            notes: newItem.notes || null,
+            custom_fields: newItem.customValues || {},
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) console.error("[DriversPage] Create failed:", json.error);
+        else loadAll();
+      } catch (err) {
+        console.error("[DriversPage] Create error:", err);
+      }
+    });
   };
 
   const handleUpdate = async (id: string, updatedFields: any) => {
-    const previousData = [...data];
-    setData((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, ...updatedFields } : a))
-    );
-    try {
-      // Normalize vehicle sentinel
-      const normalized = { ...updatedFields };
-      if ('vehicle_id' in normalized) {
-        normalized.vehicle_id =
-          normalized.vehicle_id === 'none' || !normalized.vehicle_id
-            ? null
-            : normalized.vehicle_id;
+    startTransition(async () => {
+      try {
+        const standardKeys = [
+          "driver_id",
+          "vehicle_id",
+          "start_date",
+          "end_date",
+          "notes",
+        ];
+        const updatePayload: any = { id };
+        const customData: any = updatedFields.customValues || {};
+
+        Object.keys(updatedFields).forEach((key) => {
+          if (standardKeys.includes(key)) {
+            let val = updatedFields[key];
+            if (val === "none") val = null;
+            updatePayload[key] = val;
+          }
+        });
+
+        const existing = data.find((a) => a.id === id);
+        const mergedCustom = {
+          ...(existing?.custom_fields || {}),
+          ...customData,
+        };
+
+        if (Object.keys(mergedCustom).length > 0) {
+          updatePayload.custom_fields = mergedCustom;
+        }
+
+        const res = await fetch("/api/fleet/drivers", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatePayload),
+        });
+
+        const json = await res.json();
+        if (!res.ok) console.error("[DriversPage] Update failed:", json.error);
+        else loadAll();
+      } catch (err) {
+        console.error("[DriversPage] Update error:", err);
       }
-      const res = await fetch("/api/fleet/drivers", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...normalized }),
-      });
-      if (!res.ok) throw new Error("Update failed");
-      await loadAll();
-    } catch {
-      setData(previousData);
-    }
+    });
   };
 
   const handleDelete = async (id: string) => {
-    try {
-      const res = await fetch(`/api/fleet/drivers?id=${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Delete failed");
-      setData((prev) => prev.filter((a) => a.id !== id));
-    } catch (err) {
-      console.error("Failed to delete:", err);
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/fleet/drivers?id=${id}`, {
+          method: "DELETE",
+        });
+        const json = await res.json();
+        if (!res.ok) console.error("[DriversPage] Delete failed:", json.error);
+        else setData((prev) => prev.filter((a) => a.id !== id));
+      } catch (err) {
+        console.error("[DriversPage] Delete error:", err);
+      }
+    });
+  };
+
+  const handleColumnAdd = async (payload: any) => {
+    if (!companyId) return;
+    const res = await createFleetCustomFieldAction({
+      companyId,
+      entityType: "drivers",
+      fieldLabel: payload.label,
+      fieldName: payload.key,
+      fieldType: payload.type === "status" ? "select" : payload.type,
+      fieldOptions: (payload.options ?? []).map((o: any) =>
+        String(o.value ?? o.label),
+      ),
+    });
+    if (res.success) {
+      loadAll();
+    } else {
+      console.error("[DriversPage] Column creation failed:", res.error);
+    }
+  };
+
+  const handleColumnUpdate = async (fieldId: string, payload: any) => {
+    if (!companyId) return;
+    const res = await updateFleetCustomFieldAction({
+      companyId,
+      entityType: "drivers",
+      fieldId,
+      fieldLabel: payload.label,
+      fieldName: payload.key,
+      fieldType: payload.type === "status" ? "select" : payload.type,
+      fieldOptions: (payload.options ?? []).map((o: any) =>
+        String(o.value ?? o.label),
+      ),
+    });
+    if (res.success) {
+      loadAll();
+    } else {
+      console.error("[DriversPage] Column update failed:", res.error);
+    }
+  };
+
+  const handleColumnDelete = async (fieldId: string) => {
+    if (!companyId) return;
+    const res = await deleteFleetCustomFieldAction({
+      companyId,
+      fieldId,
+    });
+    if (res.success) {
+      loadAll();
+    } else {
+      console.error("[DriversPage] Column deletion failed:", res.error);
     }
   };
 
   return (
     <div className="space-y-1">
-      {/* Control Bar */}
       <div className="px-1 flex flex-col md:flex-row items-center justify-between gap-2">
         <div className="flex items-center gap-1 w-full md:w-auto">
           <div className="relative w-full md:w-64">
@@ -343,11 +489,12 @@ export default function DriversPage() {
         <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-wider text-slate-400">
           <span>{stats.total} Total</span>
           <span className="text-emerald-500">{stats.active} Active</span>
-          <span className="text-blue-500">{stats.withVehicle} With Vehicle</span>
+          <span className="text-blue-500">
+            {stats.withVehicle} With Vehicle
+          </span>
         </div>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-3xl border border-border overflow-hidden shadow-sm min-h-[560px] flex flex-col">
         {loading ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400">
@@ -358,13 +505,16 @@ export default function DriversPage() {
           </div>
         ) : (
           <EditableTable
-            title="Driver Registry"
-            description="Register drivers and optionally assign a vehicle. Vehicle can be assigned anytime later."
+            hideHeader={true}
             data={filteredData}
             columns={columns}
+            virtualColumns={virtualColumns}
             onAdd={handleAdd}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
+            onColumnAdd={handleColumnAdd}
+            onColumnUpdate={handleColumnUpdate}
+            onColumnDelete={handleColumnDelete}
           />
         )}
       </div>

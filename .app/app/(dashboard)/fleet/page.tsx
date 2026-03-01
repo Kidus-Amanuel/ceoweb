@@ -35,8 +35,8 @@ interface FleetStats {
     active: number;
     maintenance: number;
     retired: number;
-    online: number;          // live from Traccar
-    assigned: number;        // have a current driver
+    online: number; // live from Traccar
+    assigned: number; // have a current driver
   };
   drivers: {
     total: number;
@@ -46,7 +46,7 @@ interface FleetStats {
   maintenance: {
     total_records: number;
     overdue: number;
-    due_soon: number;       // next 7 days
+    due_soon: number; // next 7 days
     total_cost_30d: number;
     emergency_count: number;
   };
@@ -56,7 +56,7 @@ interface FleetStats {
     logs_30d: number;
   };
   trips: {
-    active: number;         // no end_time
+    active: number; // no end_time
     completed_30d: number;
     total_distance_30d: number;
   };
@@ -103,10 +103,20 @@ interface RecentActivity {
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtCurrency(n: number) {
-  return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return (
+    "$" +
+    n.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })
+  );
 }
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(d).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -140,13 +150,23 @@ function StatCard({
         <Icon className="w-6 h-6" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          {label}
+        </p>
         <div className="flex items-baseline gap-2">
-          <p className="text-2xl font-black text-slate-800 leading-tight tabular-nums">{value}</p>
-          {trend === "up" && <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />}
-          {trend === "down" && <TrendingDown className="w-3.5 h-3.5 text-rose-500" />}
+          <p className="text-2xl font-black text-slate-800 leading-tight tabular-nums">
+            {value}
+          </p>
+          {trend === "up" && (
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+          )}
+          {trend === "down" && (
+            <TrendingDown className="w-3.5 h-3.5 text-rose-500" />
+          )}
         </div>
-        {sub && <p className="text-[10px] font-medium text-slate-400 mt-0.5">{sub}</p>}
+        {sub && (
+          <p className="text-[10px] font-medium text-slate-400 mt-0.5">{sub}</p>
+        )}
       </div>
     </div>
   );
@@ -220,20 +240,23 @@ export default function FleetOverviewPage() {
       active: vehicles.filter((v) => v.status === "active").length,
       maintenance: vehicles.filter((v) => v.status === "maintenance").length,
       retired: vehicles.filter((v) => v.status === "retired").length,
-      online: vehicles.filter((v) => v.is_active || v.traccar_status?.trim() === "online").length,
+      online: vehicles.filter(
+        (v) => v.is_active || v.traccar_status?.trim() === "online",
+      ).length,
       assigned: vehicles.filter((v) => v.assigned_driver_id).length,
     },
     drivers: {
       total: Array.from(new Set(drivers.map((d) => d.driver_id))).length,
-      active: drivers.filter((d) => !d.end_date || new Date(d.end_date) >= now).length,
+      active: drivers.filter((d) => !d.end_date || new Date(d.end_date) >= now)
+        .length,
       without_vehicle: drivers.filter(
-        (d) => (!d.end_date || new Date(d.end_date) >= now) && !d.vehicle_id
+        (d) => (!d.end_date || new Date(d.end_date) >= now) && !d.vehicle_id,
       ).length,
     },
     maintenance: {
       total_records: maintenance.length,
       overdue: maintenance.filter(
-        (m) => m.next_due_date && new Date(m.next_due_date) < now
+        (m) => m.next_due_date && new Date(m.next_due_date) < now,
       ).length,
       due_soon: maintenance.filter((m) => {
         if (!m.next_due_date) return false;
@@ -242,7 +265,10 @@ export default function FleetOverviewPage() {
         return diff >= 0 && diff <= 7;
       }).length,
       total_cost_30d: maintenance
-        .filter((m) => m.maintenance_date && new Date(m.maintenance_date) >= cutoff30d)
+        .filter(
+          (m) =>
+            m.maintenance_date && new Date(m.maintenance_date) >= cutoff30d,
+        )
         .reduce((s, m) => s + (m.cost ?? 0), 0),
       emergency_count: maintenance.filter((m) => m.type === "emergency").length,
     },
@@ -253,7 +279,9 @@ export default function FleetOverviewPage() {
       total_litres_30d: fuelLogs
         .filter((f) => f.fuel_date && new Date(f.fuel_date) >= cutoff30d)
         .reduce((s, f) => s + (f.quantity ?? 0), 0),
-      logs_30d: fuelLogs.filter((f) => f.fuel_date && new Date(f.fuel_date) >= cutoff30d).length,
+      logs_30d: fuelLogs.filter(
+        (f) => f.fuel_date && new Date(f.fuel_date) >= cutoff30d,
+      ).length,
     },
     trips: {
       active: 0,
@@ -275,7 +303,7 @@ export default function FleetOverviewPage() {
       description: m.description,
       next_due_date: m.next_due_date,
       days_overdue: Math.ceil(
-        (now.getTime() - new Date(m.next_due_date).getTime()) / 86_400_000
+        (now.getTime() - new Date(m.next_due_date).getTime()) / 86_400_000,
       ),
     }))
     .filter((a) => a.days_overdue >= -7)
@@ -286,7 +314,7 @@ export default function FleetOverviewPage() {
   const recentMaintenance = [...maintenance]
     .sort(
       (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )
     .slice(0, 5);
 
@@ -295,13 +323,13 @@ export default function FleetOverviewPage() {
     .sort(
       (a, b) =>
         new Date(b.created_at || b.fuel_date).getTime() -
-        new Date(a.created_at || a.fuel_date).getTime()
+        new Date(a.created_at || a.fuel_date).getTime(),
     )
     .slice(0, 5);
 
   // Vehicles with GPS online
   const onlineVehicles = vehicles.filter(
-    (v) => v.is_active || v.traccar_status?.trim() === "online"
+    (v) => v.is_active || v.traccar_status?.trim() === "online",
   );
 
   // Status breakdown for bar
@@ -325,7 +353,8 @@ export default function FleetOverviewPage() {
       <div className="flex items-center justify-between px-0.5">
         <div>
           <p className="text-[10px] text-slate-400 font-medium">
-            Last updated: {lastRefresh.toLocaleTimeString()} · Auto-refreshes every 60s
+            Last updated: {lastRefresh.toLocaleTimeString()} · Auto-refreshes
+            every 60s
           </p>
         </div>
         <button
@@ -333,7 +362,9 @@ export default function FleetOverviewPage() {
           disabled={refreshing}
           className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-700 transition-colors"
         >
-          <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`}
+          />
           {refreshing ? "Refreshing…" : "Refresh"}
         </button>
       </div>
@@ -378,7 +409,11 @@ export default function FleetOverviewPage() {
           value={stats.maintenance.overdue}
           sub={`${stats.maintenance.due_soon} due this week`}
           icon={AlertTriangle}
-          accent={stats.maintenance.overdue > 0 ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-500"}
+          accent={
+            stats.maintenance.overdue > 0
+              ? "bg-rose-50 text-rose-600"
+              : "bg-slate-100 text-slate-500"
+          }
           trend={stats.maintenance.overdue > 0 ? "down" : "neutral"}
         />
         <StatCard
@@ -400,7 +435,11 @@ export default function FleetOverviewPage() {
           value={stats.maintenance.emergency_count}
           sub="emergency maintenance records"
           icon={ShieldAlert}
-          accent={stats.maintenance.emergency_count > 0 ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-500"}
+          accent={
+            stats.maintenance.emergency_count > 0
+              ? "bg-rose-50 text-rose-600"
+              : "bg-slate-100 text-slate-500"
+          }
           trend={stats.maintenance.emergency_count > 0 ? "down" : "neutral"}
         />
       </div>
@@ -409,7 +448,9 @@ export default function FleetOverviewPage() {
       <div className="bg-white rounded-3xl border border-border/60 p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-sm font-black text-slate-700">Fleet Health Overview</p>
+            <p className="text-sm font-black text-slate-700">
+              Fleet Health Overview
+            </p>
             <p className="text-[10px] text-slate-400 mt-0.5">
               Status breakdown across {stats.vehicles.total} registered vehicles
             </p>
@@ -460,7 +501,6 @@ export default function FleetOverviewPage() {
 
       {/* ── Main 2-col grid ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
         {/* Left: Live GPS Panel */}
         <div className="bg-white rounded-3xl border border-border/60 shadow-sm overflow-hidden">
           <div className="px-5 pt-5 pb-3 border-b border-border/40 flex items-center justify-between">
@@ -469,7 +509,9 @@ export default function FleetOverviewPage() {
                 <Navigation className="w-4 h-4 text-emerald-600" />
               </div>
               <div>
-                <p className="text-sm font-black text-slate-700">Live GPS Tracking</p>
+                <p className="text-sm font-black text-slate-700">
+                  Live GPS Tracking
+                </p>
                 <p className="text-[10px] text-slate-400">
                   {onlineVehicles.length} of {vehicles.length} vehicles online
                 </p>
@@ -488,14 +530,20 @@ export default function FleetOverviewPage() {
               </div>
             ) : (
               vehicles.map((v) => {
-                const online = v.is_active || v.traccar_status?.trim() === "online";
+                const online =
+                  v.is_active || v.traccar_status?.trim() === "online";
                 return (
-                  <div key={v.id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50/60 transition-colors">
+                  <div
+                    key={v.id}
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50/60 transition-colors"
+                  >
                     {/* Status dot */}
                     <div
                       className={cn(
                         "w-2 h-2 rounded-full flex-shrink-0",
-                        online ? "bg-emerald-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" : "bg-slate-300"
+                        online
+                          ? "bg-emerald-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]"
+                          : "bg-slate-300",
                       )}
                     />
                     {/* Icon */}
@@ -505,8 +553,8 @@ export default function FleetOverviewPage() {
                         v.status === "maintenance"
                           ? "bg-amber-50"
                           : online
-                          ? "bg-blue-50"
-                          : "bg-slate-100"
+                            ? "bg-blue-50"
+                            : "bg-slate-100",
                       )}
                     >
                       <Truck
@@ -515,8 +563,8 @@ export default function FleetOverviewPage() {
                           v.status === "maintenance"
                             ? "text-amber-500"
                             : online
-                            ? "text-blue-500"
-                            : "text-slate-400"
+                              ? "text-blue-500"
+                              : "text-slate-400",
                         )}
                       />
                     </div>
@@ -535,7 +583,9 @@ export default function FleetOverviewPage() {
                           ? `${Number(v.last_known_lat).toFixed(4)}, ${Number(v.last_known_lng).toFixed(4)}`
                           : "No GPS signal"}
                         {v.last_location_at && (
-                          <span className="ml-1 text-slate-300">· {timeAgo(v.last_location_at)}</span>
+                          <span className="ml-1 text-slate-300">
+                            · {timeAgo(v.last_location_at)}
+                          </span>
                         )}
                       </p>
                     </div>
@@ -568,7 +618,9 @@ export default function FleetOverviewPage() {
                 <Wrench className="w-4 h-4 text-rose-600" />
               </div>
               <div>
-                <p className="text-sm font-black text-slate-700">Maintenance Alerts</p>
+                <p className="text-sm font-black text-slate-700">
+                  Maintenance Alerts
+                </p>
                 <p className="text-[10px] text-slate-400">
                   Overdue & due within 7 days
                 </p>
@@ -584,18 +636,23 @@ export default function FleetOverviewPage() {
             {maintenanceAlerts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-300">
                 <CheckCircle2 className="w-8 h-8 mb-2 text-emerald-400" />
-                <p className="text-[11px] font-bold text-emerald-500">All maintenance up to date!</p>
+                <p className="text-[11px] font-bold text-emerald-500">
+                  All maintenance up to date!
+                </p>
               </div>
             ) : (
               maintenanceAlerts.map((a) => {
                 const overdue = a.days_overdue > 0;
                 const dueSoon = !overdue && a.days_overdue >= -7;
                 return (
-                  <div key={a.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50/60 transition-colors">
+                  <div
+                    key={a.id}
+                    className="flex items-start gap-3 px-5 py-3.5 hover:bg-slate-50/60 transition-colors"
+                  >
                     <div
                       className={cn(
                         "w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5",
-                        overdue ? "bg-rose-50" : "bg-amber-50"
+                        overdue ? "bg-rose-50" : "bg-amber-50",
                       )}
                     >
                       {overdue ? (
@@ -611,21 +668,25 @@ export default function FleetOverviewPage() {
                           {a.license_plate}
                         </span>
                       </p>
-                      <p className="text-[10px] text-slate-500 truncate">{a.description}</p>
+                      <p className="text-[10px] text-slate-500 truncate">
+                        {a.description}
+                      </p>
                       <div className="flex items-center gap-2 mt-1">
                         <span
                           className={cn(
                             "text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full",
                             overdue
                               ? "bg-rose-100 text-rose-700"
-                              : "bg-amber-100 text-amber-700"
+                              : "bg-amber-100 text-amber-700",
                           )}
                         >
                           {overdue
                             ? `${a.days_overdue}d overdue`
                             : `Due ${fmtDate(a.next_due_date)}`}
                         </span>
-                        <span className="text-[9px] text-slate-400 capitalize">{a.type}</span>
+                        <span className="text-[9px] text-slate-400 capitalize">
+                          {a.type}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -638,7 +699,6 @@ export default function FleetOverviewPage() {
 
       {/* ── Bottom 2-col: Recent Activity + Drivers ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
         {/* Recent Maintenance Events */}
         <div className="bg-white rounded-3xl border border-border/60 shadow-sm overflow-hidden">
           <div className="px-5 pt-5 pb-3 border-b border-border/40">
@@ -647,8 +707,12 @@ export default function FleetOverviewPage() {
                 <FileText className="w-4 h-4 text-slate-500" />
               </div>
               <div>
-                <p className="text-sm font-black text-slate-700">Recent Maintenance</p>
-                <p className="text-[10px] text-slate-400">Latest service records</p>
+                <p className="text-sm font-black text-slate-700">
+                  Recent Maintenance
+                </p>
+                <p className="text-[10px] text-slate-400">
+                  Latest service records
+                </p>
               </div>
             </div>
           </div>
@@ -667,16 +731,28 @@ export default function FleetOverviewPage() {
                   emergency: "bg-rose-50 text-rose-600",
                 };
                 return (
-                  <div key={m.id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50/60 transition-colors">
-                    <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0", typeColors[m.type] || "bg-slate-100 text-slate-500")}>
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50/60 transition-colors"
+                  >
+                    <div
+                      className={cn(
+                        "w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0",
+                        typeColors[m.type] || "bg-slate-100 text-slate-500",
+                      )}
+                    >
                       <Wrench className="w-3.5 h-3.5" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[12px] font-bold text-slate-700 truncate">
                         {m.vehicle_label || m.vehicle_number}
-                        <span className="font-mono font-normal text-slate-400 ml-1 text-[10px]">{m.vehicle_plate}</span>
+                        <span className="font-mono font-normal text-slate-400 ml-1 text-[10px]">
+                          {m.vehicle_plate}
+                        </span>
                       </p>
-                      <p className="text-[10px] text-slate-500 truncate">{m.description}</p>
+                      <p className="text-[10px] text-slate-500 truncate">
+                        {m.description}
+                      </p>
                     </div>
                     <div className="flex flex-col items-end flex-shrink-0 gap-0.5">
                       {m.cost != null && (
@@ -684,7 +760,9 @@ export default function FleetOverviewPage() {
                           {fmtCurrency(m.cost)}
                         </span>
                       )}
-                      <span className="text-[9px] text-slate-400">{fmtDate(m.maintenance_date)}</span>
+                      <span className="text-[9px] text-slate-400">
+                        {fmtDate(m.maintenance_date)}
+                      </span>
                     </div>
                   </div>
                 );
@@ -701,7 +779,9 @@ export default function FleetOverviewPage() {
                 <Users className="w-4 h-4 text-violet-600" />
               </div>
               <div>
-                <p className="text-sm font-black text-slate-700">Active Driver Roster</p>
+                <p className="text-sm font-black text-slate-700">
+                  Active Driver Roster
+                </p>
                 <p className="text-[10px] text-slate-400">
                   Current assignments · {stats.drivers.active} active
                 </p>
@@ -726,14 +806,21 @@ export default function FleetOverviewPage() {
                     .toUpperCase();
                   const vehicleLinked = !!d.vehicle_id;
                   return (
-                    <div key={d.id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50/60 transition-colors">
+                    <div
+                      key={d.id}
+                      className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50/60 transition-colors"
+                    >
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-700 flex items-center justify-center text-white text-[10px] font-black flex-shrink-0">
                         {initials}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-bold text-slate-700 leading-tight">{d.driver_name}</p>
+                        <p className="text-[12px] font-bold text-slate-700 leading-tight">
+                          {d.driver_name}
+                        </p>
                         {d.driver_title && (
-                          <p className="text-[9px] text-slate-400">{d.driver_title}</p>
+                          <p className="text-[9px] text-slate-400">
+                            {d.driver_title}
+                          </p>
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -743,9 +830,13 @@ export default function FleetOverviewPage() {
                             {d.vehicle_label || d.vehicle_plate || "Vehicle"}
                           </div>
                         ) : (
-                          <span className="text-[9px] text-slate-400 italic">No vehicle</span>
+                          <span className="text-[9px] text-slate-400 italic">
+                            No vehicle
+                          </span>
                         )}
-                        <span className="text-[8px] text-slate-400">since {fmtDate(d.start_date)}</span>
+                        <span className="text-[8px] text-slate-400">
+                          since {fmtDate(d.start_date)}
+                        </span>
                       </div>
                     </div>
                   );
@@ -763,9 +854,12 @@ export default function FleetOverviewPage() {
               <Fuel className="w-4 h-4 text-sky-600" />
             </div>
             <div>
-              <p className="text-sm font-black text-slate-700">Recent Fuel Logs</p>
+              <p className="text-sm font-black text-slate-700">
+                Recent Fuel Logs
+              </p>
               <p className="text-[10px] text-slate-400">
-                Last 30 days · {fmtCurrency(stats.fuel.total_cost_30d)} total spend
+                Last 30 days · {fmtCurrency(stats.fuel.total_cost_30d)} total
+                spend
               </p>
             </div>
           </div>
@@ -795,10 +889,13 @@ export default function FleetOverviewPage() {
           <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-black text-rose-700">
-              {stats.maintenance.overdue} vehicle{stats.maintenance.overdue > 1 ? "s have" : " has"} overdue maintenance
+              {stats.maintenance.overdue} vehicle
+              {stats.maintenance.overdue > 1 ? "s have" : " has"} overdue
+              maintenance
             </p>
             <p className="text-[11px] text-rose-500 mt-0.5">
-              Navigate to <strong>Maintenance</strong> to review and schedule service appointments immediately.
+              Navigate to <strong>Maintenance</strong> to review and schedule
+              service appointments immediately.
             </p>
           </div>
         </div>

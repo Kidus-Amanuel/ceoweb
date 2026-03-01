@@ -19,6 +19,9 @@ vi.mock("react-i18next", () => ({
         "common.login": "Login",
         "common.google_login": "Google",
         "common.sign_in": "Sign In",
+        "common.password_min_chars": "(min 6 chars)",
+        "common.enter_details":
+          "Enter your details below to create your account.",
       };
       return translations[key] || key;
     },
@@ -39,21 +42,23 @@ describe("SignUpPage", () => {
 
   test("renders create account heading", () => {
     render(<SignUpPage />);
-    expect(screen.getByText(/Create an account/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Create an account/i }),
+    ).toBeInTheDocument();
   });
 
   test("renders form inputs", () => {
     render(<SignUpPage />);
     expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/password.*min/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/confirm password/i)).toBeInTheDocument();
   });
 
   test("renders create account button", () => {
     render(<SignUpPage />);
     expect(
-      screen.getByRole("button", { name: /create account/i }),
+      screen.getByRole("button", { name: /create.*account/i }),
     ).toBeInTheDocument();
   });
 
@@ -64,6 +69,6 @@ describe("SignUpPage", () => {
 
   test("renders sign in link", () => {
     render(<SignUpPage />);
-    expect(screen.getByText(/sign in/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /sign in/i })).toBeInTheDocument();
   });
 });
