@@ -97,8 +97,8 @@ export async function GET() {
               traccarDevice.status?.trim() === "online" ||
               (traccarDevice.lastUpdate &&
                 new Date().getTime() -
-                new Date(traccarDevice.lastUpdate).getTime() <
-                30 * 60 * 1000),
+                  new Date(traccarDevice.lastUpdate).getTime() <
+                  30 * 60 * 1000),
           };
         }
         return vehicle;

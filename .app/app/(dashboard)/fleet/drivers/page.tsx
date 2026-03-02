@@ -7,6 +7,7 @@ import {
   useCallback,
   useTransition,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
   EditableTable,
   type VirtualColumn,
@@ -49,6 +50,7 @@ interface Assignment {
 }
 
 export default function DriversPage() {
+  const { t } = useTranslation();
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
@@ -97,7 +99,7 @@ export default function DriversPage() {
       );
 
       setVehicleOptions([
-        { label: "— No Vehicle (assign later) —", value: "none" },
+        { label: t("fleet_drivers.no_vehicle_option"), value: "none" },
         ...(vehList || []).map((v: any) => ({
           label:
             `${v.make || ""} ${v.model || ""} ${v.license_plate ? "· " + v.license_plate : ""}`.trim(),
@@ -118,7 +120,7 @@ export default function DriversPage() {
               setColumnDefs(res.data.columnDefinitions || []);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     } catch (error) {
       console.error("[DriversPage] Failed to load driver assignments:", error);
@@ -173,7 +175,7 @@ export default function DriversPage() {
   const columns = useMemo(
     () => [
       {
-        header: "Driver",
+        header: t("fleet_drivers.col_driver"),
         accessorKey: "driver_id",
         meta: {
           type: "select" as const,
@@ -207,7 +209,7 @@ export default function DriversPage() {
         },
       },
       {
-        header: "Vehicle",
+        header: t("fleet_drivers.col_vehicle"),
         accessorKey: "vehicle_id",
         meta: {
           type: "select" as const,
@@ -218,7 +220,7 @@ export default function DriversPage() {
           if (!vehicle_label)
             return (
               <span className="text-slate-300 italic text-[10px] flex items-center gap-1">
-                <Car className="w-3 h-3" /> No vehicle
+                <Car className="w-3 h-3" /> {t("fleet_drivers.no_vehicle")}
               </span>
             );
           return (
@@ -241,7 +243,7 @@ export default function DriversPage() {
         },
       },
       {
-        header: "Start Date",
+        header: t("fleet_drivers.col_start_date"),
         accessorKey: "start_date",
         meta: { type: "date" as const },
         cell: ({ row }: any) => (
@@ -254,7 +256,7 @@ export default function DriversPage() {
         ),
       },
       {
-        header: "End Date",
+        header: t("fleet_drivers.col_end_date"),
         accessorKey: "end_date",
         meta: { type: "date" as const },
         cell: ({ row }: any) => {
@@ -262,15 +264,14 @@ export default function DriversPage() {
           if (!endDate)
             return (
               <div className="flex items-center gap-1 text-emerald-500 text-[10px] font-bold">
-                <BadgeCheck className="w-3 h-3" /> Active
+                <BadgeCheck className="w-3 h-3" /> {t("fleet_drivers.status_active")}
               </div>
             );
           const past = new Date(endDate) < new Date();
           return (
             <div
-              className={`flex items-center gap-1 text-[10px] font-semibold ${
-                past ? "text-slate-400" : "text-orange-500"
-              }`}
+              className={`flex items-center gap-1 text-[10px] font-semibold ${past ? "text-slate-400" : "text-orange-500"
+                }`}
             >
               {!past && <Clock className="w-3 h-3" />}
               {new Date(endDate).toLocaleDateString()}
@@ -279,7 +280,7 @@ export default function DriversPage() {
         },
       },
       {
-        header: "Notes",
+        header: t("fleet_drivers.col_notes"),
         accessorKey: "notes",
         meta: { type: "text" as const },
         cell: ({ row }: any) => (
@@ -291,7 +292,7 @@ export default function DriversPage() {
         ),
       },
       {
-        header: "Status",
+        header: t("fleet_drivers.col_status"),
         accessorKey: "assignment_status",
         meta: { readOnly: true },
         cell: ({ row }: any) => {
@@ -301,7 +302,7 @@ export default function DriversPage() {
               variant={active ? "success" : "default"}
               className="text-[9px] px-2"
             >
-              {active ? "Active" : "Ended"}
+              {active ? t("fleet_drivers.status_active") : t("fleet_drivers.status_ended")}
             </Badge>
           );
         },
@@ -459,7 +460,7 @@ export default function DriversPage() {
           <div className="relative w-full md:w-64">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <Input
-              placeholder="Search driver, vehicle..."
+              placeholder={t("fleet_drivers.search_placeholder")}
               className="pl-8 h-8 border-slate-200/60 rounded-lg bg-slate-50/10 text-[11px] focus:bg-white transition-all"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -472,25 +473,28 @@ export default function DriversPage() {
                 key={f}
                 variant={statusFilter === f ? "secondary" : "ghost"}
                 size="sm"
-                className={`h-7 px-2.5 text-[9px] font-bold uppercase rounded-md gap-1 ${
-                  statusFilter === f ? "bg-white shadow-sm" : ""
-                }`}
+                className={`h-7 px-2.5 text-[9px] font-bold uppercase rounded-md gap-1 ${statusFilter === f ? "bg-white shadow-sm" : ""
+                  }`}
                 onClick={() => setStatusFilter(f)}
               >
                 {f === "active" && (
                   <div className="w-1 h-1 rounded-full bg-emerald-500" />
                 )}
-                {f}
+                {f === "all"
+                  ? t("fleet_drivers.filter_all")
+                  : f === "active"
+                    ? t("fleet_drivers.filter_active")
+                    : t("fleet_drivers.filter_ended")}
               </Button>
             ))}
           </div>
         </div>
 
         <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-wider text-slate-400">
-          <span>{stats.total} Total</span>
-          <span className="text-emerald-500">{stats.active} Active</span>
+          <span>{t("fleet_drivers.stat_total", { count: stats.total })}</span>
+          <span className="text-emerald-500">{t("fleet_drivers.stat_active", { count: stats.active })}</span>
           <span className="text-blue-500">
-            {stats.withVehicle} With Vehicle
+            {t("fleet_drivers.stat_with_vehicle", { count: stats.withVehicle })}
           </span>
         </div>
       </div>
@@ -500,7 +504,7 @@ export default function DriversPage() {
           <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400">
             <Users className="w-8 h-8 animate-pulse" />
             <p className="text-[11px] font-black uppercase tracking-widest">
-              Loading assignments...
+              {t("fleet_drivers.loading")}
             </p>
           </div>
         ) : (

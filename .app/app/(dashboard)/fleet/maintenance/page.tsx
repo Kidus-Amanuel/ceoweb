@@ -7,6 +7,7 @@ import {
   useCallback,
   useTransition,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
   EditableTable,
   type VirtualColumn,
@@ -71,33 +72,34 @@ const TYPE_OPTIONS = [
   { value: "emergency", label: "Emergency" },
 ] as const;
 
+// Type config now uses translation-ready labels — actual display uses t() in cell renderers
 const TYPE_CONFIG: Record<
   MaintenanceType,
-  { label: string; color: string; icon: React.ReactNode; badge: string }
+  { color: string; icon: React.ReactNode; badge: string; key: string }
 > = {
   routine: {
-    label: "Routine",
     color: "text-blue-600 bg-blue-50",
     icon: <Wrench className="w-3 h-3" />,
     badge: "default",
+    key: "fleet_maintenance.type_routine",
   },
   repair: {
-    label: "Repair",
     color: "text-amber-600 bg-amber-50",
     icon: <AlertTriangle className="w-3 h-3" />,
     badge: "warning",
+    key: "fleet_maintenance.type_repair",
   },
   inspection: {
-    label: "Inspection",
     color: "text-emerald-600 bg-emerald-50",
     icon: <CheckCircle2 className="w-3 h-3" />,
     badge: "success",
+    key: "fleet_maintenance.type_inspection",
   },
   emergency: {
-    label: "Emergency",
     color: "text-rose-600 bg-rose-50",
     icon: <ShieldAlert className="w-3 h-3" />,
     badge: "destructive",
+    key: "fleet_maintenance.type_emergency",
   },
 };
 
@@ -143,6 +145,7 @@ function StatCard({
 // ─── Due-date indicator ────────────────────────────────────────────────────────
 
 function DueDateCell({ date }: { date: string | null }) {
+  const { t } = useTranslation();
   if (!date)
     return <span className="text-slate-300 text-[10px] italic">—</span>;
 
@@ -154,10 +157,10 @@ function DueDateCell({ date }: { date: string | null }) {
   let label = "";
   if (diffDays < 0) {
     cls = "text-rose-600 font-bold";
-    label = ` (${Math.abs(diffDays)}d overdue)`;
+    label = ` ${t("fleet_maintenance.overdue_label", { days: Math.abs(diffDays) })}`;
   } else if (diffDays <= 7) {
     cls = "text-amber-600 font-semibold";
-    label = ` (in ${diffDays}d)`;
+    label = ` ${t("fleet_maintenance.due_in_label", { days: diffDays })}`;
   }
 
   return (
@@ -172,6 +175,7 @@ function DueDateCell({ date }: { date: string | null }) {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MaintenancePage() {
+  const { t } = useTranslation();
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
@@ -206,9 +210,8 @@ export default function MaintenancePage() {
 
       setVehicleOptions(
         (vehList || []).map((v: any) => ({
-          label: `${v.make ?? ""} ${v.model ?? ""} ${
-            v.license_plate ? "· " + v.license_plate : ""
-          }`.trim(),
+          label: `${v.make ?? ""} ${v.model ?? ""} ${v.license_plate ? "· " + v.license_plate : ""
+            }`.trim(),
           value: v.id,
         })),
       );
@@ -226,7 +229,7 @@ export default function MaintenancePage() {
               setColumnDefs(res.data.columnDefinitions || []);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     } catch (err) {
       console.error("[Maintenance Page] Load failed:", err);
@@ -300,7 +303,7 @@ export default function MaintenancePage() {
     () => [
       // Vehicle
       {
-        header: "Vehicle",
+        header: t("fleet_maintenance.col_vehicle"),
         accessorKey: "vehicle_id",
         meta: {
           type: "select" as const,
@@ -329,7 +332,7 @@ export default function MaintenancePage() {
       },
       // Type
       {
-        header: "Type",
+        header: t("fleet_maintenance.col_type"),
         accessorKey: "type",
         meta: {
           type: "select" as const,
@@ -339,23 +342,23 @@ export default function MaintenancePage() {
           })),
         },
         cell: ({ row }: any) => {
-          const t = row.original.type as MaintenanceType | null;
-          if (!t)
+          const type = row.original.type as MaintenanceType | null;
+          if (!type)
             return <span className="text-slate-300 text-[10px] italic">—</span>;
-          const cfg = TYPE_CONFIG[t];
+          const cfg = TYPE_CONFIG[type];
           return (
             <div
               className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold ${cfg.color}`}
             >
               {cfg.icon}
-              {cfg.label}
+              {t(cfg.key)}
             </div>
           );
         },
       },
       // Description
       {
-        header: "Description",
+        header: t("fleet_maintenance.col_description"),
         accessorKey: "description",
         meta: { type: "text" as const },
         cell: ({ row }: any) => (
@@ -369,7 +372,7 @@ export default function MaintenancePage() {
       },
       // Date
       {
-        header: "Date",
+        header: t("fleet_maintenance.col_date"),
         accessorKey: "maintenance_date",
         meta: { type: "date" as const },
         cell: ({ row }: any) => (
@@ -383,7 +386,7 @@ export default function MaintenancePage() {
       },
       // Cost
       {
-        header: "Cost",
+        header: t("fleet_maintenance.col_cost"),
         accessorKey: "cost",
         meta: { type: "number" as const },
         cell: ({ row }: any) => {
@@ -403,7 +406,7 @@ export default function MaintenancePage() {
       },
       // Odometer
       {
-        header: "Odometer",
+        header: t("fleet_maintenance.col_odometer"),
         accessorKey: "odometer_reading",
         meta: { type: "number" as const },
         cell: ({ row }: any) => {
@@ -420,7 +423,7 @@ export default function MaintenancePage() {
       },
       // Performed By
       {
-        header: "Performed By",
+        header: t("fleet_maintenance.col_performed_by"),
         accessorKey: "performed_by",
         meta: { type: "text" as const },
         cell: ({ row }: any) => {
@@ -437,7 +440,7 @@ export default function MaintenancePage() {
       },
       // Next Due Date
       {
-        header: "Next Due",
+        header: t("fleet_maintenance.col_next_due"),
         accessorKey: "next_due_date",
         meta: { type: "date" as const },
         cell: ({ row }: any) => (
@@ -446,7 +449,7 @@ export default function MaintenancePage() {
       },
       // Notes
       {
-        header: "Notes",
+        header: t("fleet_maintenance.col_notes"),
         accessorKey: "notes",
         meta: { type: "text" as const },
         cell: ({ row }: any) => (
@@ -617,13 +620,13 @@ export default function MaintenancePage() {
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
-          label="Total Records"
+          label={t("fleet_maintenance.stat_total_records")}
           value={stats.total}
           icon={<ClipboardList className="w-5 h-5 text-slate-600" />}
           accent="bg-slate-100"
         />
         <StatCard
-          label="Total Spent"
+          label={t("fleet_maintenance.stat_total_spent")}
           value={`$${stats.totalCost.toLocaleString("en-US", {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0,
@@ -632,16 +635,16 @@ export default function MaintenancePage() {
           accent="bg-emerald-50"
         />
         <StatCard
-          label="Due Soon"
+          label={t("fleet_maintenance.stat_due_soon")}
           value={stats.dueSoon}
-          sub="within 7 days"
+          sub={t("fleet_maintenance.stat_due_soon_sub")}
           icon={<CalendarClock className="w-5 h-5 text-amber-600" />}
           accent="bg-amber-50"
         />
         <StatCard
-          label="Overdue"
+          label={t("fleet_maintenance.stat_overdue")}
           value={stats.overdue}
-          sub="past next due date"
+          sub={t("fleet_maintenance.stat_overdue_sub")}
           icon={<ShieldAlert className="w-5 h-5 text-rose-600" />}
           accent="bg-rose-50"
         />
@@ -653,7 +656,7 @@ export default function MaintenancePage() {
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
           <Input
-            placeholder="Search description, vehicle, technician…"
+            placeholder={t("fleet_maintenance.search_placeholder")}
             className="pl-9 h-8 text-[11px] bg-slate-50/60 border-slate-200/60 rounded-xl focus:bg-white transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -665,28 +668,26 @@ export default function MaintenancePage() {
           <Button
             variant={typeFilter === "all" ? "secondary" : "ghost"}
             size="sm"
-            className={`h-7 px-3 text-[9px] font-black uppercase rounded-lg ${
-              typeFilter === "all" ? "bg-white shadow-sm" : ""
-            }`}
+            className={`h-7 px-3 text-[9px] font-black uppercase rounded-lg ${typeFilter === "all" ? "bg-white shadow-sm" : ""
+              }`}
             onClick={() => setTypeFilter("all")}
           >
-            All
+            {t("fleet_maintenance.filter_all")}
           </Button>
-          {(["routine", "inspection", "repair", "emergency"] as const).map(
-            (t) => {
-              const cfg = TYPE_CONFIG[t];
+          {([`routine`, `inspection`, `repair`, `emergency`] as const).map(
+            (typeKey) => {
+              const cfg = TYPE_CONFIG[typeKey];
               return (
                 <Button
-                  key={t}
-                  variant={typeFilter === t ? "secondary" : "ghost"}
+                  key={typeKey}
+                  variant={typeFilter === typeKey ? "secondary" : "ghost"}
                   size="sm"
-                  className={`h-7 px-2.5 text-[9px] font-black uppercase rounded-lg gap-1 ${
-                    typeFilter === t ? "bg-white shadow-sm" : ""
-                  }`}
-                  onClick={() => setTypeFilter(t)}
+                  className={`h-7 px-2.5 text-[9px] font-black uppercase rounded-lg gap-1 ${typeFilter === typeKey ? "bg-white shadow-sm" : ""
+                    }`}
+                  onClick={() => setTypeFilter(typeKey)}
                 >
                   {cfg.icon}
-                  {cfg.label}
+                  {t(`fleet_maintenance.type_${typeKey}` as any)}
                 </Button>
               );
             },
@@ -695,7 +696,7 @@ export default function MaintenancePage() {
 
         {/* Record count */}
         <span className="ml-auto text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">
-          {filteredData.length} of {data.length} records
+          {t("fleet_maintenance.record_count", { filtered: filteredData.length, total: data.length })}
         </span>
       </div>
 
@@ -705,13 +706,13 @@ export default function MaintenancePage() {
           <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400">
             <Wrench className="w-8 h-8 animate-pulse" />
             <p className="text-[11px] font-black uppercase tracking-widest">
-              Loading maintenance records…
+              {t("fleet_maintenance.loading")}
             </p>
           </div>
         ) : (
           <EditableTable
-            title="Maintenance Records"
-            description="Click any row to edit inline. Use the + button to log a new service event."
+            title={t("fleet_maintenance.table_title")}
+            description={t("fleet_maintenance.table_description")}
             data={filteredData}
             columns={columns}
             virtualColumns={virtualColumns}
@@ -731,10 +732,11 @@ export default function MaintenancePage() {
         <div className="flex items-center gap-3 px-4 py-3 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700">
           <ShieldAlert className="w-4 h-4 flex-shrink-0" />
           <p className="text-[11px] font-bold">
-            {stats.overdue} vehicle
-            {stats.overdue > 1 ? "s have" : " has"} overdue maintenance. Review
-            the <span className="underline">Next Due</span> column and schedule
-            service immediately.
+            {t("fleet_maintenance.banner_overdue", {
+              count: stats.overdue,
+              plural: stats.overdue > 1 ? "s have" : " has",
+            })}{" "}
+            <span className="underline">{t("fleet_maintenance.banner_next_due")}</span>
           </p>
         </div>
       )}

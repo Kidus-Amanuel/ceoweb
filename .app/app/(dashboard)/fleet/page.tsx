@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import {
   Truck,
@@ -184,6 +185,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function FleetOverviewPage() {
+  const { t } = useTranslation();
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
@@ -348,7 +350,7 @@ export default function FleetOverviewPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-slate-400">
         <Truck className="w-10 h-10 animate-pulse" />
         <p className="text-[11px] font-black uppercase tracking-widest">
-          Loading Fleet Overview…
+          {t("fleet_overview.loading")}
         </p>
       </div>
     );
@@ -360,8 +362,7 @@ export default function FleetOverviewPage() {
       <div className="flex items-center justify-between px-0.5">
         <div>
           <p className="text-[10px] text-slate-400 font-medium">
-            Last updated: {lastRefresh.toLocaleTimeString()} · Auto-refreshes
-            every 60s
+            {t("fleet_overview.last_updated", { time: lastRefresh.toLocaleTimeString() })}
           </p>
         </div>
         <button
@@ -372,38 +373,38 @@ export default function FleetOverviewPage() {
           <RefreshCw
             className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`}
           />
-          {refreshing ? "Refreshing…" : "Refresh"}
+          {refreshing ? t("fleet_overview.refreshing") : t("fleet_overview.refresh")}
         </button>
       </div>
 
       {/* ── KPI Stat Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
-          label="Total Vehicles"
+          label={t("fleet_overview.stat_total_vehicles")}
           value={stats.vehicles.total}
-          sub={`${stats.vehicles.active} active · ${stats.vehicles.maintenance} in service`}
+          sub={t("fleet_overview.stat_total_vehicles_sub", { active: stats.vehicles.active, maintenance: stats.vehicles.maintenance })}
           icon={Truck}
           accent="bg-blue-50 text-blue-600"
         />
         <StatCard
-          label="GPS Online"
+          label={t("fleet_overview.stat_gps_online")}
           value={stats.vehicles.online}
-          sub={`of ${stats.vehicles.total} vehicles tracked`}
+          sub={t("fleet_overview.stat_gps_online_sub", { total: stats.vehicles.total })}
           icon={Wifi}
           accent="bg-emerald-50 text-emerald-600"
           trend={stats.vehicles.online > 0 ? "up" : "neutral"}
         />
         <StatCard
-          label="Active Drivers"
+          label={t("fleet_overview.stat_active_drivers")}
           value={stats.drivers.active}
-          sub={`${stats.drivers.without_vehicle} without vehicle`}
+          sub={t("fleet_overview.stat_active_drivers_sub", { without: stats.drivers.without_vehicle })}
           icon={Users}
           accent="bg-violet-50 text-violet-600"
         />
         <StatCard
-          label="Maintenance Cost"
+          label={t("fleet_overview.stat_maintenance_cost")}
           value={fmtCurrency(stats.maintenance.total_cost_30d)}
-          sub="last 30 days"
+          sub={t("fleet_overview.stat_maintenance_cost_sub")}
           icon={Wrench}
           accent="bg-amber-50 text-amber-600"
         />
@@ -412,9 +413,9 @@ export default function FleetOverviewPage() {
       {/* ── Second row KPIs ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
-          label="Overdue Maintenance"
+          label={t("fleet_overview.stat_overdue_maintenance")}
           value={stats.maintenance.overdue}
-          sub={`${stats.maintenance.due_soon} due this week`}
+          sub={t("fleet_overview.stat_overdue_maintenance_sub", { due_soon: stats.maintenance.due_soon })}
           icon={AlertTriangle}
           accent={
             stats.maintenance.overdue > 0
@@ -424,23 +425,23 @@ export default function FleetOverviewPage() {
           trend={stats.maintenance.overdue > 0 ? "down" : "neutral"}
         />
         <StatCard
-          label="Fuel Spend (30d)"
+          label={t("fleet_overview.stat_fuel_spend")}
           value={fmtCurrency(stats.fuel.total_cost_30d)}
-          sub={`${stats.fuel.total_litres_30d.toFixed(0)}L · ${stats.fuel.logs_30d} fill-ups`}
+          sub={t("fleet_overview.stat_fuel_spend_sub", { litres: stats.fuel.total_litres_30d.toFixed(0), logs: stats.fuel.logs_30d })}
           icon={Fuel}
           accent="bg-sky-50 text-sky-600"
         />
         <StatCard
-          label="Vehicles Assigned"
+          label={t("fleet_overview.stat_vehicles_assigned")}
           value={stats.vehicles.assigned}
-          sub={`${stats.vehicles.total - stats.vehicles.assigned} unassigned`}
+          sub={t("fleet_overview.stat_vehicles_assigned_sub", { unassigned: stats.vehicles.total - stats.vehicles.assigned })}
           icon={Car}
           accent="bg-indigo-50 text-indigo-600"
         />
         <StatCard
-          label="Emergency Alerts"
+          label={t("fleet_overview.stat_emergency_alerts")}
           value={stats.maintenance.emergency_count}
-          sub="emergency maintenance records"
+          sub={t("fleet_overview.stat_emergency_alerts_sub")}
           icon={ShieldAlert}
           accent={
             stats.maintenance.emergency_count > 0
@@ -456,24 +457,24 @@ export default function FleetOverviewPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-sm font-black text-slate-700">
-              Fleet Health Overview
+              {t("fleet_overview.health_title")}
             </p>
             <p className="text-[10px] text-slate-400 mt-0.5">
-              Status breakdown across {stats.vehicles.total} registered vehicles
+              {t("fleet_overview.health_sub", { total: stats.vehicles.total })}
             </p>
           </div>
           <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider">
             <span className="flex items-center gap-1.5 text-emerald-600">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              {stats.vehicles.active} Active
+              {stats.vehicles.active} {t("fleet_overview.health_active")}
             </span>
             <span className="flex items-center gap-1.5 text-amber-600">
               <span className="w-2 h-2 rounded-full bg-amber-500" />
-              {stats.vehicles.maintenance} In Service
+              {stats.vehicles.maintenance} {t("fleet_overview.health_in_service")}
             </span>
             <span className="flex items-center gap-1.5 text-slate-400">
               <span className="w-2 h-2 rounded-full bg-slate-300" />
-              {stats.vehicles.retired} Retired
+              {stats.vehicles.retired} {t("fleet_overview.health_retired")}
             </span>
           </div>
         </div>
@@ -517,23 +518,23 @@ export default function FleetOverviewPage() {
               </div>
               <div>
                 <p className="text-sm font-black text-slate-700">
-                  Live GPS Tracking
+                  {t("fleet_overview.live_gps_title")}
                 </p>
                 <p className="text-[10px] text-slate-400">
-                  {onlineVehicles.length} of {vehicles.length} vehicles online
+                  {t("fleet_overview.live_gps_sub", { online: onlineVehicles.length, total: vehicles.length })}
                 </p>
               </div>
             </div>
             <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live
+              {t("fleet_overview.live_badge")}
             </span>
           </div>
           <div className="divide-y divide-border/30 max-h-[400px] overflow-y-auto">
             {vehicles.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-300">
                 <WifiOff className="w-8 h-8 mb-2" />
-                <p className="text-[11px] font-bold">No vehicles registered</p>
+                <p className="text-[11px] font-bold">{t("fleet_overview.no_vehicles")}</p>
               </div>
             ) : (
               vehicles.map((v) => {
@@ -588,7 +589,7 @@ export default function FleetOverviewPage() {
                       <p className="text-[10px] text-slate-400 truncate">
                         {v.last_known_lat
                           ? `${Number(v.last_known_lat).toFixed(4)}, ${Number(v.last_known_lng).toFixed(4)}`
-                          : "No GPS signal"}
+                          : t("fleet_overview.no_gps_signal")}
                         {v.last_location_at && (
                           <span className="ml-1 text-slate-300">
                             · {timeAgo(v.last_location_at)}
@@ -602,11 +603,11 @@ export default function FleetOverviewPage() {
                         variant={online ? "success" : "default"}
                         className="text-[8px] px-1.5 py-0"
                       >
-                        {online ? "Online" : "Offline"}
+                        {online ? t("fleet_overview.online") : t("fleet_overview.offline")}
                       </Badge>
                       {v.ignition_status && (
                         <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                          Running
+                          {t("fleet_overview.running")}
                         </span>
                       )}
                     </div>
@@ -626,16 +627,16 @@ export default function FleetOverviewPage() {
               </div>
               <div>
                 <p className="text-sm font-black text-slate-700">
-                  Maintenance Alerts
+                  {t("fleet_overview.maintenance_alerts_title")}
                 </p>
                 <p className="text-[10px] text-slate-400">
-                  Overdue & due within 7 days
+                  {t("fleet_overview.maintenance_alerts_sub")}
                 </p>
               </div>
             </div>
             {stats.maintenance.overdue > 0 && (
               <span className="text-[9px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-1 rounded-full">
-                {stats.maintenance.overdue} overdue
+                {t("fleet_overview.overdue_count", { count: stats.maintenance.overdue })}
               </span>
             )}
           </div>
@@ -644,7 +645,7 @@ export default function FleetOverviewPage() {
               <div className="flex flex-col items-center justify-center py-16 text-slate-300">
                 <CheckCircle2 className="w-8 h-8 mb-2 text-emerald-400" />
                 <p className="text-[11px] font-bold text-emerald-500">
-                  All maintenance up to date!
+                  {t("fleet_overview.all_up_to_date")}
                 </p>
               </div>
             ) : (
@@ -688,8 +689,8 @@ export default function FleetOverviewPage() {
                           )}
                         >
                           {overdue
-                            ? `${a.days_overdue}d overdue`
-                            : `Due ${fmtDate(a.next_due_date)}`}
+                            ? t("fleet_overview.days_overdue", { days: a.days_overdue })
+                            : t("fleet_overview.due_date", { date: fmtDate(a.next_due_date) })}
                         </span>
                         <span className="text-[9px] text-slate-400 capitalize">
                           {a.type}
@@ -715,10 +716,10 @@ export default function FleetOverviewPage() {
               </div>
               <div>
                 <p className="text-sm font-black text-slate-700">
-                  Recent Maintenance
+                  {t("fleet_overview.recent_maintenance_title")}
                 </p>
                 <p className="text-[10px] text-slate-400">
-                  Latest service records
+                  {t("fleet_overview.recent_maintenance_sub")}
                 </p>
               </div>
             </div>
@@ -727,7 +728,7 @@ export default function FleetOverviewPage() {
             {recentMaintenance.length === 0 ? (
               <div className="py-12 text-center text-slate-300">
                 <Wrench className="w-7 h-7 mx-auto mb-2" />
-                <p className="text-[11px] font-bold">No maintenance records</p>
+                <p className="text-[11px] font-bold">{t("fleet_overview.no_maintenance")}</p>
               </div>
             ) : (
               recentMaintenance.map((m) => {
@@ -787,10 +788,10 @@ export default function FleetOverviewPage() {
               </div>
               <div>
                 <p className="text-sm font-black text-slate-700">
-                  Active Driver Roster
+                  {t("fleet_overview.drivers_title")}
                 </p>
                 <p className="text-[10px] text-slate-400">
-                  Current assignments · {stats.drivers.active} active
+                  {t("fleet_overview.drivers_sub", { active: stats.drivers.active })}
                 </p>
               </div>
             </div>
@@ -799,7 +800,7 @@ export default function FleetOverviewPage() {
             {drivers.length === 0 ? (
               <div className="py-12 text-center text-slate-300">
                 <Users className="w-7 h-7 mx-auto mb-2" />
-                <p className="text-[11px] font-bold">No drivers registered</p>
+                <p className="text-[11px] font-bold">{t("fleet_overview.no_drivers")}</p>
               </div>
             ) : (
               drivers
@@ -838,11 +839,11 @@ export default function FleetOverviewPage() {
                           </div>
                         ) : (
                           <span className="text-[9px] text-slate-400 italic">
-                            No vehicle
+                            {t("fleet_overview.no_vehicle")}
                           </span>
                         )}
                         <span className="text-[8px] text-slate-400">
-                          since {fmtDate(d.start_date)}
+                          {t("fleet_overview.since", { date: fmtDate(d.start_date) })}
                         </span>
                       </div>
                     </div>
@@ -862,11 +863,10 @@ export default function FleetOverviewPage() {
             </div>
             <div>
               <p className="text-sm font-black text-slate-700">
-                Recent Fuel Logs
+                {t("fleet_overview.fuel_title")}
               </p>
               <p className="text-[10px] text-slate-400">
-                Last 30 days · {fmtCurrency(stats.fuel.total_cost_30d)} total
-                spend
+                {t("fleet_overview.fuel_sub", { total: fmtCurrency(stats.fuel.total_cost_30d) })}
               </p>
             </div>
           </div>
@@ -896,13 +896,14 @@ export default function FleetOverviewPage() {
           <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-black text-rose-700">
-              {stats.maintenance.overdue} vehicle
-              {stats.maintenance.overdue > 1 ? "s have" : " has"} overdue
-              maintenance
+              {t("fleet_overview.overdue_banner_title", {
+                count: stats.maintenance.overdue,
+                plural: stats.maintenance.overdue > 1 ? "s have" : " has",
+              })}
             </p>
             <p className="text-[11px] text-rose-500 mt-0.5">
-              Navigate to <strong>Maintenance</strong> to review and schedule
-              service appointments immediately.
+              {t("fleet_overview.overdue_banner_body")}{" "}
+              <strong>{t("fleet_overview.maintenance_link")}</strong>
             </p>
           </div>
         </div>

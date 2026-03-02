@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useTransition } from "react";
+import { useTranslation } from "react-i18next";
 import {
   EditableTable,
   type VirtualColumn,
@@ -28,19 +29,25 @@ import {
 } from "@/app/api/fleet/fleet";
 
 // Dynamically import Map to avoid SSR issues with Leaflet
+function MapLoadingFallback() {
+  const { t } = useTranslation();
+  return (
+    <div className="w-full h-[600px] flex items-center justify-center bg-slate-50 text-slate-400">
+      {t("fleet_vehicles.loading_map")}
+    </div>
+  );
+}
+
 const VehicleMap = dynamic(
   () => import("@/components/fleet/vehicles/VehicleMap"),
   {
     ssr: false,
-    loading: () => (
-      <div className="w-full h-[600px] flex items-center justify-center bg-slate-50 text-slate-400">
-        Loading Map Environment...
-      </div>
-    ),
+    loading: () => <MapLoadingFallback />,
   },
 );
 
 export default function VehiclesPage() {
+  const { t } = useTranslation();
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
@@ -110,7 +117,7 @@ export default function VehiclesPage() {
   const driverOptions = useMemo(() => {
     const seen = new Set<string>();
     const opts: { label: string; value: string }[] = [
-      { label: "— Unassigned —", value: "none" },
+      { label: `— ${t("fleet_vehicles.unassigned")} —`, value: "none" },
     ];
     for (const d of drivers) {
       if (d.driver_id && !seen.has(d.driver_id)) {
@@ -136,7 +143,7 @@ export default function VehiclesPage() {
   const columns = useMemo(
     () => [
       {
-        header: "Make",
+        header: t("fleet_vehicles.col_make"),
         accessorKey: "make",
         meta: { type: "text" as const },
         cell: ({ row }: any) => (
@@ -146,7 +153,7 @@ export default function VehiclesPage() {
         ),
       },
       {
-        header: "Model",
+        header: t("fleet_vehicles.col_model"),
         accessorKey: "model",
         meta: { type: "text" as const },
         cell: ({ row }: any) => (
@@ -156,7 +163,7 @@ export default function VehiclesPage() {
         ),
       },
       {
-        header: "Year",
+        header: t("fleet_vehicles.col_year"),
         accessorKey: "year",
         meta: { type: "number" as const },
         cell: ({ row }: any) => (
@@ -166,7 +173,7 @@ export default function VehiclesPage() {
         ),
       },
       {
-        header: "Vehicle Type",
+        header: t("fleet_vehicles.col_vehicle_type"),
         accessorKey: "vehicle_type_id",
         meta: {
           type: "select" as const,
@@ -183,7 +190,7 @@ export default function VehiclesPage() {
         },
       },
       {
-        header: "VIN",
+        header: t("fleet_vehicles.col_vin"),
         accessorKey: "vin",
         meta: { type: "text" as const },
         cell: ({ row }: any) => (
@@ -193,7 +200,7 @@ export default function VehiclesPage() {
         ),
       },
       {
-        header: "Plate",
+        header: t("fleet_vehicles.col_plate"),
         accessorKey: "license_plate",
         meta: { type: "text" as const },
         cell: ({ row }: any) => (
@@ -203,7 +210,7 @@ export default function VehiclesPage() {
         ),
       },
       {
-        header: "Driver",
+        header: t("fleet_vehicles.col_driver"),
         accessorKey: "assigned_driver_id",
         meta: {
           type: "select" as const,
@@ -216,7 +223,7 @@ export default function VehiclesPage() {
           if (!driverId || !driverRecord)
             return (
               <span className="text-muted-foreground italic text-xs">
-                Unassigned
+                {t("fleet_vehicles.unassigned")}
               </span>
             );
           return (
@@ -244,24 +251,23 @@ export default function VehiclesPage() {
         },
       },
       {
-        header: "GPS Status",
+        header: t("fleet_vehicles.col_gps_status"),
         accessorKey: "traccar_status",
         meta: { readOnly: true },
         cell: ({ row }: any) => {
-          // Same logic as VehicleMap: only traccar_status === "online" is truly online
           const isOnline = row.original.traccar_status?.trim() === "online";
           return (
             <Badge
               variant={isOnline ? "success" : "default"}
               className="capitalize text-[10px]"
             >
-              {isOnline ? "Online" : "Offline"}
+              {isOnline ? t("fleet_vehicles.online") : t("fleet_vehicles.offline")}
             </Badge>
           );
         },
       },
       {
-        header: "GPS ID",
+        header: t("fleet_vehicles.col_gps_id"),
         accessorKey: "gps_id",
         meta: { type: "text" as const },
         cell: ({ row }: any) => {
@@ -275,14 +281,14 @@ export default function VehiclesPage() {
         },
       },
       {
-        header: "Live Position / Seen",
+        header: t("fleet_vehicles.col_live_position"),
         accessorKey: "last_location_at",
         meta: { readOnly: true },
         cell: ({ row }: any) => {
           if (!row.original.last_known_lat)
             return (
               <span className="text-muted-foreground italic text-[10px]">
-                No Signal
+                {t("fleet_vehicles.no_signal")}
               </span>
             );
           return (
@@ -297,7 +303,7 @@ export default function VehiclesPage() {
               <span className="text-[9px] text-slate-400 ml-3">
                 {row.original.last_location_at
                   ? new Date(row.original.last_location_at).toLocaleString()
-                  : "Just now"}
+                  : t("fleet_vehicles.just_now")}
               </span>
             </div>
           );
@@ -516,7 +522,7 @@ export default function VehiclesPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4 text-slate-400">
           <RefreshCw className="w-8 h-8 animate-spin" />
-          <p className="text-sm font-medium">Identifying fleet context...</p>
+          <p className="text-sm font-medium">{t("fleet_vehicles.identifying_context")}</p>
         </div>
       </div>
     );
@@ -529,7 +535,7 @@ export default function VehiclesPage() {
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
-              placeholder="Search plate, model, driver..."
+              placeholder={t("fleet_vehicles.search_placeholder")}
               className="pl-10 h-11 border-slate-200/60 rounded-[1.2rem] bg-slate-50/30 focus:bg-white transition-all shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -543,7 +549,7 @@ export default function VehiclesPage() {
               className={`h-8 text-[10px] font-bold uppercase tracking-wider rounded-xl px-4 ${statusFilter === "all" ? "bg-white shadow-sm" : ""}`}
               onClick={() => setStatusFilter("all")}
             >
-              All Units
+              {t("fleet_vehicles.filter_all")}
             </Button>
             <Button
               variant={statusFilter === "online" ? "secondary" : "ghost"}
@@ -552,7 +558,7 @@ export default function VehiclesPage() {
               onClick={() => setStatusFilter("online")}
             >
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Online
+              {t("fleet_vehicles.filter_online")}
             </Button>
             <Button
               variant={statusFilter === "offline" ? "secondary" : "ghost"}
@@ -561,7 +567,7 @@ export default function VehiclesPage() {
               onClick={() => setStatusFilter("offline")}
             >
               <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-              Offline
+              {t("fleet_vehicles.filter_offline")}
             </Button>
           </div>
         </div>
@@ -579,7 +585,7 @@ export default function VehiclesPage() {
               <List className="w-4 h-4 text-blue-500" />
             )}
             <span className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-700">
-              {viewMode === "list" ? "Live Map" : "Asset List"}
+              {viewMode === "list" ? t("fleet_vehicles.view_map") : t("fleet_vehicles.view_list")}
             </span>
           </Button>
         </div>
