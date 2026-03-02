@@ -117,6 +117,8 @@ export const getOptionToneByIndex = (i: number) =>
 
 export const getSemanticOptionTone = (label: unknown, index: number) => {
   const text = norm(label);
+  if (/(in progress|ongoing|wip)/.test(text))
+    return "bg-cyan-100 text-cyan-700 border-cyan-200";
   if (
     /(inactive|overdue|lost|cancel|failed|error|declined|rejected|blocked|delinquent)/.test(
       text,
