@@ -26,6 +26,8 @@ import {
   FileText,
 } from "lucide-react";
 import { Badge } from "@/components/shared/ui/badge/Badge";
+import { useCompanies } from "@/hooks/use-companies";
+
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -183,6 +185,9 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function FleetOverviewPage() {
+  const { selectedCompany } = useCompanies();
+  const companyId = selectedCompany?.id;
+
   const [vehicles, setVehicles] = useState<VehicleRow[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [maintenance, setMaintenance] = useState<any[]>([]);
@@ -220,7 +225,7 @@ export default function FleetOverviewPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     loadAll();

@@ -6,10 +6,31 @@ export async function GET() {
   try {
     const supabase = await createClient();
 
+    // 0. Get current user and company
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile?.company_id) {
+      return NextResponse.json({ error: "Company not found" }, { status: 403 });
+    }
+
     // 1. Fetch from CEO Database
     const { data: dbVehicles, error } = await supabase
       .from("vehicles")
       .select("*, vehicle_types(name)")
+      .eq("company_id", profile.company_id)
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -69,8 +90,8 @@ export async function GET() {
               traccarDevice.status?.trim() === "online" ||
               (traccarDevice.lastUpdate &&
                 new Date().getTime() -
-                  new Date(traccarDevice.lastUpdate).getTime() <
-                  30 * 60 * 1000),
+                new Date(traccarDevice.lastUpdate).getTime() <
+                30 * 60 * 1000),
           };
         }
         return vehicle;
