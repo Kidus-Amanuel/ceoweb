@@ -127,14 +127,14 @@ const normalizeMetadata = (settings: unknown): FleetMetadata => {
       .map((entry) =>
         entry && typeof entry === "object" && !Array.isArray(entry)
           ? toColumnDefinition({
-              ...(entry as Partial<FleetColumnDefinition>),
-              entity_type: entityType,
-              field_name:
-                typeof (entry as Partial<FleetColumnDefinition>).field_name ===
+            ...(entry as Partial<FleetColumnDefinition>),
+            entity_type: entityType,
+            field_name:
+              typeof (entry as Partial<FleetColumnDefinition>).field_name ===
                 "string"
-                  ? (entry as Partial<FleetColumnDefinition>).field_name!
-                  : "",
-            })
+                ? (entry as Partial<FleetColumnDefinition>).field_name!
+                : "",
+          })
           : null,
       )
       .filter((entry): entry is FleetColumnDefinition =>
@@ -162,17 +162,21 @@ const applyMetadataToSettings = (
 export class FleetService {
   private static readonly TRACCAR_URL =
     process.env.TRACCAR_URL || "http://localhost:8082";
-  private static readonly TRACCAR_ADMIN_EMAIL =
-    process.env.TRACCAR_ADMIN_EMAIL || "admin";
-  private static readonly TRACCAR_ADMIN_PASSWORD =
-    process.env.TRACCAR_ADMIN_PASSWORD || "admin";
+  private static readonly TRACCAR_API_TOKEN =
+    process.env.TRACCAR_API_TOKEN || "";
+
 
   /**
-   * Generates Basic Auth header for administrative API calls to Traccar
+   * Generates Bearer token Authorization header for Traccar API calls.
+   * Use a long-lived token generated from Traccar settings — never store plaintext passwords.
    */
   private static getAdminAuthHeader(): string {
-    const credentials = `${this.TRACCAR_ADMIN_EMAIL}:${this.TRACCAR_ADMIN_PASSWORD}`;
-    return `Basic ${Buffer.from(credentials).toString("base64")}`;
+    if (!this.TRACCAR_API_TOKEN) {
+      throw new Error(
+        "[FleetService] TRACCAR_API_TOKEN is not configured. Please generate a token in Traccar settings and add it to .env as TRACCAR_API_TOKEN.",
+      );
+    }
+    return `Bearer ${this.TRACCAR_API_TOKEN}`;
   }
 
   /**
@@ -390,16 +394,18 @@ export class FleetService {
     const gpsId = vehicle.custom_fields?.gps_id;
     const plate = vehicle.license_plate;
 
-    // Identifier for Traccar is strictly GPS ID if available, else we can't track it
-    const uniqueId = gpsId || plate;
+    // uniqueId in Traccar MUST be the GPS device ID — plate is only used as the human-readable name.
+    // If there is no GPS ID we cannot meaningfully track this vehicle; skip sync.
+    const uniqueId = gpsId ? String(gpsId).trim() : null;
 
     if (!uniqueId) {
       console.log(
-        `[FleetService] Skipping Traccar sync for vehicle ${vehicleId} (No GPS ID or Plate).`,
+        `[FleetService] Skipping Traccar sync for vehicle ${vehicleId} (No GPS ID set in custom_fields).`,
       );
       return null;
     }
 
+    // Device name = plate number so it is human-readable in the Traccar UI
     const traccarName = plate || vehicle.vehicle_number || uniqueId;
     const traccarUserId = await this.getOrCreateTenantMapping(
       supabase,
@@ -793,9 +799,9 @@ export class FleetService {
         field_options:
           payload.fieldType === "select" || payload.fieldType === "currency"
             ? normalizeOptionValues(
-                payload.fieldType,
-                payload.fieldOptions ?? [],
-              )
+              payload.fieldType,
+              payload.fieldOptions ?? [],
+            )
             : null,
         is_required: payload.isRequired ?? false,
         is_active: true,

@@ -49,15 +49,15 @@ export async function GET() {
 
       // Merge live data from Traccar into CEO database records
       const mergedData = dbVehicles.map((vehicle: any) => {
-        const vehicleGpsId = vehicle.custom_fields?.gps_id;
-        const vehiclePlate = vehicle.license_plate;
+        const vehicleGpsId = vehicle.custom_fields?.gps_id
+          ? String(vehicle.custom_fields.gps_id).trim()
+          : null;
 
-        // 1. Find the Device (for status)
-        const traccarDevice = traccarDevices?.find(
-          (d: any) =>
-            (vehicleGpsId && d.uniqueId === vehicleGpsId) ||
-            (vehiclePlate && d.uniqueId === vehiclePlate),
-        );
+        // Match Traccar device strictly by GPS ID (uniqueId).
+        // Plate is only the display name in Traccar, not the identifier.
+        const traccarDevice = vehicleGpsId
+          ? traccarDevices?.find((d: any) => d.uniqueId === vehicleGpsId)
+          : undefined;
 
         if (traccarDevice) {
           // 2. Find the Position (for coordinates)
@@ -290,7 +290,14 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Company not found" }, { status: 403 });
     }
 
-    // 2. Soft delete vehicle
+    // 2. Remove device from Traccar (non-blocking — proceed even if Traccar is unreachable)
+    try {
+      await FleetService.deleteVehicleFromTraccar(id);
+    } catch (traccarError) {
+      console.error("[Fleet API] Traccar device cleanup failed:", traccarError);
+    }
+
+    // 3. Soft delete vehicle in ERP database
     const { error: deleteError } = await supabase
       .from("vehicles")
       .update({ deleted_at: new Date().toISOString() })

@@ -345,7 +345,13 @@ export default function VehiclesPage() {
           "vehicle_type_id",
         ];
         const updatePayload: any = { id };
+        // Start with any virtual column values
         const customData: any = updatedFields.customValues || {};
+
+        // gps_id is a built-in column that maps to custom_fields.gps_id
+        if ("gps_id" in updatedFields && updatedFields.gps_id !== undefined) {
+          customData.gps_id = updatedFields.gps_id;
+        }
 
         Object.keys(updatedFields).forEach((key) => {
           if (standardKeys.includes(key)) {
@@ -400,9 +406,17 @@ export default function VehiclesPage() {
           "status",
           "vehicle_type_id",
         ];
+        // Start with virtual column values
+        const customFields: any = { ...(newItem.customValues || {}) };
+
+        // gps_id is a built-in column that maps to custom_fields.gps_id
+        if (newItem.gps_id !== undefined && newItem.gps_id !== "") {
+          customFields.gps_id = newItem.gps_id;
+        }
+
         const payload: any = {
           vehicle_number: newItem.vehicle_number || `VEH-${Date.now()}`,
-          custom_fields: newItem.customValues || {},
+          custom_fields: customFields,
         };
 
         Object.keys(newItem).forEach((key) => {

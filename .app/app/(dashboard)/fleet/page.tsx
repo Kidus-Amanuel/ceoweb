@@ -28,7 +28,6 @@ import {
 import { Badge } from "@/components/shared/ui/badge/Badge";
 import { useCompanies } from "@/hooks/use-companies";
 
-
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 interface FleetStats {
@@ -196,36 +195,39 @@ export default function FleetOverviewPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  const loadAll = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    try {
-      const [vRes, dRes, mRes, fRes] = await Promise.all([
-        fetch("/api/fleet/vehicles"),
-        fetch("/api/fleet/drivers"),
-        fetch("/api/fleet/maintenance"),
-        fetch("/api/fleet/fuel-logs").catch(() => ({ ok: false })),
-      ]);
+  const loadAll = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      try {
+        const [vRes, dRes, mRes, fRes] = await Promise.all([
+          fetch("/api/fleet/vehicles"),
+          fetch("/api/fleet/drivers"),
+          fetch("/api/fleet/maintenance"),
+          fetch("/api/fleet/fuel-logs").catch(() => ({ ok: false })),
+        ]);
 
-      const [vData, dData, mData, fData] = await Promise.all([
-        vRes.ok ? (vRes as Response).json() : [],
-        dRes.ok ? (dRes as Response).json() : [],
-        mRes.ok ? (mRes as Response).json() : [],
-        (fRes as any).ok ? (fRes as Response).json() : [],
-      ]);
+        const [vData, dData, mData, fData] = await Promise.all([
+          vRes.ok ? (vRes as Response).json() : [],
+          dRes.ok ? (dRes as Response).json() : [],
+          mRes.ok ? (mRes as Response).json() : [],
+          (fRes as any).ok ? (fRes as Response).json() : [],
+        ]);
 
-      setVehicles(vData || []);
-      setDrivers(dData || []);
-      setMaintenance(mData || []);
-      setFuelLogs(fData || []);
-      setLastRefresh(new Date());
-    } catch (err) {
-      console.error("[Fleet Overview] load failed:", err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [companyId]);
+        setVehicles(vData || []);
+        setDrivers(dData || []);
+        setMaintenance(mData || []);
+        setFuelLogs(fData || []);
+        setLastRefresh(new Date());
+      } catch (err) {
+        console.error("[Fleet Overview] load failed:", err);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [companyId],
+  );
 
   useEffect(() => {
     loadAll();
