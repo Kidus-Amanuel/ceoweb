@@ -5,7 +5,6 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import {
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
@@ -55,7 +54,9 @@ declare module "@tanstack/react-table" {
       | "boolean"
       | "json"
       | "currency"
-      | "status";
+      | "status"
+      | "phone"
+      | "email";
     options?: { label: string; value: string | number }[];
     optionsByType?: Record<string, { label: string; value: string | number }[]>;
     optionsSourceKey?: string;
@@ -72,8 +73,8 @@ interface EditableTableProps<
   virtualColumns?: VirtualColumn[];
   title?: string;
   description?: string;
-  onAdd?: (data: Partial<T>) => void;
-  onUpdate?: (id: string, data: Partial<T>) => void;
+  onAdd?: (data: Partial<T>) => void | Promise<void>;
+  onUpdate?: (id: string, data: Partial<T>) => void | Promise<void>;
   onDelete?: (id: string) => void;
   onColumnAdd?: (column: Omit<VirtualColumn, "id">) => void;
   onColumnUpdate?: (
@@ -442,6 +443,31 @@ export function EditableTable<
     return map;
   }, [finalColumns]);
 
+  const validColumnIds = useMemo(
+    () =>
+      new Set(
+        finalColumns
+          .map((col) =>
+            String(
+              col.id ??
+                (((col as { accessorKey?: unknown }).accessorKey as string) ||
+                  ""),
+            ),
+          )
+          .filter(Boolean),
+      ),
+    [finalColumns],
+  );
+
+  const safeSorting = useMemo(
+    () => sorting.filter((entry) => validColumnIds.has(entry.id)),
+    [sorting, validColumnIds],
+  );
+
+  useEffect(() => {
+    setSorting((prev) => prev.filter((entry) => validColumnIds.has(entry.id)));
+  }, [validColumnIds]);
+
   useEffect(() => {
     if (editingCell && inputRef.current) {
       inputRef.current.focus();
@@ -479,14 +505,13 @@ export function EditableTable<
     data,
     columns: finalColumns,
     getRowId: (row) => String(row.id),
-    state: { sorting, globalFilter, rowSelection },
+    state: { sorting: safeSorting, globalFilter, rowSelection },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     enableGlobalFilter: true,
     enableRowSelection: true,
     globalFilterFn: "auto",
@@ -498,20 +523,44 @@ export function EditableTable<
   );
 
   const handleSave = useCallback(
-    (id: string, columnId: string, value: any, isVirtual: boolean) => {
+    (
+      id: string,
+      columnId: string,
+      value: any,
+      isVirtual: boolean,
+      virtualKey?: string,
+    ) => {
       if (!onUpdate) return;
       const row = rowsById.get(id);
       if (!row) return;
-      if (isVirtual) {
-        const storageKey =
-          leafColumnsById.get(columnId)?.columnDef.meta?.virtualKey ?? columnId;
-        onUpdate(id, {
-          customValues: { ...(row.customValues || {}), [storageKey]: value },
-        } as Partial<T>);
-      } else {
-        onUpdate(id, { [columnId]: value } as Partial<T>);
+      const payload = isVirtual
+        ? ({
+            customValues: {
+              ...(row.customValues || {}),
+              [
+                virtualKey ??
+                  leafColumnsById.get(columnId)?.columnDef.meta?.virtualKey ??
+                  columnId
+              ]: value,
+            },
+          } as Partial<T>)
+        : ({ [columnId]: value } as Partial<T>);
+
+      try {
+        const maybePromise = onUpdate(id, payload);
+        if (
+          maybePromise &&
+          typeof (maybePromise as Promise<void>).then === "function"
+        ) {
+          (maybePromise as Promise<void>)
+            .then(() => setEditingCell(null))
+            .catch(() => {});
+          return;
+        }
+        setEditingCell(null);
+      } catch {
+        // Parent component displays the error.
       }
-      setEditingCell(null);
     },
     [leafColumnsById, onUpdate, rowsById],
   );
@@ -545,6 +594,7 @@ export function EditableTable<
         editingCell.columnId,
         editValue,
         !!currentCol?.columnDef.meta?.isVirtual,
+        currentCol?.columnDef.meta?.virtualKey,
       );
 
       let nextRowIndex = rowIndex;
@@ -630,16 +680,28 @@ export function EditableTable<
         editingCell.columnId,
         editValue,
         !!col?.columnDef.meta?.isVirtual,
+        col?.columnDef.meta?.virtualKey,
       );
     };
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [editValue, editingCell, handleSave, leafColumnsById]);
 
-  const handleAddCommit = () => {
-    onAdd?.(newRowData as Partial<T>);
-    setIsAdding(false);
-    setNewRowData({});
+  const handleAddCommit = async () => {
+    if (!onAdd) return;
+    try {
+      const maybePromise = onAdd(newRowData as Partial<T>);
+      if (
+        maybePromise &&
+        typeof (maybePromise as Promise<void>).then === "function"
+      ) {
+        await (maybePromise as Promise<void>);
+      }
+      setIsAdding(false);
+      setNewRowData({});
+    } catch {
+      // Parent component displays the error.
+    }
   };
 
   const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
@@ -647,7 +709,7 @@ export function EditableTable<
   return (
     <div
       ref={containerRef}
-      className="flex flex-col h-full bg-white rounded-[20px] border border-border shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden"
+      className="flex min-h-0 flex-col h-full bg-white rounded-[20px] border border-border shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden"
     >
       {title || description || searchable ? (
         <div className="px-6 py-5 border-b border-border bg-white space-y-3">
@@ -735,6 +797,7 @@ export function EditableTable<
         totalRows={totalRows}
         dataLength={data.length}
         pageSize={pageSize}
+        selectedRowsCount={table.getSelectedRowModel().rows.length}
       />
 
       <EditableTableDeleteDialog

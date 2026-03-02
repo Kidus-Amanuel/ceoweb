@@ -14,6 +14,7 @@ type EditableTableFooterBarProps = {
   totalRows: number;
   dataLength: number;
   pageSize: number;
+  selectedRowsCount: number;
 };
 
 export function EditableTableFooterBar({
@@ -27,11 +28,12 @@ export function EditableTableFooterBar({
   totalRows,
   dataLength,
   pageSize,
+  selectedRowsCount,
 }: EditableTableFooterBarProps) {
   const totalCount = totalRows || dataLength;
 
   return (
-    <div className="border-t border-border bg-white">
+    <div className="shrink-0 border-t border-border bg-white">
       <div className="flex flex-wrap items-center justify-between px-6 py-4 gap-3">
         <div className="flex flex-col items-start gap-2">
           {canAdd ? (
@@ -84,12 +86,14 @@ export function EditableTableFooterBar({
       </div>
       <div className="border-t border-border px-6 py-3">
         <div className="flex items-center justify-between gap-2 text-sm text-[#787774]">
-          <p className="whitespace-nowrap">{totalCount} rows</p>
           <p className="whitespace-nowrap">
-            Showing {dataLength} • {pageSize}/page
+            {totalCount} rows
+            {selectedRowsCount > 0 ? ` • ${selectedRowsCount} selected` : ""}
           </p>
+          <p className="whitespace-nowrap">Showing {dataLength} • {pageSize}/page</p>
         </div>
       </div>
     </div>
   );
 }
+

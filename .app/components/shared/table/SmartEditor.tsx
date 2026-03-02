@@ -1,7 +1,8 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import type { KeyboardEvent, RefObject } from "react";
+import { z } from "zod";
 import { Checkbox } from "@/components/shared/ui/checkbox/Checkbox";
 import { Input } from "@/components/shared/ui/input/Input";
 import {
@@ -25,6 +26,7 @@ export interface SmartEditorProps {
   onNavigate?: (direction: "next" | "prev") => void;
   onCancel?: () => void;
   meta?: any;
+  fieldKey?: string;
   placeholder?: string;
   isAddMode?: boolean;
   inputRef?: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
@@ -49,6 +51,21 @@ export const parseDateTimeParts = (
 export const buildDateTimeValue = (date: string, time: string) =>
   !date ? null : `${date}T${time || "00:00"}:00`;
 
+const emailInputSchema = z.string().trim().email();
+const phoneInputSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => {
+      if (!/^\+?[0-9 ()-]+$/.test(value)) return false;
+      const digits = value.replace(/\D/g, "");
+      return digits.length >= 7 && digits.length <= 15;
+    },
+    {
+      message: "Please enter a valid phone number.",
+    },
+  );
+
 export const SmartEditor = ({
   value,
   onChange,
@@ -56,6 +73,7 @@ export const SmartEditor = ({
   onNavigate,
   onCancel,
   meta,
+  fieldKey,
   placeholder,
   isAddMode = false,
   inputRef,
@@ -63,13 +81,28 @@ export const SmartEditor = ({
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const amountInputRef = useRef<HTMLInputElement | null>(null);
   const currencyTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
+  const timeInputRef = useRef<HTMLInputElement | null>(null);
   const currencyEditorRef = useRef<HTMLDivElement | null>(null);
   const suppressCurrencyBlurCommitRef = useRef(false);
+  const isCurrencyMenuOpenRef = useRef(false);
+  const datetimeEditorRef = useRef<HTMLDivElement | null>(null);
+  const currencyAmountDraftRef = useRef<string>("");
+  const currencyCodeDraftRef = useRef<string>("ETB");
+  const datetimeDateDraftRef = useRef<string>("");
+  const datetimeTimeDraftRef = useRef<string>("");
   const type = meta?.type || "text";
+  const normalizedKey = String(fieldKey ?? "").toLowerCase();
+  const isEmailField = type === "email" || normalizedKey.includes("email");
+  const isPhoneField =
+    type === "phone" ||
+    normalizedKey.includes("phone") ||
+    normalizedKey.includes("mobile") ||
+    normalizedKey.includes("tel");
   const baseInputClass =
-    "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-0 py-0 text-sm shadow-none ring-0 focus-visible:ring-0";
+    "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm shadow-none ring-0 focus-visible:ring-0";
   const baseSelectTriggerClass =
-    "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-0 py-0 shadow-none ring-0 focus:ring-0";
+    "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 justify-start shadow-none ring-0 focus:ring-0";
   const selectContentClass =
     "z-[120] rounded-md border border-border bg-background p-1 shadow-xl";
   const selectItemClass =
@@ -87,11 +120,43 @@ export const SmartEditor = ({
   };
 
   useLayoutEffect(() => {
-    if (type !== "text") return;
+    if (
+      type !== "text" &&
+      !(type === "email" && isEmailField) &&
+      !(type === "phone" && isPhoneField)
+    ) {
+      return;
+    }
     const element = textAreaRef.current;
     if (!element) return;
     element.style.height = "0px";
     element.style.height = `${element.scrollHeight}px`;
+  }, [isEmailField, isPhoneField, type, value]);
+
+  useEffect(() => {
+    if (type !== "currency") return;
+    const options =
+      Array.isArray(meta?.options) && meta.options.length > 0
+        ? meta.options
+        : defaultCurrencyOptions;
+    const current =
+      value && typeof value === "object" && !Array.isArray(value)
+        ? (value as { amount?: unknown; currency?: unknown })
+        : { amount: value, currency: undefined };
+    currencyAmountDraftRef.current =
+      current.amount === null || current.amount === undefined
+        ? ""
+        : String(current.amount);
+    currencyCodeDraftRef.current = String(
+      current.currency ?? options[0]?.value ?? "ETB",
+    );
+  }, [meta?.options, type, value]);
+
+  useEffect(() => {
+    if (type !== "datetime") return;
+    const parts = parseDateTimeParts(value);
+    datetimeDateDraftRef.current = parts.date;
+    datetimeTimeDraftRef.current = parts.time;
   }, [type, value]);
 
   if (type === "boolean") {
@@ -210,16 +275,19 @@ export const SmartEditor = ({
         : String(current.amount);
 
     const handleCurrencyCommit = () => {
+      const amountDraft = currencyAmountDraftRef.current;
+      const currencyDraft = currencyCodeDraftRef.current;
       if (!isAddMode)
         onCommit?.({
-          amount: currentAmount === "" ? null : Number(currentAmount),
-          currency: currentCurrency,
+          amount: amountDraft === "" ? null : Number(amountDraft),
+          currency: currencyDraft,
         });
     };
     const commitCurrencyOnBlurIfOutside = (
       relatedTarget: EventTarget | null,
     ) => {
       if (suppressCurrencyBlurCommitRef.current) return;
+      if (isCurrencyMenuOpenRef.current) return;
       if (!relatedTarget) {
         requestAnimationFrame(() => {
           const active = document.activeElement;
@@ -257,10 +325,12 @@ export const SmartEditor = ({
           placeholder="Amount"
           value={currentAmount}
           onChange={(e) => {
-            const amt = e.target.value === "" ? null : Number(e.target.value);
+            const raw = e.target.value;
+            currencyAmountDraftRef.current = raw;
+            const amt = raw === "" ? null : Number(raw);
             onChange({
               amount: Number.isNaN(amt) ? null : amt,
-              currency: currentCurrency,
+              currency: currencyCodeDraftRef.current,
             });
           }}
           onBlur={(e) => commitCurrencyOnBlurIfOutside(e.relatedTarget)}
@@ -280,20 +350,32 @@ export const SmartEditor = ({
           className={baseInputClass}
         />
         <Select
+          onOpenChange={(open) => {
+            isCurrencyMenuOpenRef.current = open;
+            if (!open) {
+              requestAnimationFrame(() => {
+                const active = document.activeElement;
+                if (active && currencyEditorRef.current?.contains(active)) return;
+                handleCurrencyCommit();
+              });
+            }
+          }}
           value={currentCurrency}
           onValueChange={(c) => {
-            const amt = currentAmount === "" ? null : Number(currentAmount);
+            currencyCodeDraftRef.current = c;
+            const amountDraft = currencyAmountDraftRef.current;
+            const amt = amountDraft === "" ? null : Number(amountDraft);
             const next = {
               amount: Number.isNaN(amt) ? null : amt,
               currency: c,
             };
             onChange(next);
-            if (!isAddMode) onCommit?.(next);
           }}
         >
           <SelectTrigger
             ref={currencyTriggerRef}
             className={baseSelectTriggerClass}
+            onBlur={(e) => commitCurrencyOnBlurIfOutside(e.relatedTarget)}
             onKeyDown={(e) => {
               if (e.key !== "Tab") return;
               e.preventDefault();
@@ -341,37 +423,77 @@ export const SmartEditor = ({
 
   if (type === "datetime") {
     const parts = parseDateTimeParts(value);
+    const commitDateTime = () => {
+      if (isAddMode) return;
+      onCommit?.(
+        buildDateTimeValue(
+          datetimeDateDraftRef.current,
+          datetimeTimeDraftRef.current,
+        ),
+      );
+    };
+    const commitDateTimeIfOutside = (relatedTarget: EventTarget | null) => {
+      if (!relatedTarget) {
+        requestAnimationFrame(() => {
+          const active = document.activeElement;
+          if (active && datetimeEditorRef.current?.contains(active)) return;
+          commitDateTime();
+        });
+        return;
+      }
+      if (datetimeEditorRef.current?.contains(relatedTarget as Node)) return;
+      commitDateTime();
+    };
+
     return (
-      <div className="grid w-full grid-cols-2 gap-2">
+      <div ref={datetimeEditorRef} className="grid w-full grid-cols-2 gap-2">
         <Input
+          ref={dateInputRef}
           type="date"
           value={parts.date}
-          onChange={(e) =>
-            onChange(buildDateTimeValue(e.target.value, parts.time))
-          }
-          onBlur={() => !isAddMode && onCommit?.()}
+          onChange={(e) => {
+            datetimeDateDraftRef.current = e.target.value;
+            onChange(
+              buildDateTimeValue(e.target.value, datetimeTimeDraftRef.current),
+            );
+          }}
+          onBlur={(e) => commitDateTimeIfOutside(e.relatedTarget)}
           onKeyDown={(e) => {
-            if (handleGridNavigation(e)) return;
+            if (e.key === "Tab") {
+              e.preventDefault();
+              if (e.shiftKey) onNavigate?.("prev");
+              else timeInputRef.current?.focus();
+              return;
+            }
             if (e.key === "Enter") {
               e.preventDefault();
-              onCommit?.();
+              commitDateTime();
             }
             if (e.key === "Escape") onCancel?.();
           }}
           className={baseInputClass}
         />
         <Input
+          ref={timeInputRef}
           type="time"
           value={parts.time}
-          onChange={(e) =>
-            onChange(buildDateTimeValue(parts.date, e.target.value))
-          }
-          onBlur={() => !isAddMode && onCommit?.()}
+          onChange={(e) => {
+            datetimeTimeDraftRef.current = e.target.value;
+            onChange(
+              buildDateTimeValue(datetimeDateDraftRef.current, e.target.value),
+            );
+          }}
+          onBlur={(e) => commitDateTimeIfOutside(e.relatedTarget)}
           onKeyDown={(e) => {
-            if (handleGridNavigation(e)) return;
+            if (e.key === "Tab") {
+              e.preventDefault();
+              if (e.shiftKey) dateInputRef.current?.focus();
+              else onNavigate?.("next");
+              return;
+            }
             if (e.key === "Enter") {
               e.preventDefault();
-              onCommit?.();
+              commitDateTime();
             }
             if (e.key === "Escape") onCancel?.();
           }}
@@ -398,6 +520,102 @@ export const SmartEditor = ({
         className={baseInputClass}
       />
     );
+  if (
+    (type === "text" || type === "email" || type === "phone") &&
+    (isEmailField || isPhoneField)
+  )
+    return (
+      <textarea
+        ref={(node) => {
+          textAreaRef.current = node;
+          setEditorRef(node);
+        }}
+        placeholder={placeholder}
+        value={String(value ?? "")}
+        inputMode={isPhoneField ? "tel" : undefined}
+        onChange={(e) => {
+          e.currentTarget.setCustomValidity("");
+          if (isPhoneField) {
+            const raw = e.target.value;
+            const withoutInvalidChars = raw.replace(/[^+\d ()-]/g, "");
+            const sanitized = withoutInvalidChars.startsWith("+")
+              ? `+${withoutInvalidChars.slice(1).replace(/\+/g, "")}`
+              : withoutInvalidChars.replace(/\+/g, "");
+            onChange(sanitized);
+            return;
+          }
+          onChange(e.target.value);
+        }}
+        onBeforeInput={(e) => {
+          if (!isPhoneField) return;
+          const native = e.nativeEvent as InputEvent;
+          const data = native.data;
+          if (!data) return;
+          if (!/^[+\d ()-]+$/.test(data)) e.preventDefault();
+        }}
+        onBlur={(e) => {
+          const raw = e.currentTarget.value.trim();
+          if (raw) {
+            const parsed = isEmailField
+              ? emailInputSchema.safeParse(raw)
+              : phoneInputSchema.safeParse(raw);
+            if (!parsed.success) {
+              e.currentTarget.setCustomValidity(
+                isEmailField
+                  ? "Please enter a valid email address."
+                  : "Please enter a valid phone number.",
+              );
+              e.currentTarget.reportValidity();
+              return;
+            }
+          }
+          e.currentTarget.setCustomValidity("");
+          if (!isAddMode) onCommit?.();
+        }}
+        onKeyDown={(e) => {
+          const validateCurrent = () => {
+            const raw = e.currentTarget.value.trim();
+            if (!raw) {
+              e.currentTarget.setCustomValidity("");
+              return true;
+            }
+            const parsed = isEmailField
+              ? emailInputSchema.safeParse(raw)
+              : phoneInputSchema.safeParse(raw);
+            if (!parsed.success) {
+              e.currentTarget.setCustomValidity(
+                isEmailField
+                  ? "Please enter a valid email address."
+                  : "Please enter a valid phone number.",
+              );
+              e.currentTarget.reportValidity();
+              return false;
+            }
+            e.currentTarget.setCustomValidity("");
+            return true;
+          };
+
+          if (e.key === "Tab") {
+            if (!validateCurrent()) {
+              e.preventDefault();
+              return;
+            }
+            if (handleGridNavigation(e)) return;
+          }
+          if (e.key === "Enter" && !e.shiftKey) {
+            if (!validateCurrent()) {
+              e.preventDefault();
+              return;
+            }
+            e.preventDefault();
+            onCommit?.();
+            return;
+          }
+          if (e.key === "Escape") onCancel?.();
+        }}
+        className="h-full min-h-[40px] w-full max-w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm leading-5 shadow-none focus:outline-none focus:ring-0"
+      />
+    );
   if (type === "text")
     return (
       <textarea
@@ -418,7 +636,7 @@ export const SmartEditor = ({
           }
           if (e.key === "Escape") onCancel?.();
         }}
-        className="h-full min-h-[40px] w-full max-w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5 shadow-none focus:outline-none focus:ring-0"
+        className="h-full min-h-[40px] w-full max-w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm leading-5 shadow-none focus:outline-none focus:ring-0"
       />
     );
 
