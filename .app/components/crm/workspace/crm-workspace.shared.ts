@@ -77,6 +77,15 @@ const pickInput = (
 export const toFriendlyCrmError = (input: string) => {
   const message = String(input || "").trim();
   if (!message) return "Something went wrong. Please try again.";
+  if (
+    /typeerror:\s*fetch failed/i.test(message) ||
+    /failed to fetch/i.test(message) ||
+    /network\s*error/i.test(message) ||
+    /net::err_/i.test(message) ||
+    /econnrefused|enotfound|etimedout|econnreset/i.test(message)
+  ) {
+    return "Network error. Please check your internet connection and try again.";
+  }
 
   if (/violates not-null constraint/i.test(message)) {
     const match = message.match(/column "([^"]+)"/i);
