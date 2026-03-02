@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import {
   getCoreRowModel,
   getFilteredRowModel,
@@ -59,6 +60,7 @@ declare module "@tanstack/react-table" {
     optionsByType?: Record<string, { label: string; value: string | number }[]>;
     optionsSourceKey?: string;
     isVirtual?: boolean;
+    virtualKey?: string;
   }
 }
 
@@ -133,8 +135,10 @@ export function EditableTable<
   const [typeFilter, setTypeFilter] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const rowElementsRef = useRef<Record<string, HTMLTableRowElement | null>>({});
+  const [rowHeights, setRowHeights] = useState<Record<string, number>>({});
 
   // Popover Refs
   const newColLabel = useRef("");
@@ -204,6 +208,29 @@ export function EditableTable<
       return;
     }
     const key = toColumnKey(label).trim();
+    if (!key) {
+      setColFormError("Property name must contain letters or numbers.");
+      return;
+    }
+    const editingKey = editingColumn ? norm(editingColumn.key) : null;
+    const existingKeys = new Set(
+      [
+        ...baseColumns.map((col) =>
+          String(
+            col.id ??
+              (((col as { accessorKey?: unknown }).accessorKey as string) ||
+                ""),
+          ),
+        ),
+        ...virtualColumns.map((col) => col.key),
+      ]
+        .map((value) => norm(value))
+        .filter(Boolean),
+    );
+    if (existingKeys.has(norm(key)) && editingKey !== norm(key)) {
+      setColFormError("A column with this name already exists.");
+      return;
+    }
     const parsedOptions = parseOptionTokens(
       newColOptions.current,
       newColType === "currency",
@@ -240,15 +267,17 @@ export function EditableTable<
     editingColumn,
     editingColumnHasValues,
     editingColumnId,
+    baseColumns,
     newColType,
     onColumnAdd,
     onColumnUpdate,
     resetColumnForm,
+    virtualColumns,
   ]);
 
   const finalColumns = useMemo(() => {
     const virtualDefs: ColumnDef<T, any>[] = virtualColumns.map((vCol) => ({
-      id: vCol.key,
+      id: `vcol:${vCol.id}`,
       header: () => (
         <div className="flex items-center gap-2">
           <span>{vCol.label}</span>
@@ -336,7 +365,12 @@ export function EditableTable<
         </div>
       ),
       accessorFn: (row) => row.customValues?.[vCol.key],
-      meta: { type: vCol.type, options: vCol.options, isVirtual: true },
+      meta: {
+        type: vCol.type,
+        options: vCol.options,
+        isVirtual: true,
+        virtualKey: vCol.key,
+      },
       cell: (info) => {
         const val = info.getValue();
         const meta = info.column.columnDef.meta;
@@ -411,7 +445,18 @@ export function EditableTable<
   useEffect(() => {
     if (editingCell && inputRef.current) {
       inputRef.current.focus();
-      if (inputRef.current.type === "text") inputRef.current.select();
+      const el = inputRef.current;
+      const len = String(
+        (el as HTMLInputElement | HTMLTextAreaElement).value ?? "",
+      ).length;
+      try {
+        (el as HTMLInputElement | HTMLTextAreaElement).setSelectionRange(
+          len,
+          len,
+        );
+      } catch {
+        // Some input types do not support selection ranges.
+      }
     }
   }, [editingCell]);
 
@@ -458,15 +503,112 @@ export function EditableTable<
       const row = rowsById.get(id);
       if (!row) return;
       if (isVirtual) {
+        const storageKey =
+          leafColumnsById.get(columnId)?.columnDef.meta?.virtualKey ?? columnId;
         onUpdate(id, {
-          customValues: { ...(row.customValues || {}), [columnId]: value },
+          customValues: { ...(row.customValues || {}), [storageKey]: value },
         } as Partial<T>);
       } else {
         onUpdate(id, { [columnId]: value } as Partial<T>);
       }
       setEditingCell(null);
     },
-    [onUpdate, rowsById],
+    [leafColumnsById, onUpdate, rowsById],
+  );
+
+  const moveToNeighborCell = useCallback(
+    (direction: "next" | "prev") => {
+      if (!editingCell) return;
+      const rows = table.getRowModel().rows;
+      const editableColumns = table
+        .getVisibleFlatColumns()
+        .filter((col) => col.columnDef.meta?.type !== "boolean");
+      if (!rows.length || !editableColumns.length) {
+        setEditingCell(null);
+        return;
+      }
+
+      const rowIndex = rows.findIndex(
+        (row) => row.original.id === editingCell.id,
+      );
+      const colIndex = editableColumns.findIndex(
+        (col) => col.id === editingCell.columnId,
+      );
+      if (rowIndex < 0 || colIndex < 0) {
+        setEditingCell(null);
+        return;
+      }
+
+      const currentCol = leafColumnsById.get(editingCell.columnId);
+      handleSave(
+        editingCell.id,
+        editingCell.columnId,
+        editValue,
+        !!currentCol?.columnDef.meta?.isVirtual,
+      );
+
+      let nextRowIndex = rowIndex;
+      let nextColIndex = colIndex + (direction === "next" ? 1 : -1);
+      if (nextColIndex >= editableColumns.length) {
+        nextColIndex = 0;
+        nextRowIndex += 1;
+      }
+      if (nextColIndex < 0) {
+        nextColIndex = editableColumns.length - 1;
+        nextRowIndex -= 1;
+      }
+      if (nextRowIndex < 0 || nextRowIndex >= rows.length) {
+        setEditingCell(null);
+        return;
+      }
+
+      const nextRow = rows[nextRowIndex];
+      const nextCol = editableColumns[nextColIndex];
+      const nextCell = nextRow
+        .getVisibleCells()
+        .find((cell) => cell.column.id === nextCol.id);
+      setEditingCell({
+        id: nextRow.original.id,
+        columnId: nextCol.id,
+      });
+      setEditValue(nextCell?.getValue());
+    },
+    [editValue, editingCell, handleSave, leafColumnsById, table],
+  );
+
+  const registerRowRef = useCallback(
+    (rowId: string, element: HTMLTableRowElement | null) => {
+      rowElementsRef.current[rowId] = element;
+    },
+    [],
+  );
+
+  const handleRowResizeMouseDown = useCallback(
+    (event: ReactMouseEvent<HTMLTableRowElement>, rowId: string) => {
+      const rowElement = rowElementsRef.current[rowId];
+      if (!rowElement) return;
+      const rect = rowElement.getBoundingClientRect();
+      if (rect.bottom - event.clientY > 4) return;
+
+      event.preventDefault();
+      const startY = event.clientY;
+      const startHeight = rowHeights[rowId] ?? rect.height;
+      const onMove = (moveEvent: MouseEvent) => {
+        const nextHeight = Math.max(
+          44,
+          Math.round(startHeight + (moveEvent.clientY - startY)),
+        );
+        setRowHeights((prev) => ({ ...prev, [rowId]: nextHeight }));
+      };
+      const onUp = () => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    },
+    [rowHeights],
   );
 
   useEffect(() => {
@@ -557,7 +699,11 @@ export function EditableTable<
         editValue={editValue}
         setEditValue={setEditValue}
         handleSave={handleSave}
+        onNavigate={moveToNeighborCell}
         inputRef={inputRef}
+        rowHeights={rowHeights}
+        registerRowRef={registerRowRef}
+        onRowResizeMouseDown={handleRowResizeMouseDown}
         dependentColumnsBySource={dependentColumnsBySource}
         isAdding={isAdding}
         setIsAdding={setIsAdding}

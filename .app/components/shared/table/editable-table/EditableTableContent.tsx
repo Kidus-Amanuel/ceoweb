@@ -3,6 +3,7 @@
 import type {
   Dispatch,
   MutableRefObject,
+  MouseEvent as ReactMouseEvent,
   RefObject,
   SetStateAction,
 } from "react";
@@ -82,7 +83,14 @@ type EditableTableContentProps<
     value: any,
     isVirtual: boolean,
   ) => void;
-  inputRef: RefObject<HTMLInputElement | null>;
+  onNavigate: (direction: "next" | "prev") => void;
+  inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
+  rowHeights: Record<string, number>;
+  registerRowRef: (rowId: string, el: HTMLTableRowElement | null) => void;
+  onRowResizeMouseDown: (
+    event: ReactMouseEvent<HTMLTableRowElement>,
+    rowId: string,
+  ) => void;
 
   dependentColumnsBySource: Record<string, string[]>;
   isAdding: boolean;
@@ -119,7 +127,11 @@ export function EditableTableContent<
   editValue,
   setEditValue,
   handleSave,
+  onNavigate,
   inputRef,
+  rowHeights,
+  registerRowRef,
+  onRowResizeMouseDown,
   dependentColumnsBySource,
   isAdding,
   setIsAdding,
@@ -276,9 +288,23 @@ export function EditableTableContent<
               <motion.tr
                 layout
                 key={row.id}
-                className="group hover:bg-muted/20 transition-colors"
+                ref={(el) => registerRowRef(row.original.id, el)}
+                style={
+                  rowHeights[row.original.id]
+                    ? { height: rowHeights[row.original.id] }
+                    : undefined
+                }
+                onMouseDown={(event) =>
+                  onRowResizeMouseDown(event, row.original.id)
+                }
+                className={cn(
+                  "group transition-colors",
+                  row.getIsSelected()
+                    ? "bg-blue-50/70 hover:bg-blue-50/80"
+                    : "hover:bg-muted/20",
+                )}
               >
-                <TableCell className="w-12 min-w-12 px-2 md:w-14 md:min-w-14 md:px-4 py-3 border-b border-r border-border/70 align-top text-center">
+                <TableCell className="w-12 min-w-12 px-2 md:w-14 md:min-w-14 md:px-4 py-3 border-b border-r border-border/70 align-middle text-center">
                   <Checkbox
                     checked={row.getIsSelected()}
                     onCheckedChange={(value) =>
@@ -306,6 +332,7 @@ export function EditableTableContent<
                           meta={meta}
                           value={editValue}
                           onChange={setEditValue}
+                          onNavigate={onNavigate}
                           onCommit={(v) =>
                             handleSave(
                               row.original.id,
@@ -373,9 +400,10 @@ export function EditableTableContent<
                     <TableCell
                       key={cell.id}
                       className={cn(
-                        "py-2 border-b border-r border-border/70 align-top",
+                        "border-b border-r border-border/70 align-middle cursor-text",
+                        isEditing ? "px-2 py-1" : "py-2",
                         isVirtual ? "min-w-[260px]" : "min-w-[180px]",
-                        i === 0 ? "pl-6" : "px-6",
+                        isEditing ? "" : i === 0 ? "pl-6" : "px-6",
                       )}
                       onClick={() => {
                         if (meta?.type !== "boolean" && !isEditing) {
@@ -387,7 +415,7 @@ export function EditableTableContent<
                         }
                       }}
                     >
-                      <div className="font-medium text-[#37352F] break-words whitespace-normal">
+                      <div className="flex h-full w-full items-center font-medium text-[#37352F] break-words whitespace-normal">
                         {renderCell()}
                       </div>
                     </TableCell>
@@ -420,9 +448,10 @@ export function EditableTableContent<
                 exit={{ opacity: 0, x: 10 }}
                 className="bg-blue-50/10"
               >
-                <TableCell className="w-12 min-w-12 px-2 md:w-14 md:min-w-14 md:px-4 py-3 border-b border-r border-border/70 align-top" />
+                <TableCell className="w-12 min-w-12 px-2 md:w-14 md:min-w-14 md:px-4 py-3 border-b border-r border-border/70 align-middle" />
                 {table.getVisibleFlatColumns().map((column, i) => {
                   const isVirtual = !!column.columnDef.meta?.isVirtual;
+                  const virtualKey = column.columnDef.meta?.virtualKey;
                   const columnId = column.id;
                   const meta = resolveMetaForValues(
                     column.columnDef.meta,
@@ -432,7 +461,7 @@ export function EditableTableContent<
                     <TableCell
                       key={column.id}
                       className={cn(
-                        "py-2 border-b border-border/70 align-top",
+                        "py-2 border-b border-border/70 align-middle",
                         isVirtual ? "min-w-[260px]" : "min-w-[200px]",
                         i === 0 ? "pl-6" : "px-6",
                       )}
@@ -443,7 +472,9 @@ export function EditableTableContent<
                         placeholder={`Set ${prettifyColumnKey(String(column.columnDef.header ?? column.id))}...`}
                         value={
                           isVirtual
-                            ? newRowData.customValues?.[columnId]
+                            ? newRowData.customValues?.[
+                                String(virtualKey ?? columnId)
+                              ]
                             : newRowData[columnId]
                         }
                         onChange={(nextValue) => {
@@ -454,7 +485,7 @@ export function EditableTableContent<
                                 ...next,
                                 customValues: {
                                   ...(prev.customValues || {}),
-                                  [columnId]: nextValue,
+                                  [String(virtualKey ?? columnId)]: nextValue,
                                 },
                               };
                             }

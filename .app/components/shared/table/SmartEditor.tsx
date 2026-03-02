@@ -1,6 +1,7 @@
 "use client";
 
-import type { RefObject } from "react";
+import { useLayoutEffect, useRef } from "react";
+import type { KeyboardEvent, RefObject } from "react";
 import { Checkbox } from "@/components/shared/ui/checkbox/Checkbox";
 import { Input } from "@/components/shared/ui/input/Input";
 import {
@@ -21,11 +22,12 @@ export interface SmartEditorProps {
   value: any;
   onChange: (val: any) => void;
   onCommit?: (nextValue?: any) => void;
+  onNavigate?: (direction: "next" | "prev") => void;
   onCancel?: () => void;
   meta?: any;
   placeholder?: string;
   isAddMode?: boolean;
-  inputRef?: RefObject<HTMLInputElement | null>;
+  inputRef?: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
 }
 
 export const parseDateTimeParts = (
@@ -51,21 +53,46 @@ export const SmartEditor = ({
   value,
   onChange,
   onCommit,
+  onNavigate,
   onCancel,
   meta,
   placeholder,
   isAddMode = false,
   inputRef,
 }: SmartEditorProps) => {
+  const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
+  const amountInputRef = useRef<HTMLInputElement | null>(null);
+  const currencyTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const currencyEditorRef = useRef<HTMLDivElement | null>(null);
+  const suppressCurrencyBlurCommitRef = useRef(false);
   const type = meta?.type || "text";
   const baseInputClass =
-    "h-9 w-full max-w-full rounded-md border border-border bg-background px-3 text-sm shadow-none ring-0 focus-visible:ring-1 focus-visible:ring-blue-500";
+    "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-0 py-0 text-sm shadow-none ring-0 focus-visible:ring-0";
   const baseSelectTriggerClass =
-    "h-9 w-full max-w-full rounded-md border border-border bg-background shadow-none";
+    "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-0 py-0 shadow-none ring-0 focus:ring-0";
   const selectContentClass =
     "z-[120] rounded-md border border-border bg-background p-1 shadow-xl";
   const selectItemClass =
     "rounded-sm px-2 py-1.5 text-sm hover:bg-muted/60 focus:bg-muted/70";
+  const setEditorRef = (
+    element: HTMLInputElement | HTMLTextAreaElement | null,
+  ) => {
+    if (!isAddMode && inputRef) inputRef.current = element;
+  };
+  const handleGridNavigation = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key !== "Tab") return false;
+    event.preventDefault();
+    onNavigate?.(event.shiftKey ? "prev" : "next");
+    return true;
+  };
+
+  useLayoutEffect(() => {
+    if (type !== "text") return;
+    const element = textAreaRef.current;
+    if (!element) return;
+    element.style.height = "0px";
+    element.style.height = `${element.scrollHeight}px`;
+  }, [type, value]);
 
   if (type === "boolean") {
     return (
@@ -99,7 +126,12 @@ export const SmartEditor = ({
           if (!isAddMode) onCommit?.(next);
         }}
       >
-        <SelectTrigger className={baseSelectTriggerClass}>
+        <SelectTrigger
+          className={baseSelectTriggerClass}
+          onKeyDown={(e) => {
+            handleGridNavigation(e);
+          }}
+        >
           {selectedOption ? (
             <span
               className={cn(
@@ -141,7 +173,7 @@ export const SmartEditor = ({
   if (type === "json") {
     return (
       <Input
-        ref={!isAddMode && inputRef ? inputRef : undefined}
+        ref={(node) => setEditorRef(node)}
         placeholder={placeholder}
         value={
           typeof value === "object" && value !== null
@@ -151,6 +183,7 @@ export const SmartEditor = ({
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => !isAddMode && onCommit?.()}
         onKeyDown={(e) => {
+          if (handleGridNavigation(e)) return;
           if (e.key === "Enter") onCommit?.();
           if (e.key === "Escape") onCancel?.();
         }}
@@ -183,16 +216,43 @@ export const SmartEditor = ({
           currency: currentCurrency,
         });
     };
+    const commitCurrencyOnBlurIfOutside = (
+      relatedTarget: EventTarget | null,
+    ) => {
+      if (suppressCurrencyBlurCommitRef.current) return;
+      if (!relatedTarget) {
+        requestAnimationFrame(() => {
+          const active = document.activeElement;
+          if (active && currencyEditorRef.current?.contains(active)) return;
+          handleCurrencyCommit();
+        });
+        return;
+      }
+      if (currencyEditorRef.current?.contains(relatedTarget as Node)) {
+        return;
+      }
+      handleCurrencyCommit();
+    };
 
     return (
       <div
+        ref={currencyEditorRef}
+        onPointerDownCapture={() => {
+          suppressCurrencyBlurCommitRef.current = true;
+          requestAnimationFrame(() => {
+            suppressCurrencyBlurCommitRef.current = false;
+          });
+        }}
         className={cn(
           "grid w-full grid-cols-[minmax(0,1fr)_120px] gap-2",
           !isAddMode && "items-center",
         )}
       >
         <Input
-          ref={!isAddMode && inputRef ? inputRef : undefined}
+          ref={(node) => {
+            amountInputRef.current = node;
+            setEditorRef(node);
+          }}
           type="number"
           placeholder="Amount"
           value={currentAmount}
@@ -203,7 +263,20 @@ export const SmartEditor = ({
               currency: currentCurrency,
             });
           }}
-          onBlur={handleCurrencyCommit}
+          onBlur={(e) => commitCurrencyOnBlurIfOutside(e.relatedTarget)}
+          onKeyDown={(e) => {
+            if (e.key === "Tab") {
+              e.preventDefault();
+              if (e.shiftKey) onNavigate?.("prev");
+              else currencyTriggerRef.current?.focus();
+              return;
+            }
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleCurrencyCommit();
+            }
+            if (e.key === "Escape") onCancel?.();
+          }}
           className={baseInputClass}
         />
         <Select
@@ -219,8 +292,14 @@ export const SmartEditor = ({
           }}
         >
           <SelectTrigger
+            ref={currencyTriggerRef}
             className={baseSelectTriggerClass}
-            onBlur={handleCurrencyCommit}
+            onKeyDown={(e) => {
+              if (e.key !== "Tab") return;
+              e.preventDefault();
+              if (e.shiftKey) amountInputRef.current?.focus();
+              else onNavigate?.("next");
+            }}
           >
             <span
               className={cn(
@@ -271,6 +350,14 @@ export const SmartEditor = ({
             onChange(buildDateTimeValue(e.target.value, parts.time))
           }
           onBlur={() => !isAddMode && onCommit?.()}
+          onKeyDown={(e) => {
+            if (handleGridNavigation(e)) return;
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onCommit?.();
+            }
+            if (e.key === "Escape") onCancel?.();
+          }}
           className={baseInputClass}
         />
         <Input
@@ -280,6 +367,14 @@ export const SmartEditor = ({
             onChange(buildDateTimeValue(parts.date, e.target.value))
           }
           onBlur={() => !isAddMode && onCommit?.()}
+          onKeyDown={(e) => {
+            if (handleGridNavigation(e)) return;
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onCommit?.();
+            }
+            if (e.key === "Escape") onCancel?.();
+          }}
           className={baseInputClass}
         />
       </div>
@@ -289,13 +384,14 @@ export const SmartEditor = ({
   if (type === "date")
     return (
       <Input
-        ref={!isAddMode && inputRef ? inputRef : undefined}
+        ref={(node) => setEditorRef(node)}
         type="date"
         placeholder={placeholder}
         value={String(value ?? "")}
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => !isAddMode && onCommit?.()}
         onKeyDown={(e) => {
+          if (handleGridNavigation(e)) return;
           if (e.key === "Enter") onCommit?.();
           if (e.key === "Escape") onCancel?.();
         }}
@@ -305,21 +401,30 @@ export const SmartEditor = ({
   if (type === "text")
     return (
       <textarea
+        ref={(node) => {
+          textAreaRef.current = node;
+          setEditorRef(node);
+        }}
         placeholder={placeholder}
         value={String(value ?? "")}
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => !isAddMode && onCommit?.()}
         onKeyDown={(e) => {
-          if ((e.ctrlKey || e.metaKey) && e.key === "Enter") onCommit?.();
+          if (handleGridNavigation(e)) return;
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            onCommit?.();
+            return;
+          }
           if (e.key === "Escape") onCancel?.();
         }}
-        className="min-h-[72px] w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm leading-5 shadow-none focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="h-full min-h-[40px] w-full max-w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5 shadow-none focus:outline-none focus:ring-0"
       />
     );
 
   return (
     <Input
-      ref={!isAddMode && inputRef ? inputRef : undefined}
+      ref={(node) => setEditorRef(node)}
       type={type === "number" ? "number" : "text"}
       placeholder={placeholder}
       value={value ?? ""}
@@ -332,6 +437,7 @@ export const SmartEditor = ({
       }}
       onBlur={() => !isAddMode && onCommit?.()}
       onKeyDown={(e) => {
+        if (handleGridNavigation(e)) return;
         if (e.key === "Enter") onCommit?.();
         if (e.key === "Escape") onCancel?.();
       }}
