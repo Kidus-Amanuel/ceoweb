@@ -127,14 +127,14 @@ const normalizeMetadata = (settings: unknown): FleetMetadata => {
       .map((entry) =>
         entry && typeof entry === "object" && !Array.isArray(entry)
           ? toColumnDefinition({
-            ...(entry as Partial<FleetColumnDefinition>),
-            entity_type: entityType,
-            field_name:
-              typeof (entry as Partial<FleetColumnDefinition>).field_name ===
+              ...(entry as Partial<FleetColumnDefinition>),
+              entity_type: entityType,
+              field_name:
+                typeof (entry as Partial<FleetColumnDefinition>).field_name ===
                 "string"
-                ? (entry as Partial<FleetColumnDefinition>).field_name!
-                : "",
-          })
+                  ? (entry as Partial<FleetColumnDefinition>).field_name!
+                  : "",
+            })
           : null,
       )
       .filter((entry): entry is FleetColumnDefinition =>
@@ -164,7 +164,6 @@ export class FleetService {
     process.env.TRACCAR_URL || "http://localhost:8082";
   private static readonly TRACCAR_API_TOKEN =
     process.env.TRACCAR_API_TOKEN || "";
-
 
   /**
    * Generates Bearer token Authorization header for Traccar API calls.
@@ -799,9 +798,9 @@ export class FleetService {
         field_options:
           payload.fieldType === "select" || payload.fieldType === "currency"
             ? normalizeOptionValues(
-              payload.fieldType,
-              payload.fieldOptions ?? [],
-            )
+                payload.fieldType,
+                payload.fieldOptions ?? [],
+              )
             : null,
         is_required: payload.isRequired ?? false,
         is_active: true,

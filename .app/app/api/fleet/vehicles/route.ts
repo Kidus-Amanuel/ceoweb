@@ -52,12 +52,19 @@ export async function GET() {
         const vehicleGpsId = vehicle.custom_fields?.gps_id
           ? String(vehicle.custom_fields.gps_id).trim()
           : null;
+        const vehiclePlate = vehicle.license_plate
+          ? String(vehicle.license_plate).trim()
+          : null;
 
-        // Match Traccar device strictly by GPS ID (uniqueId).
-        // Plate is only the display name in Traccar, not the identifier.
-        const traccarDevice = vehicleGpsId
-          ? traccarDevices?.find((d: any) => d.uniqueId === vehicleGpsId)
-          : undefined;
+        // Match by GPS ID first (correct identifier).
+        // Fall back to plate for backward-compatibility with devices that were
+        // registered before the GPS-ID-as-identifier policy was enforced.
+        const traccarDevice =
+          (vehicleGpsId &&
+            traccarDevices?.find((d: any) => d.uniqueId === vehicleGpsId)) ||
+          (vehiclePlate &&
+            traccarDevices?.find((d: any) => d.uniqueId === vehiclePlate)) ||
+          undefined;
 
         if (traccarDevice) {
           // 2. Find the Position (for coordinates)

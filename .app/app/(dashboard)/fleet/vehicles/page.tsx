@@ -245,21 +245,17 @@ export default function VehiclesPage() {
       },
       {
         header: "GPS Status",
-        accessorKey: "gps_status",
-        meta: { type: "status" as const, readOnly: true },
+        accessorKey: "traccar_status",
+        meta: { readOnly: true },
         cell: ({ row }: any) => {
-          const status =
-            row.original.traccar_status ||
-            (row.original.last_known_lat ? "active" : "inactive");
-          const isActive =
-            row.original.is_active || status?.trim() === "online";
-
+          // Same logic as VehicleMap: only traccar_status === "online" is truly online
+          const isOnline = row.original.traccar_status?.trim() === "online";
           return (
             <Badge
-              variant={isActive ? "success" : "default"}
+              variant={isOnline ? "success" : "default"}
               className="capitalize text-[10px]"
             >
-              {isActive ? "Online" : "Offline"}
+              {isOnline ? "Online" : "Offline"}
             </Badge>
           );
         },
