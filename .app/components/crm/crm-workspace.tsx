@@ -449,7 +449,7 @@ export function CrmWorkspace({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <ActiveIcon className={`h-5 w-5 ${activeMeta.iconClass}`} />
