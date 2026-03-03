@@ -51,7 +51,7 @@ export function EditableTableFooterBar({
           ) : null}
         </div>
 
-        {pagination && onPageChange ? (
+        {pagination ? (
           <div className="ml-auto flex items-center gap-2">
             <p className="text-sm text-[#787774] whitespace-nowrap">
               Page {currentPage} of {totalPages}
@@ -62,7 +62,7 @@ export function EditableTableFooterBar({
                 type="button"
                 variant="outline"
                 disabled={currentPage <= 1}
-                onClick={() => onPageChange(currentPage - 1)}
+                onClick={() => onPageChange?.(currentPage - 1)}
                 className="!border-[#BEC9DD] hover:!border-[#AAB9D3]"
               >
                 <ChevronLeft className="w-4 h-4 mr-1 text-blue-500" />
@@ -72,7 +72,7 @@ export function EditableTableFooterBar({
                 type="button"
                 variant="outline"
                 disabled={currentPage >= totalPages}
-                onClick={() => onPageChange(currentPage + 1)}
+                onClick={() => onPageChange?.(currentPage + 1)}
                 className="!border-[#BEC9DD] hover:!border-[#AAB9D3]"
               >
                 Next

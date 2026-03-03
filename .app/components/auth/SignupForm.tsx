@@ -14,7 +14,10 @@ import {
 } from "@/components/shared/ui/alert";
 import { AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 
+import { useTranslation } from "react-i18next";
+
 export function SignupForm() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,7 +39,7 @@ export function SignupForm() {
     setIsSuccess(false);
 
     if (formData.password !== formData.confirmPassword) {
-      setErrors({ confirmPassword: "Passwords do not match" });
+      setErrors({ confirmPassword: t("auth.passwords_dont_match") });
       setIsLoading(false);
       return;
     }
@@ -86,8 +89,7 @@ export function SignupForm() {
         setErrors(newErrors);
       } else {
         setServerError(
-          err.response?.data?.message ||
-            "An unexpected error occurred during sign up.",
+          err.response?.data?.message || t("common.error_occurred"),
         );
       }
     } finally {
@@ -96,13 +98,13 @@ export function SignupForm() {
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full relative">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">
-          Create your account
+          {t("common.create_account")}
         </h1>
         <p className="text-muted-foreground mt-2">
-          Join CEO AI to manage your enterprise with ease.
+          {t("common.enter_details")}
         </p>
       </div>
 
@@ -113,7 +115,7 @@ export function SignupForm() {
             className="animate-in fade-in duration-300"
           >
             <XCircle className="h-4 w-4" />
-            <AlertTitle>Registration Failed</AlertTitle>
+            <AlertTitle>{t("common.registration_failed")}</AlertTitle>
             <AlertDescription>{serverError}</AlertDescription>
           </Alert>
         )}
@@ -124,13 +126,12 @@ export function SignupForm() {
             className="bg-success/10 border-success/20 text-success"
           >
             <CheckCircle2 className="h-4 w-4 text-success" />
-            <AlertTitle>Success</AlertTitle>
+            <AlertTitle>{t("common.success")}</AlertTitle>
             <AlertDescription>
-              Signup successful! Please check your email to confirm your
-              account.
+              {t("common.signup_success_msg")}
               <div className="mt-2">
                 <Link href="/login" className="font-bold underline">
-                  Go to Sign In
+                  {t("common.go_to_signin")}
                 </Link>
               </div>
             </AlertDescription>
@@ -141,14 +142,14 @@ export function SignupForm() {
           <>
             <div className="space-y-2">
               <label htmlFor="fullname" className="text-sm font-medium">
-                Full Name
+                {t("common.full_name")}
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="fullname"
                   type="text"
-                  placeholder="John Doe"
+                  placeholder={t("common.full_name_placeholder")}
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
@@ -164,14 +165,14 @@ export function SignupForm() {
 
             <div className="space-y-2">
               <label htmlFor="signup-email" className="text-sm font-medium">
-                Email
+                {t("common.email")}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="signup-email"
                   type="email"
-                  placeholder="you@company.com"
+                  placeholder={t("common.email_placeholder")}
                   value={formData.email}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
@@ -187,9 +188,9 @@ export function SignupForm() {
 
             <div className="space-y-2">
               <label htmlFor="signup-password" className="text-sm font-medium">
-                Password{" "}
+                {t("common.password")}{" "}
                 <span className="text-muted-foreground font-normal text-xs ml-1">
-                  (min 6 chars)
+                  {t("common.password_min_chars")}
                 </span>
               </label>
               <div className="relative">
@@ -197,7 +198,7 @@ export function SignupForm() {
                 <Input
                   id="signup-password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder={t("common.password_placeholder")}
                   value={formData.password}
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
@@ -224,14 +225,14 @@ export function SignupForm() {
 
             <div className="space-y-2">
               <label htmlFor="confirm-password" className="text-sm font-medium">
-                Confirm Password
+                {t("common.confirm_password")}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="confirm-password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder={t("common.password_placeholder")}
                   value={formData.confirmPassword}
                   onChange={(e) =>
                     setFormData({
@@ -259,11 +260,11 @@ export function SignupForm() {
                 {isLoading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Creating account...
+                    {t("common.creating_account")}
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
-                    Create Account
+                    {t("common.create_account")}
                     <ArrowRight className="w-4 h-4" />
                   </span>
                 )}
@@ -276,7 +277,7 @@ export function SignupForm() {
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-[#F7F7F7] lg:bg-white px-2 text-muted-foreground">
-                  Or continue with
+                  {t("common.or_continue_with")}
                 </span>
               </div>
             </div>
@@ -305,17 +306,17 @@ export function SignupForm() {
                     fill="#EA4335"
                   />
                 </svg>
-                Google
+                {t("common.google_login")}
               </Button>
             </div>
 
             <p className="text-center text-sm text-muted-foreground pt-4">
-              Already have an account?{" "}
+              {t("common.already_have_account")}{" "}
               <Link
                 href="/login"
                 className="text-primary font-medium hover:underline"
               >
-                Sign In
+                {t("common.sign_in")}
               </Link>
             </p>
           </>

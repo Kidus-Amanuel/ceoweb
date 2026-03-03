@@ -35,16 +35,19 @@ type Props = {
   inputRef?: RefObject<HTMLInputElement | null>;
 };
 
+import { useTranslation } from "react-i18next";
+
 export function GlobalSearchInput({
   value,
   onChange,
   companyId,
-  placeholder = "Search Intelligent...",
+  placeholder,
   className,
   inputClassName,
   iconClassName,
   inputRef,
 }: Props) {
+  const { t } = useTranslation();
   const router = useRouter();
   const instanceId = useId();
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -144,6 +147,27 @@ export function GlobalSearchInput({
   const showResults = open && value.trim().length > 0;
   const canPortal = typeof window !== "undefined";
 
+  const getTranslatedCategory = (category: string) => {
+    const keyMap: Record<string, string> = {
+      Customer: "customer",
+      Deal: "deal",
+      Activity: "activity",
+      Report: "report",
+      Fleet: "fleet",
+      Shipment: "shipment",
+      Vehicle: "vehicle",
+      Driver: "driver",
+      Stock: "stock",
+      Warehouse: "warehouse",
+      Supplier: "supplier",
+      Employee: "employee",
+      Payroll: "payroll",
+      Trade: "trade",
+    };
+    const key = keyMap[category] || category.toLowerCase();
+    return t(`search.categories.${key}`, category);
+  };
+
   return (
     <div ref={rootRef} className={cn("relative", className)}>
       <div className="flex items-center gap-2 rounded-xl border border-[#BEC9DD] bg-background px-2">
@@ -184,17 +208,17 @@ export function GlobalSearchInput({
               {loading ? (
                 <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Searching...
+                  {t("common.searching")}
                 </div>
               ) : results.length === 0 ? (
                 <div className="px-3 py-3 text-sm text-muted-foreground">
-                  No results.
+                  {t("common.no_results")}
                 </div>
               ) : (
                 grouped.map(([category, hits]) => (
                   <div key={category} className="mb-2 last:mb-0">
                     <p className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                      {category}
+                      {getTranslatedCategory(category)}
                     </p>
                     {hits.map((hit) => (
                       <button

@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { LayoutDashboard } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/shared/ui/button";
 import {
   AnimatedNotFound,
@@ -7,9 +7,9 @@ import {
   AnimatedContainer,
 } from "@/components/shared/ui/animated-not-found";
 
-export default function NotFound() {
+export default function NotFoundPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-center overflow-hidden">
       <AnimatedContainer>
         {/* Visual Element */}
         <AnimatedNotFound />
@@ -19,7 +19,7 @@ export default function NotFound() {
           <h1 className="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
             Coming Soon
           </h1>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-lg text-muted-foreground max-w-md mx-auto">
             We are building something amazing! This module is currently under
             development to give you the best experience.
           </p>

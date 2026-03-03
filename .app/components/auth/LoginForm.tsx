@@ -22,7 +22,10 @@ import {
 } from "@/components/shared/ui/alert";
 import { useUser } from "@/app/context/UserContext";
 
+import { useTranslation } from "react-i18next";
+
 export function LoginForm() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { refreshUser } = useUser();
   const [showPassword, setShowPassword] = useState(false);
@@ -87,8 +90,7 @@ export function LoginForm() {
         setErrors(newErrors);
       } else {
         setServerError(
-          err.response?.data?.message ||
-            "An unexpected error occurred during sign in.",
+          err.response?.data?.message || t("common.error_occurred"),
         );
       }
     } finally {
@@ -97,13 +99,13 @@ export function LoginForm() {
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full relative">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">
-          Welcome back
+          {t("common.welcome_back")}
         </h1>
         <p className="text-muted-foreground mt-2">
-          Sign in to your CEO AI account to continue.
+          {t("common.enter_details")}
         </p>
       </div>
 
@@ -114,21 +116,21 @@ export function LoginForm() {
             className="mb-4 animate-in fade-in slide-in-from-top-2 duration-300"
           >
             <XCircle className="h-4 w-4" />
-            <AlertTitle>Login Failed</AlertTitle>
+            <AlertTitle>{t("common.login_failed")}</AlertTitle>
             <AlertDescription>{serverError}</AlertDescription>
           </Alert>
         )}
 
         <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-medium">
-            Email
+            {t("common.email")}
           </label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               id="email"
               type="email"
-              placeholder="you@company.com"
+              placeholder={t("common.email_placeholder")}
               value={formData.email}
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
@@ -145,10 +147,10 @@ export function LoginForm() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label htmlFor="password" className="text-sm font-medium">
-              Password
+              {t("common.password")}
             </label>
             <Link href="#" className="text-sm text-primary hover:underline">
-              Forgot password?
+              {t("common.forgot_password")}
             </Link>
           </div>
           <div className="relative">
@@ -156,7 +158,7 @@ export function LoginForm() {
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
-              placeholder="••••••••"
+              placeholder={t("common.password_placeholder")}
               value={formData.password}
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
@@ -191,7 +193,7 @@ export function LoginForm() {
             htmlFor="remember-me"
             className="text-sm text-muted-foreground cursor-pointer"
           >
-            Remember me for 30 days
+            {t("common.remember_me")}
           </label>
         </div>
 
@@ -204,11 +206,11 @@ export function LoginForm() {
             {isLoading ? (
               <span className="flex items-center gap-2">
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Signing in...
+                {t("common.signing_in")}
               </span>
             ) : (
               <span className="flex items-center gap-2">
-                Sign In
+                {t("common.sign_in")}
                 <ArrowRight className="w-4 h-4" />
               </span>
             )}
@@ -221,7 +223,7 @@ export function LoginForm() {
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-[#F7F7F7] lg:bg-white px-2 text-muted-foreground">
-              Or continue with
+              {t("common.or_continue_with")}
             </span>
           </div>
         </div>
@@ -250,17 +252,17 @@ export function LoginForm() {
                 fill="#EA4335"
               />
             </svg>
-            Google
+            {t("common.google_login")}
           </Button>
         </div>
 
         <p className="text-center text-sm text-muted-foreground pt-4">
-          Don&apos;t have an account?{" "}
+          {t("common.dont_have_account")}{" "}
           <Link
             href="/signup"
             className="text-primary font-medium hover:underline"
           >
-            Create an account
+            {t("common.create_account")}
           </Link>
         </p>
       </form>

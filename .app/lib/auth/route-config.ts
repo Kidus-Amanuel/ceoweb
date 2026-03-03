@@ -1,44 +1,48 @@
 /**
  * Route Protection Configuration
- * Defines which routes require which user types and permissions
+ * Defines which routes require which user types and permissions.
+ *
+ * NOTE: The proxy matcher (proxy.ts config.matcher) is the PRIMARY gate.
+ * These helpers operate ONLY on routes that the matcher has already
+ * decided to intercept. They are not responsible for "all routes".
  */
 
-import { RouteRequirement } from "./types";
+import { RouteRequirement, UserType } from "./types";
+
+// ─── Route Lists ──────────────────────────────────────────────────────────────
 
 /**
- * Public routes - no authentication required
+ * Public routes — no authentication required.
+ * The proxy short-circuits immediately for these.
  */
 export const PUBLIC_ROUTES = [
+  "/",
   "/login",
   "/signup",
   "/forgot-password",
   "/reset-password",
   "/api/auth",
-];
+  "/api/webhooks",
+  "/coming-soon",
+] as const;
 
 /**
- * Super admin only routes
+ * Super admin only routes.
  */
-export const SUPER_ADMIN_ROUTES = [
-  "/admin",
-  "/admin/companies",
-  "/admin/users",
-  "/admin/settings",
-];
+export const SUPER_ADMIN_ROUTES = ["/admin"] as const;
 
 /**
- * Routes accessible by both super_admin and company_user
+ * Routes accessible by both super_admin and company_user.
  */
 export const AUTHENTICATED_ROUTES = [
   "/dashboard",
   "/profile",
   "/settings",
   "/onboarding",
-];
+] as const;
 
 /**
- * Company user routes - requires companyId
- * These routes also need permission checks
+ * Company user module routes — require a companyId and permission checks.
  */
 export const COMPANY_USER_ROUTES = [
   "/hrm",
@@ -46,57 +50,54 @@ export const COMPANY_USER_ROUTES = [
   "/inventory",
   "/fleet",
   "/finance",
-];
+  "/api/fleet",
+] as const;
 
-/**
- * Check if a path is a public route
- */
+// ─── Guards ───────────────────────────────────────────────────────────────────
+
+/** Returns true if the route is public (no auth needed). */
 export function isPublicRoute(pathname: string): boolean {
-  // Exact match for root
-  if (pathname === "/") return true;
-
-  // Check if path starts with any public route
-  return PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
+  return PUBLIC_ROUTES.some((route) =>
+    route === "/" ? pathname === "/" : pathname.startsWith(route),
+  );
 }
 
-/**
- * Check if a path requires super admin
- */
+/** Returns true if the route is restricted to super_admin only. */
 export function requiresSuperAdmin(pathname: string): boolean {
   return SUPER_ADMIN_ROUTES.some((route) => pathname.startsWith(route));
 }
 
-/**
- * Check if a path requires company user with companyId
- */
+/** Returns true if the route is restricted to company_user (+ super_admin). */
 export function requiresCompanyUser(pathname: string): boolean {
   return COMPANY_USER_ROUTES.some((route) => pathname.startsWith(route));
 }
 
-/**
- * Check if a path requires authentication (any user type)
- */
-export function requiresAuth(pathname: string): boolean {
-  return (
-    !isPublicRoute(pathname) &&
-    (requiresSuperAdmin(pathname) ||
-      requiresCompanyUser(pathname) ||
-      AUTHENTICATED_ROUTES.some((route) => pathname.startsWith(route)))
-  );
+/** Returns true if the route is in the shared authenticated set. */
+export function isAuthenticatedRoute(pathname: string): boolean {
+  return AUTHENTICATED_ROUTES.some((route) => pathname.startsWith(route));
 }
 
+// ─── Route Requirements ───────────────────────────────────────────────────────
+
 /**
- * Get route requirements for a given path
+ * Returns the access requirements for a given pathname.
+ *
+ * An empty `userTypes` array means "any authenticated user is allowed"
+ * (the proxy still enforces that a user exists — this just skips the
+ * type-level restriction check).
  */
 export function getRouteRequirements(pathname: string): RouteRequirement {
+  // Public — should never reach here if isPublicRoute() check runs first.
   if (isPublicRoute(pathname)) {
     return { userTypes: [] };
   }
 
+  // Super admin only.
   if (requiresSuperAdmin(pathname)) {
     return { userTypes: ["super_admin"] };
   }
 
+  // Company-user module routes — need companyId + permission check.
   if (requiresCompanyUser(pathname)) {
     return {
       userTypes: ["company_user", "super_admin"],
@@ -105,6 +106,19 @@ export function getRouteRequirements(pathname: string): RouteRequirement {
     };
   }
 
-  // Authenticated routes (both types)
+  // Shared authenticated routes — both user types allowed.
+  if (isAuthenticatedRoute(pathname)) {
+    return { userTypes: ["super_admin", "company_user"] };
+  }
+
+  // ── Fallback ──────────────────────────────────────────────────────────────
+  // If the proxy matcher is doing its job (allowlist), this branch is
+  // unreachable in production. As a safe default we require full auth
+  // rather than silently allowing an unclassified route.
+  console.warn(
+    "[route-config] Unclassified route reached getRouteRequirements():",
+    pathname,
+    "— defaulting to full auth requirement.",
+  );
   return { userTypes: ["super_admin", "company_user"] };
 }

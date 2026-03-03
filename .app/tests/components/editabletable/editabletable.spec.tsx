@@ -50,8 +50,8 @@ describe("EditableTable", () => {
     const aliceCell = screen.getByText("Alice");
     fireEvent.click(aliceCell);
 
-    const textarea = screen.getByDisplayValue("Alice");
-    expect(textarea.tagName.toLowerCase()).toBe("textarea");
+    const input = screen.getByDisplayValue("Alice");
+    expect(input.tagName.toLowerCase()).toBe("input");
   });
 
   // TODO: Fix this test - fireEvent.change doesn't properly trigger onChange in controlled components

@@ -88,6 +88,7 @@ interface EditableTableProps<
   pageSize?: number;
   onPageChange?: (page: number) => void;
   selectedRowId?: string | null;
+  hideHeader?: boolean;
 }
 
 export function EditableTable<
@@ -113,6 +114,7 @@ export function EditableTable<
   pageSize = 50,
   onPageChange,
   selectedRowId = null,
+  hideHeader = false,
 }: EditableTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
@@ -507,7 +509,7 @@ export function EditableTable<
       ref={containerRef}
       className="flex flex-col h-full bg-white rounded-[20px] border border-border shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden"
     >
-      {title || description || searchable ? (
+      {!hideHeader && (title || description || searchable) ? (
         <div className="px-6 py-5 border-b border-border bg-white space-y-3">
           {title && (
             <h3 className="text-2xl font-bold text-[#37352F] tracking-tight antialiased">
@@ -583,9 +585,11 @@ export function EditableTable<
         setIsAdding={setIsAdding}
         setNewRowData={(value) => setNewRowData(value)}
         pagination={pagination}
-        onPageChange={onPageChange}
-        currentPage={currentPage}
-        totalPages={totalPages}
+        onPageChange={onPageChange || ((page) => table.setPageIndex(page - 1))}
+        currentPage={
+          onPageChange ? currentPage : table.getState().pagination.pageIndex + 1
+        }
+        totalPages={onPageChange ? totalPages : table.getPageCount()}
         totalRows={totalRows}
         dataLength={data.length}
         pageSize={pageSize}

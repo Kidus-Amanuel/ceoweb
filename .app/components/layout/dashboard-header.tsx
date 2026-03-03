@@ -6,11 +6,15 @@ import { Bell, Command, Menu } from "lucide-react";
 import { GlobalSearchInput } from "@/components/layout/global-search-input";
 import { usePathname } from "next/navigation";
 
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/shared/data-display/language-switcher";
+
 interface DashboardHeaderProps {
   onMobileMenuToggle?: () => void;
 }
 
 export function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderProps) {
+  const { t } = useTranslation();
   const { selectedCompanyId } = useLayoutStore();
   const pathname = usePathname();
   const [headerSearchQuery, setHeaderSearchQuery] = useState("");
@@ -28,20 +32,20 @@ export function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderProps) {
   }, []);
 
   const moduleTitle = pathname.startsWith("/crm")
-    ? "Customer Intelligence"
+    ? t("navigation.customer_intelligence")
     : pathname.startsWith("/fleet")
-      ? "Fleet Operations"
+      ? t("navigation.fleet_operations")
       : pathname.startsWith("/inventory")
-        ? "Global Inventory"
+        ? t("navigation.global_inventory")
         : pathname.startsWith("/hr")
-          ? "Human Capital"
+          ? t("navigation.human_capital")
           : pathname.startsWith("/finance")
-            ? "Financial Operations"
+            ? t("navigation.financial_operations")
             : pathname.startsWith("/admin")
-              ? "Platform Administration"
+              ? t("navigation.platform_administration")
               : pathname.startsWith("/settings")
-                ? "System Configuration"
-                : "Executive Overview";
+                ? t("navigation.system_configuration")
+                : t("navigation.executive_overview");
 
   return (
     <header className="h-16 border-b border-border/40 bg-background/80 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-6">
@@ -57,7 +61,7 @@ export function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderProps) {
             {moduleTitle}
           </h2>
           <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest opacity-60">
-            CEO Strategic Engine v1.0
+            {t("header.strategic_engine")}
           </p>
         </div>
       </div>
@@ -70,7 +74,7 @@ export function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderProps) {
             value={headerSearchQuery}
             onChange={setHeaderSearchQuery}
             companyId={selectedCompanyId}
-            placeholder="Search Intelligent..."
+            placeholder={t("common.search_placeholder")}
             className="w-full"
             inputClassName="h-7 text-xs"
             iconClassName="w-3.5 h-3.5"
@@ -80,6 +84,8 @@ export function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderProps) {
             <span>K</span>
           </div>
         </div>
+
+        <LanguageSwitcher />
 
         {/* Notifications */}
         <button className="relative p-2 hover:bg-muted/50 rounded-xl transition-colors text-muted-foreground hover:text-foreground border border-border/50">
