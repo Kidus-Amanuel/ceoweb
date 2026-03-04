@@ -159,6 +159,7 @@ export async function getCrmTableViewAction(input: unknown): Promise<
   const needsCustomers =
     parsed.data.table === "deals" || parsed.data.table === "activities";
   const needsDeals = parsed.data.table === "activities";
+  const effectivePageSize = 50;
   const emptySelectResult = {
     data: [] as { label: string; value: string }[],
     error: undefined as string | undefined,
@@ -170,7 +171,7 @@ export async function getCrmTableViewAction(input: unknown): Promise<
         table: parsed.data.table,
         companyId: auth.data.companyId,
         page: parsed.data.page,
-        pageSize: parsed.data.pageSize,
+        pageSize: effectivePageSize,
         search: parsed.data.search,
       }),
       crmService.getColumnDefinitions({
