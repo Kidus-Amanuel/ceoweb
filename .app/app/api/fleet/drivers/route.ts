@@ -1,24 +1,15 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireFleetAuth } from "@/lib/auth/api-auth";
 
-export async function GET() {
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
   try {
-    const supabase = await createClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("company_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.company_id)
-      return NextResponse.json({ error: "Company not found" }, { status: 403 });
+    const { searchParams } = new URL(req.url);
+    const qv_company_id = searchParams.get("company_id"); // Cache buster
+    const auth = await requireFleetAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, companyId } = auth;
 
     // Fetch driver assignments with employee and vehicle details
     const { data: assignments, error } = await supabase
@@ -51,11 +42,12 @@ export async function GET() {
         )
       `,
       )
-      .eq("company_id", profile.company_id)
+      .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
+    console.log(`[Fleet API] DB Driver Assignments for company ${companyId}:`, assignments?.length || 0);
 
     // Shape the data
     const shaped = assignments.map((a: any) => {
@@ -92,23 +84,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
+    const auth = await requireFleetAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, companyId } = auth;
+
     const body = await req.json();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("company_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.company_id)
-      return NextResponse.json({ error: "Company not found" }, { status: 403 });
 
     if (!body.driver_id)
       return NextResponse.json(
@@ -124,7 +104,7 @@ export async function POST(req: Request) {
     const { data, error } = await supabase
       .from("driver_assignments")
       .insert({
-        company_id: profile.company_id,
+        company_id: companyId,
         driver_id: body.driver_id,
         vehicle_id: body.vehicle_id || null,
         start_date: body.start_date,
@@ -145,7 +125,10 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const supabase = await createClient();
+    const auth = await requireFleetAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, companyId } = auth;
+
     const body = await req.json();
     const { id, driver_id, vehicle_id, start_date, end_date, notes } = body;
 
@@ -167,6 +150,7 @@ export async function PATCH(req: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
+      .eq("company_id", companyId)  // ✅ Security: scope to current company
       .select()
       .single();
 
@@ -180,7 +164,10 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const supabase = await createClient();
+    const auth = await requireFleetAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, companyId } = auth;
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
@@ -194,7 +181,8 @@ export async function DELETE(req: Request) {
     const { error } = await supabase
       .from("driver_assignments")
       .update({ deleted_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("company_id", companyId);  // ✅ Security: scope to current company
 
     if (error) throw error;
     return NextResponse.json({ success: true });

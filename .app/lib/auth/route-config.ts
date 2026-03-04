@@ -39,18 +39,28 @@ export const AUTHENTICATED_ROUTES = [
   "/profile",
   "/settings",
   "/onboarding",
+  "/chat",
+  "/ai-agent",
 ] as const;
 
 /**
  * Company user module routes — require a companyId and permission checks.
  */
 export const COMPANY_USER_ROUTES = [
+  "/hr",
   "/hrm",
   "/crm",
   "/inventory",
   "/fleet",
   "/finance",
+  "/internationaltrade",
+  "/trade",
   "/api/fleet",
+  "/api/hr",
+  "/api/crm",
+  "/api/inventory",
+  "/api/finance",
+  "/api/trade",
 ] as const;
 
 // ─── Guards ───────────────────────────────────────────────────────────────────
@@ -86,6 +96,37 @@ export function isAuthenticatedRoute(pathname: string): boolean {
  * (the proxy still enforces that a user exists — this just skips the
  * type-level restriction check).
  */
+/**
+ * Maps a given pathname to its corresponding module code.
+ */
+export function getModuleFromPathname(pathname: string): string | null {
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 0) return null;
+
+  let firstSegment = segments[0].toLowerCase();
+  
+  // If we're in the API, we care about the NEXT segment for module identification
+  if (firstSegment === "api" && segments.length > 1) {
+    firstSegment = segments[1].toLowerCase();
+  }
+
+  // Root modules mapping
+  const mapping: Record<string, string> = {
+    hr: "hr",
+    hrm: "hr",
+    crm: "crm",
+    inventory: "inventory",
+    fleet: "fleet",
+    finance: "finance",
+    internationaltrade: "trade",
+    trade: "trade",
+    "ai-agent": "ai",
+    chat: "chat",
+  };
+
+  return mapping[firstSegment] || null;
+}
+
 export function getRouteRequirements(pathname: string): RouteRequirement {
   // Public — should never reach here if isPublicRoute() check runs first.
   if (isPublicRoute(pathname)) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   EditableTable,
@@ -22,11 +22,19 @@ import { Input } from "@/components/shared/ui/input/Input";
 import dynamic from "next/dynamic";
 import { useCompanies } from "@/hooks/use-companies";
 import {
-  getFleetTableViewAction,
-  createFleetCustomFieldAction,
-  updateFleetCustomFieldAction,
-  deleteFleetCustomFieldAction,
-} from "@/app/api/fleet/fleet";
+  useVehicles,
+  useDrivers,
+  useVehicleTypes,
+  useFleetColumnDefs,
+  useAddVehicle,
+  useUpdateVehicle,
+  useDeleteVehicle,
+  useAddFleetColumn,
+  useUpdateFleetColumn,
+  useDeleteFleetColumn,
+} from "@/hooks/use-fleet";
+import { toast } from "@/hooks/use-toast";
+import { FleetTableSkeleton } from "@/components/shared/ui/skeleton/FleetTableSkeleton";
 
 // Dynamically import Map to avoid SSR issues with Leaflet
 function MapLoadingFallback() {
@@ -51,65 +59,46 @@ export default function VehiclesPage() {
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
-  const [data, setData] = useState<any[]>([]);
-  // drivers: shaped records from driver_assignments (each has driver_id + driver_name)
-  const [drivers, setDrivers] = useState<any[]>([]);
-  const [columnDefs, setColumnDefs] = useState<any[]>([]);
-  const [vehicleTypes, setVehicleTypes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isPending, startTransition] = useTransition();
+  // ── Data via React Query ──────────────────────────────────────────────────
+  const { data: vehicles = [], isLoading: loadingVehicles } = useVehicles(companyId);
+  const { data: drivers = [] } = useDrivers(companyId);
+  const { data: vehicleTypes = [] } = useVehicleTypes();
+  const { data: columnDefs = [] } = useFleetColumnDefs("vehicles", companyId);
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const addVehicle = useAddVehicle(companyId, {
+    onSuccess: () => toast.success(t("fleet_vehicles.toast_add_success")),
+    onError: () => toast.error(t("fleet_vehicles.toast_add_error")),
+  });
+  const updateVehicle = useUpdateVehicle(companyId, {
+    onSuccess: () => toast.success(t("fleet_vehicles.toast_update_success")),
+    onError: () => toast.error(t("fleet_vehicles.toast_update_error")),
+  });
+  const deleteVehicle = useDeleteVehicle(companyId, {
+    onSuccess: () => toast.success(t("fleet_vehicles.toast_delete_success")),
+    onError: () => toast.error(t("fleet_vehicles.toast_delete_error")),
+  });
+  
+  const addColumn = useAddFleetColumn("vehicles", companyId, {
+    onSuccess: () => toast.success(t("fleet_vehicles.toast_column_add_success")),
+  });
+  const updateColumn = useUpdateFleetColumn("vehicles", companyId, {
+    onSuccess: () => toast.success(t("fleet_vehicles.toast_column_update_success")),
+  });
+  const deleteColumn = useDeleteFleetColumn("vehicles", companyId, {
+    onSuccess: () => toast.success(t("fleet_vehicles.toast_column_delete_success")),
+  });
+
+  const loading = loadingVehicles;
+
+  // ── UI state ──────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "online" | "offline"
   >("all");
 
-  const loadInitialData = async () => {
-    try {
-      setLoading(true);
-      const [vRes, dRes, tRes] = await Promise.all([
-        fetch("/api/fleet/vehicles"),
-        fetch("/api/fleet/drivers"),
-        fetch("/api/fleet/vehicle-types"),
-      ]);
-
-      const [vehicles, driverList, typeList] = await Promise.all([
-        vRes.ok ? vRes.json() : [],
-        dRes.ok ? dRes.json() : [],
-        tRes.ok ? tRes.json() : [],
-      ]);
-
-      setData(vehicles || []);
-      setDrivers(driverList || []);
-      setVehicleTypes(typeList || []);
-
-      // Load virtual column definitions separately (non-blocking)
-      if (companyId) {
-        getFleetTableViewAction({
-          companyId,
-          table: "vehicles",
-          page: 1,
-          pageSize: 1,
-        })
-          .then((viewRes) => {
-            if (viewRes.success && viewRes.data) {
-              setColumnDefs(viewRes.data.columnDefinitions || []);
-            }
-          })
-          .catch((err) => {
-            console.error("Failed to load column definitions:", err);
-          });
-      }
-    } catch (error) {
-      console.error("Failed to load data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadInitialData();
-  }, [companyId]);
+  const data = vehicles;
 
   // Build unique driver options from driver_assignments.
   // driver_id is the UUID of the employee; driver_name is the display label.
@@ -126,13 +115,13 @@ export default function VehiclesPage() {
       }
     }
     return opts;
-  }, [drivers]);
+  }, [drivers, t]);
 
   const virtualColumns = useMemo((): VirtualColumn[] => {
-    return columnDefs.map((def) => ({
-      id: def.id,
-      label: def.field_label,
-      key: def.field_name,
+    return (columnDefs as any[]).map((def) => ({
+      id: String(def.id),
+      label: String(def.field_label),
+      key: String(def.field_name),
       type: (def.field_type as any) || "text",
       options: def.field_options
         ? (def.field_options as string[]).map((o) => ({ label: o, value: o }))
@@ -310,7 +299,7 @@ export default function VehiclesPage() {
         },
       },
     ],
-    [driverOptions, drivers],
+    [driverOptions, drivers, t, vehicleTypes],
   );
 
   const filteredData = useMemo(() => {
@@ -333,60 +322,44 @@ export default function VehiclesPage() {
   }, [data, searchTerm, statusFilter, drivers]);
 
   const handleUpdate = async (id: string, updatedFields: any) => {
-    startTransition(async () => {
-      try {
-        const standardKeys = [
-          "vehicle_number",
-          "make",
-          "model",
-          "year",
-          "vin",
-          "license_plate",
-          "assigned_driver_id",
-          "status",
-          "vehicle_type_id",
-        ];
-        const updatePayload: any = { id };
-        // Start with any virtual column values
-        const customData: any = updatedFields.customValues || {};
+    try {
+      const standardKeys = [
+        "vehicle_number",
+        "make",
+        "model",
+        "year",
+        "vin",
+        "license_plate",
+        "assigned_driver_id",
+        "status",
+        "vehicle_type_id",
+      ];
+      const updatePayload: any = { id };
+      const customData: any = updatedFields.customValues || {};
 
-        // gps_id is a built-in column that maps to custom_fields.gps_id
-        if ("gps_id" in updatedFields && updatedFields.gps_id !== undefined) {
-          customData.gps_id = updatedFields.gps_id;
-        }
-
-        Object.keys(updatedFields).forEach((key) => {
-          if (standardKeys.includes(key)) {
-            let val = updatedFields[key];
-            if (val === "none") val = null;
-            if (key === "year" && val !== null) val = parseInt(String(val), 10);
-            updatePayload[key] = val;
-          }
-        });
-
-        const existing = data.find((v) => v.id === id);
-        const mergedCustom = {
-          ...(existing?.custom_fields || {}),
-          ...customData,
-        };
-
-        if (Object.keys(mergedCustom).length > 0) {
-          updatePayload.custom_fields = mergedCustom;
-        }
-
-        const res = await fetch("/api/fleet/vehicles", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatePayload),
-        });
-
-        const json = await res.json();
-        if (!res.ok) console.error("[VehiclesPage] Update failed:", json.error);
-        else loadInitialData();
-      } catch (err) {
-        console.error("[VehiclesPage] Update error:", err);
+      if ("gps_id" in updatedFields && updatedFields.gps_id !== undefined) {
+        customData.gps_id = updatedFields.gps_id;
       }
-    });
+
+      Object.keys(updatedFields).forEach((key) => {
+        if (standardKeys.includes(key)) {
+          let val = updatedFields[key];
+          if (val === "none") val = null;
+          if (key === "year" && val !== null) val = parseInt(String(val), 10);
+          updatePayload[key] = val;
+        }
+      });
+
+      const existing = data.find((v) => v.id === id);
+      const mergedCustom = { ...(existing?.custom_fields || {}), ...customData };
+      if (Object.keys(mergedCustom).length > 0) {
+        updatePayload.custom_fields = mergedCustom;
+      }
+
+      await updateVehicle.mutateAsync(updatePayload);
+    } catch (err) {
+      console.error("[VehiclesPage] Update error:", err);
+    }
   };
 
   const asRecord = (val: any): Record<string, any> => {
@@ -395,127 +368,77 @@ export default function VehiclesPage() {
   };
 
   const handleAdd = async (newItem: any) => {
-    startTransition(async () => {
-      try {
-        const standardKeys = [
-          "vehicle_number",
-          "make",
-          "model",
-          "year",
-          "vin",
-          "license_plate",
-          "assigned_driver_id",
-          "status",
-          "vehicle_type_id",
-        ];
-        // Start with virtual column values
-        const customFields: any = { ...(newItem.customValues || {}) };
-
-        // gps_id is a built-in column that maps to custom_fields.gps_id
-        if (newItem.gps_id !== undefined && newItem.gps_id !== "") {
-          customFields.gps_id = newItem.gps_id;
-        }
-
-        const payload: any = {
-          vehicle_number: newItem.vehicle_number || `VEH-${Date.now()}`,
-          custom_fields: customFields,
-        };
-
-        Object.keys(newItem).forEach((key) => {
-          if (standardKeys.includes(key)) {
-            let val = newItem[key];
-            if (val === "none") val = null;
-            if (key === "year" && val !== null) val = parseInt(String(val), 10);
-            payload[key] = val;
-          }
-        });
-
-        const res = await fetch("/api/fleet/vehicles", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const json = await res.json();
-        if (!res.ok)
-          console.error("[VehiclesPage] Creation failed:", json.error);
-        else loadInitialData();
-      } catch (err) {
-        console.error("[VehiclesPage] Creation error:", err);
+    try {
+      const standardKeys = [
+        "vehicle_number", "make", "model", "year", "vin",
+        "license_plate", "assigned_driver_id", "status", "vehicle_type_id",
+      ];
+      const customFields: any = { ...(newItem.customValues || {}) };
+      if (newItem.gps_id !== undefined && newItem.gps_id !== "") {
+        customFields.gps_id = newItem.gps_id;
       }
-    });
+      const payload: any = {
+        vehicle_number: newItem.vehicle_number || `VEH-${Date.now()}`,
+        custom_fields: customFields,
+      };
+      Object.keys(newItem).forEach((key) => {
+        if (standardKeys.includes(key)) {
+          let val = newItem[key];
+          if (val === "none") val = null;
+          if (key === "year" && val !== null) val = parseInt(String(val), 10);
+          payload[key] = val;
+        }
+      });
+      await addVehicle.mutateAsync(payload);
+    } catch (err) {
+      console.error("[VehiclesPage] Creation error:", err);
+    }
   };
 
   const handleDelete = async (id: string) => {
-    startTransition(async () => {
-      try {
-        const res = await fetch(`/api/fleet/vehicles?id=${id}`, {
-          method: "DELETE",
-        });
-        const json = await res.json();
-        if (!res.ok)
-          console.error("[VehiclesPage] Deletion failed:", json.error);
-        else setData((prev) => prev.filter((v) => v.id !== id));
-      } catch (err) {
-        console.error("[VehiclesPage] Deletion error:", err);
-      }
-    });
+    try {
+      await deleteVehicle.mutateAsync(id);
+    } catch (err) {
+      console.error("[VehiclesPage] Deletion error:", err);
+    }
   };
 
-  // Column Management
   const handleColumnAdd = async (column: Omit<VirtualColumn, "id">) => {
     if (!companyId) return;
-    const res = await createFleetCustomFieldAction({
-      companyId,
+    await addColumn.mutateAsync({
       entityType: "vehicles",
       fieldLabel: column.label,
       fieldName: column.key,
-      fieldType: column.type === "json" ? "text" : (column.type as any),
+      fieldType: column.type === "json" ? "text" : column.type as any,
       fieldOptions:
         column.type === "select" || column.type === "currency"
           ? column.options?.map((o) => String(o.value))
           : undefined,
     });
-    if (res.success) {
-      loadInitialData();
-    } else {
-      console.error("[VehiclesPage] Column creation failed:", res.error);
-    }
   };
 
-  const handleColumnUpdate = async (
-    id: string,
-    column: Omit<VirtualColumn, "id">,
-  ) => {
+  const handleColumnUpdate = async (id: string, column: Omit<VirtualColumn, "id">) => {
     if (!companyId) return;
-    const res = await updateFleetCustomFieldAction({
-      companyId,
+    await updateColumn.mutateAsync({
       fieldId: id,
-      entityType: "vehicles",
       fieldLabel: column.label,
       fieldName: column.key,
-      fieldType: column.type === "json" ? "text" : (column.type as any),
+      fieldType: column.type === "json" ? "text" : column.type as any,
       fieldOptions:
         column.type === "select" || column.type === "currency"
           ? column.options?.map((o) => String(o.value))
           : undefined,
     });
-    if (res.success) {
-      loadInitialData();
-    } else {
-      console.error("[VehiclesPage] Column update failed:", res.error);
-    }
   };
 
   const handleColumnDelete = async (id: string) => {
     if (!companyId) return;
-    const res = await deleteFleetCustomFieldAction({ companyId, fieldId: id });
-    if (res.success) {
-      loadInitialData();
-    } else {
-      console.error("[VehiclesPage] Column deletion failed:", res.error);
-    }
+    await deleteColumn.mutateAsync(id);
   };
+
+  if (loading) {
+    return <FleetTableSkeleton rows={10} cols={6} />;
+  }
 
   if (!companyId) {
     return (

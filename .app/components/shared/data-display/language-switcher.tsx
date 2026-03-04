@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/shared/ui/dropdown-menu/DropdownMenu";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 const languages = [
   { code: "en", name: "English", flag: "🇺🇸" },
@@ -19,6 +20,18 @@ const languages = [
 
 export function LanguageSwitcher({ className }: { className?: string }) {
   const { i18n } = useTranslation();
+  const router = useRouter();
+
+  const changeLanguage = (code: string) => {
+    i18n.changeLanguage(code);
+    router.refresh(); // Tell the server to refresh components that might depend on the locale
+  };
+ 
+  React.useEffect(() => {
+    if (i18n.language) {
+      document.cookie = `NEXT_LOCALE=${i18n.language}; path=/; max-age=31536000`;
+    }
+  }, [i18n.language]);
 
   const currentLanguage =
     languages.find((lang) => lang.code === i18n.language) || languages[0];
@@ -42,7 +55,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
         {languages.map((lang) => (
           <DropdownMenuItem
             key={lang.code}
-            onClick={() => i18n.changeLanguage(lang.code)}
+            onClick={() => changeLanguage(lang.code)}
             className="flex items-center justify-between cursor-pointer"
           >
             <div className="flex items-center gap-2">

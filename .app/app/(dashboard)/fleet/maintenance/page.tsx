@@ -3,9 +3,6 @@
 import {
   useMemo,
   useState,
-  useEffect,
-  useCallback,
-  useTransition,
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -33,11 +30,18 @@ import {
 } from "lucide-react";
 import { useCompanies } from "@/hooks/use-companies";
 import {
-  getFleetTableViewAction,
-  createFleetCustomFieldAction,
-  updateFleetCustomFieldAction,
-  deleteFleetCustomFieldAction,
-} from "@/app/api/fleet/fleet";
+  useMaintenance,
+  useVehicles,
+  useFleetColumnDefs,
+  useAddMaintenance,
+  useUpdateMaintenance,
+  useDeleteMaintenance,
+  useAddFleetColumn,
+  useUpdateFleetColumn,
+  useDeleteFleetColumn,
+} from "@/hooks/use-fleet";
+import { toast } from "@/hooks/use-toast";
+import { FleetTableSkeleton } from "@/components/shared/ui/skeleton/FleetTableSkeleton";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -179,68 +183,54 @@ export default function MaintenancePage() {
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
-  const [data, setData] = useState<MaintenanceRecord[]>([]);
-  const [columnDefs, setColumnDefs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [, startTransition] = useTransition();
+  // ── Data via React Query ──────────────────────────────────────────────────
+  const { data: rawMaintenance = [], isLoading: loading } = useMaintenance(companyId);
+  const { data: rawVehicles = [] } = useVehicles(companyId);
+  const { data: columnDefs = [] } = useFleetColumnDefs("maintenance", companyId);
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const addMaintenance = useAddMaintenance(companyId, {
+    onSuccess: () => toast.success(t("fleet_maintenance.toast_add_success")),
+    onError: () => toast.error(t("fleet_maintenance.toast_add_error")),
+  });
+  const updateMaintenance = useUpdateMaintenance(companyId, {
+    onSuccess: () => toast.success(t("fleet_maintenance.toast_update_success")),
+    onError: () => toast.error(t("fleet_maintenance.toast_update_error")),
+  });
+  const deleteMaintenance = useDeleteMaintenance(companyId, {
+    onSuccess: () => toast.success(t("fleet_maintenance.toast_delete_success")),
+    onError: () => toast.error(t("fleet_maintenance.toast_delete_error")),
+  });
+  const addColumn = useAddFleetColumn("maintenance", companyId, {
+    onSuccess: () => toast.success(t("fleet_maintenance.toast_column_add_success")),
+  });
+  const updateColumn = useUpdateFleetColumn("maintenance", companyId, {
+    onSuccess: () => toast.success(t("fleet_maintenance.toast_column_update_success")),
+  });
+  const deleteColumn = useDeleteFleetColumn("maintenance", companyId, {
+    onSuccess: () => toast.success(t("fleet_maintenance.toast_column_delete_success")),
+  });
+
+  // ── Derived State ─────────────────────────────────────────────────────────
+  const data: MaintenanceRecord[] = useMemo(
+    () => rawMaintenance.map((r: any) => ({ ...r, customValues: r.custom_fields || {} })),
+    [rawMaintenance]
+  );
+
+  const vehicleOptions = useMemo(
+    () =>
+      (rawVehicles as any[]).map((v: any) => ({
+        label: `${v.make ?? ""} ${v.model ?? ""} ${
+          v.license_plate ? "· " + v.license_plate : ""
+        }`.trim(),
+        value: v.id,
+      })),
+    [rawVehicles],
+  );
+
+  // ── UI state ─────────────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | MaintenanceType>("all");
-  const [vehicleOptions, setVehicleOptions] = useState<
-    { label: string; value: string }[]
-  >([]);
-
-  const loadAll = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [mRes, vehRes] = await Promise.all([
-        fetch("/api/fleet/maintenance"),
-        fetch("/api/fleet/vehicles"),
-      ]);
-
-      const [mData, vehList] = await Promise.all([
-        mRes.ok ? mRes.json() : [],
-        vehRes.ok ? vehRes.json() : [],
-      ]);
-
-      const rows = (mData || []).map((r: any) => ({
-        ...r,
-        customValues: r.custom_fields || {},
-      }));
-      setData(rows);
-
-      setVehicleOptions(
-        (vehList || []).map((v: any) => ({
-          label: `${v.make ?? ""} ${v.model ?? ""} ${v.license_plate ? "· " + v.license_plate : ""
-            }`.trim(),
-          value: v.id,
-        })),
-      );
-
-      // Load virtual column definitions separately (non-blocking)
-      if (companyId) {
-        getFleetTableViewAction({
-          companyId,
-          table: "maintenance",
-          page: 1,
-          pageSize: 1,
-        })
-          .then((res) => {
-            if (res.success && res.data) {
-              setColumnDefs(res.data.columnDefinitions || []);
-            }
-          })
-          .catch(() => { });
-      }
-    } catch (err) {
-      console.error("[Maintenance Page] Load failed:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [companyId]);
-
-  useEffect(() => {
-    loadAll();
-  }, [loadAll]);
 
   // ── Stats ──────────────────────────────────────────────────────────────────
 
@@ -285,12 +275,12 @@ export default function MaintenancePage() {
   // ── Virtual Columns ────────────────────────────────────────────────────────
 
   const virtualColumns = useMemo((): VirtualColumn[] => {
-    return columnDefs.map((def) => ({
-      id: def.id,
-      label: def.field_label,
-      key: def.field_name,
+    return (columnDefs as any[]).map((def) => ({
+      id: String(def.id),
+      label: String(def.field_label),
+      key: String(def.field_name),
       type: def.field_type as any,
-      options: (def.field_options || []).map((o: string) => ({
+      options: ((def.field_options || []) as string[]).map((o) => ({
         label: o,
         value: o,
       })),
@@ -461,156 +451,92 @@ export default function MaintenancePage() {
         ),
       },
     ],
-    [vehicleOptions],
+    [vehicleOptions, t],
   );
 
   // ── CRUD Handlers ──────────────────────────────────────────────────────────
 
   const handleAdd = async (newItem: any) => {
-    startTransition(async () => {
-      try {
-        const res = await fetch("/api/fleet/maintenance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            vehicle_id: newItem.vehicle_id || null,
-            maintenance_date:
-              newItem.maintenance_date ||
-              new Date().toISOString().split("T")[0],
-            type: newItem.type || "routine",
-            description: newItem.description || null,
-            cost: newItem.cost || null,
-            odometer_reading: newItem.odometer_reading || null,
-            performed_by: newItem.performed_by || null,
-            next_due_date: newItem.next_due_date || null,
-            notes: newItem.notes || null,
-            custom_fields: newItem.customValues || {},
-          }),
-        });
-        const json = await res.json();
-        if (!res.ok) console.error("[Maintenance] Create failed:", json.error);
-        else loadAll();
-      } catch (err) {
-        console.error("[Maintenance] Create error:", err);
-      }
-    });
+    try {
+      await addMaintenance.mutateAsync({
+        vehicle_id: newItem.vehicle_id || null,
+        maintenance_date: newItem.maintenance_date || new Date().toISOString().split("T")[0],
+        type: newItem.type || "routine",
+        description: newItem.description || null,
+        cost: newItem.cost || null,
+        odometer_reading: newItem.odometer_reading || null,
+        performed_by: newItem.performed_by || null,
+        next_due_date: newItem.next_due_date || null,
+        notes: newItem.notes || null,
+        custom_fields: newItem.customValues || {},
+      });
+    } catch (err) {
+      console.error("[Maintenance] Create error:", err);
+    }
   };
 
   const handleUpdate = async (id: string, updatedFields: any) => {
-    startTransition(async () => {
-      try {
-        const standardKeys = [
-          "vehicle_id",
-          "maintenance_date",
-          "type",
-          "description",
-          "cost",
-          "odometer_reading",
-          "performed_by",
-          "next_due_date",
-          "notes",
-        ];
-        const updatePayload: any = { id };
-        const customData: any = updatedFields.customValues || {};
+    try {
+      const standardKeys = [
+        "vehicle_id", "maintenance_date", "type", "description",
+        "cost", "odometer_reading", "performed_by", "next_due_date", "notes",
+      ];
+      const updatePayload: any = { id };
+      const customData: any = updatedFields.customValues || {};
 
-        Object.keys(updatedFields).forEach((key) => {
-          if (standardKeys.includes(key)) {
-            let val = updatedFields[key];
-            if (val === "none") val = null;
-            updatePayload[key] = val;
-          }
-        });
-
-        const existing = data.find((r) => r.id === id);
-        const mergedCustom = {
-          ...(existing?.custom_fields || {}),
-          ...customData,
-        };
-
-        if (Object.keys(mergedCustom).length > 0) {
-          updatePayload.custom_fields = mergedCustom;
+      Object.keys(updatedFields).forEach((key) => {
+        if (standardKeys.includes(key)) {
+          let val = updatedFields[key];
+          if (val === "none") val = null;
+          updatePayload[key] = val;
         }
+      });
 
-        const res = await fetch("/api/fleet/maintenance", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatePayload),
-        });
-
-        const json = await res.json();
-        if (!res.ok) console.error("[Maintenance] Update failed:", json.error);
-        else loadAll();
-      } catch (err) {
-        console.error("[Maintenance] Update error:", err);
+      const existing = data.find((r) => r.id === id);
+      const mergedCustom = { ...(existing?.custom_fields || {}), ...customData };
+      if (Object.keys(mergedCustom).length > 0) {
+        updatePayload.custom_fields = mergedCustom;
       }
-    });
+
+      await updateMaintenance.mutateAsync(updatePayload);
+    } catch (err) {
+      console.error("[Maintenance] Update error:", err);
+    }
   };
 
   const handleDelete = async (id: string) => {
-    startTransition(async () => {
-      try {
-        const res = await fetch(`/api/fleet/maintenance?id=${id}`, {
-          method: "DELETE",
-        });
-        const json = await res.json();
-        if (!res.ok) console.error("[Maintenance] Delete failed:", json.error);
-        else setData((prev) => prev.filter((r) => r.id !== id));
-      } catch (err) {
-        console.error("[Maintenance] Delete error:", err);
-      }
-    });
+    try {
+      await deleteMaintenance.mutateAsync(id);
+    } catch (err) {
+      console.error("[Maintenance] Delete error:", err);
+    }
   };
 
   const handleColumnAdd = async (payload: any) => {
     if (!companyId) return;
-    const res = await createFleetCustomFieldAction({
-      companyId,
+    await addColumn.mutateAsync({
       entityType: "maintenance",
       fieldLabel: payload.label,
       fieldName: payload.key,
       fieldType: payload.type === "status" ? "select" : payload.type,
-      fieldOptions: (payload.options ?? []).map((o: any) =>
-        String(o.value ?? o.label),
-      ),
+      fieldOptions: (payload.options ?? []).map((o: any) => String(o.value ?? o.label)),
     });
-    if (res.success) {
-      loadAll();
-    } else {
-      console.error("[Maintenance] Column creation failed:", res.error);
-    }
   };
 
   const handleColumnUpdate = async (fieldId: string, payload: any) => {
     if (!companyId) return;
-    const res = await updateFleetCustomFieldAction({
-      companyId,
-      entityType: "maintenance",
+    await updateColumn.mutateAsync({
       fieldId,
       fieldLabel: payload.label,
       fieldName: payload.key,
       fieldType: payload.type === "status" ? "select" : payload.type,
-      fieldOptions: (payload.options ?? []).map((o: any) =>
-        String(o.value ?? o.label),
-      ),
+      fieldOptions: (payload.options ?? []).map((o: any) => String(o.value ?? o.label)),
     });
-    if (res.success) {
-      loadAll();
-    } else {
-      console.error("[Maintenance] Column update failed:", res.error);
-    }
   };
 
   const handleColumnDelete = async (fieldId: string) => {
     if (!companyId) return;
-    const res = await deleteFleetCustomFieldAction({
-      companyId,
-      fieldId,
-    });
-    if (res.success) {
-      loadAll();
-    } else {
-      console.error("[Maintenance] Column deletion failed:", res.error);
-    }
+    await deleteColumn.mutateAsync(fieldId);
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -703,12 +629,7 @@ export default function MaintenancePage() {
       {/* ── Table ── */}
       <div className="bg-white rounded-3xl border border-border overflow-hidden shadow-sm min-h-[560px] flex flex-col">
         {loading ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400">
-            <Wrench className="w-8 h-8 animate-pulse" />
-            <p className="text-[11px] font-black uppercase tracking-widest">
-              {t("fleet_maintenance.loading")}
-            </p>
-          </div>
+          <FleetTableSkeleton rows={10} cols={6} />
         ) : (
           <EditableTable
             title={t("fleet_maintenance.table_title")}
