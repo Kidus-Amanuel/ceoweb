@@ -102,9 +102,9 @@ export const SmartEditor = ({
   const baseInputClass =
     "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm shadow-none ring-0 focus-visible:ring-0";
   const baseSelectTriggerClass =
-    "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 justify-start shadow-none ring-0 focus:ring-0";
+    "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 justify-center shadow-none ring-0 focus:ring-0";
   const selectContentClass =
-    "z-[120] w-max min-w-0 rounded-md border border-border bg-background p-1 shadow-xl";
+    "z-[120] rounded-md border border-border bg-background p-1 shadow-xl";
   const selectItemClass =
     "rounded-sm px-2 py-1.5 text-sm hover:bg-muted/60 focus:bg-muted/70";
   const setEditorRef = (
@@ -210,7 +210,7 @@ export const SmartEditor = ({
             <SelectValue placeholder={placeholder || "Select..."} />
           )}
         </SelectTrigger>
-        <SelectContent position="item-aligned" className={selectContentClass}>
+        <SelectContent className={selectContentClass}>
           {options.map((o: any) => (
             <SelectItem
               className={selectItemClass}
