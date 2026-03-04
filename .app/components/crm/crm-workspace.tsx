@@ -243,22 +243,34 @@ export function CrmWorkspace({
 
   const handleAddRow = async (payload: Record<string, unknown>) => {
     if (!companyId || activeTable === "reports") return;
+    try {
+      const response = await createCrmRowAction({
+        companyId,
+        table: activeTable,
+        standardData: crmViewHelpers.serializeStandardData(
+          activeTable,
+          payload,
+        ),
+        customData: asRecord(payload.customValues),
+      });
 
-    const response = await createCrmRowAction({
-      companyId,
-      table: activeTable,
-      standardData: crmViewHelpers.serializeStandardData(activeTable, payload),
-      customData: asRecord(payload.customValues),
-    });
+      if (!response.success) {
+        const message = toFriendlyCrmError(
+          response.error || "Failed to create CRM row.",
+        );
+        setError(message);
+        throw new Error(message);
+      }
 
-    if (!response.success) {
+      refresh(activeTable);
+    } catch (error) {
       setError(
-        toFriendlyCrmError(response.error || "Failed to create CRM row."),
+        toFriendlyCrmError(
+          error instanceof Error ? error.message : "Failed to create CRM row.",
+        ),
       );
-      return;
+      throw error;
     }
-
-    refresh(activeTable);
   };
 
   const handleUpdateRow = async (
@@ -273,26 +285,36 @@ export function CrmWorkspace({
         ? asRecord(payload.customValues)
         : asRecord(existingRow?.custom_data ?? existingRow?.custom_fields);
 
-    const response = await updateCrmRowAction({
-      companyId,
-      table: activeTable,
-      rowId,
-      standardData: crmViewHelpers.serializeStandardData(
-        activeTable,
-        payload,
-        existingRow,
-      ),
-      customData: nextCustomValues,
-    });
+    try {
+      const response = await updateCrmRowAction({
+        companyId,
+        table: activeTable,
+        rowId,
+        standardData: crmViewHelpers.serializeStandardData(
+          activeTable,
+          payload,
+          existingRow,
+        ),
+        customData: nextCustomValues,
+      });
 
-    if (!response.success) {
+      if (!response.success) {
+        const message = toFriendlyCrmError(
+          response.error || "Failed to update CRM row.",
+        );
+        setError(message);
+        throw new Error(message);
+      }
+
+      refresh(activeTable);
+    } catch (error) {
       setError(
-        toFriendlyCrmError(response.error || "Failed to update CRM row."),
+        toFriendlyCrmError(
+          error instanceof Error ? error.message : "Failed to update CRM row.",
+        ),
       );
-      return;
+      throw error;
     }
-
-    refresh(activeTable);
   };
 
   const handleDeleteRow = async (rowId: string) => {
@@ -448,7 +470,7 @@ export function CrmWorkspace({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-[calc(100dvh-145px)] lg:h-[calc(100dvh-170px)] min-h-0 min-w-0 flex-col gap-6 overflow-hidden">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -493,29 +515,31 @@ export function CrmWorkspace({
         </div>
       ) : null}
 
-      {activeTable === "reports" ? (
-        <CrmReportsView tableCounts={tableCounts} />
-      ) : (
-        <CrmWorkspaceTable
-          table={activeTable}
-          gridData={gridData}
-          relations={relations}
-          virtualColumns={virtualColumns}
-          currentPage={currentPage}
-          totalRows={totalRows}
-          pageSize={pageSize}
-          onPageChange={setCurrentPage}
-          onAdd={handleAddRow}
-          onUpdate={handleUpdateRow}
-          onDelete={handleDeleteRow}
-          onColumnAdd={handleAddColumn}
-          onColumnUpdate={handleUpdateColumn}
-          onColumnDelete={handleDeleteColumn}
-          searchQuery={workspaceSearchQuery}
-          onSearchQueryChange={handleWorkspaceSearchQueryChange}
-          selectedRowId={selectedRowId}
-        />
-      )}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {activeTable === "reports" ? (
+          <CrmReportsView tableCounts={tableCounts} />
+        ) : (
+          <CrmWorkspaceTable
+            table={activeTable}
+            gridData={gridData}
+            relations={relations}
+            virtualColumns={virtualColumns}
+            currentPage={currentPage}
+            totalRows={totalRows}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onAdd={handleAddRow}
+            onUpdate={handleUpdateRow}
+            onDelete={handleDeleteRow}
+            onColumnAdd={handleAddColumn}
+            onColumnUpdate={handleUpdateColumn}
+            onColumnDelete={handleDeleteColumn}
+            searchQuery={workspaceSearchQuery}
+            onSearchQueryChange={handleWorkspaceSearchQueryChange}
+            selectedRowId={selectedRowId}
+          />
+        )}
+      </div>
     </div>
   );
 }
