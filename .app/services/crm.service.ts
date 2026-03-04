@@ -59,7 +59,9 @@ type CustomFieldPayload = {
     | "datetime"
     | "select"
     | "boolean"
-    | "currency";
+    | "currency"
+    | "phone"
+    | "email";
   fieldOptions?: string[];
   isRequired?: boolean;
 };
