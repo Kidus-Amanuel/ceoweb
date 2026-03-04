@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export async function GET() {
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const qv_company_id = searchParams.get("company_id"); // Cache buster
     const supabase = await createClient();
 
     // Get current user company

@@ -1,39 +1,27 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { FleetService } from "@/services/fleet.service";
+import { requireFleetAuth } from "@/lib/auth/api-auth";
 
-export async function GET() {
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
   try {
-    const supabase = await createClient();
-
-    // 0. Get current user and company
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("company_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.company_id) {
-      return NextResponse.json({ error: "Company not found" }, { status: 403 });
-    }
+    const { searchParams } = new URL(req.url);
+    const qv_company_id = searchParams.get("company_id"); // Cache buster
+    const auth = await requireFleetAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, companyId } = auth;
 
     // 1. Fetch from CEO Database
     const { data: dbVehicles, error } = await supabase
       .from("vehicles")
       .select("*, vehicle_types(name)")
-      .eq("company_id", profile.company_id)
+      .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
+    console.log(`[Fleet API] DB Vehicles for company ${companyId}:`, dbVehicles?.length || 0);
 
     // 2. Fetch live data from Traccar
     try {
@@ -104,7 +92,10 @@ export async function GET() {
         return vehicle;
       });
 
-      return NextResponse.json(mergedData);
+      // Cache Traccar live data for 30 s — reduces external HTTP calls
+      const res = NextResponse.json(mergedData);
+      res.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=60");
+      return res;
     } catch (traccarError) {
       console.warn("[Fleet API] Traccar Live Fetch Failed:", traccarError);
       return NextResponse.json(dbVehicles);
@@ -117,27 +108,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
+    const auth = await requireFleetAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, companyId } = auth;
+
     const formData = await req.json();
-
-    // 1. Get current user and company
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("company_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.company_id) {
-      return NextResponse.json({ error: "Company not found" }, { status: 403 });
-    }
 
     // 2. Insert vehicle into ERP database
     const vehicleNumber =
@@ -149,7 +124,7 @@ export async function POST(req: Request) {
     const { data: vehicle, error: insertError } = await supabase
       .from("vehicles")
       .insert({
-        company_id: profile.company_id,
+        company_id: companyId,
         vehicle_number: vehicleNumber,
         make: formData.make,
         model: formData.model,
@@ -181,7 +156,10 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const supabase = await createClient();
+    const auth = await requireFleetAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, companyId } = auth;
+
     const body = await req.json();
     const { id, ...fields } = body;
 
@@ -190,25 +168,6 @@ export async function PATCH(req: Request) {
         { error: "Vehicle ID is required" },
         { status: 400 },
       );
-    }
-
-    // 1. Get current user and company
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("company_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.company_id) {
-      return NextResponse.json({ error: "Company not found" }, { status: 403 });
     }
 
     // 2. Build update payload
@@ -240,7 +199,7 @@ export async function PATCH(req: Request) {
       .from("vehicles")
       .update(updatePayload)
       .eq("id", id)
-      .eq("company_id", profile.company_id)
+      .eq("company_id", companyId)
       .select()
       .single();
 
@@ -267,7 +226,10 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const supabase = await createClient();
+    const auth = await requireFleetAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, companyId } = auth;
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
@@ -276,25 +238,6 @@ export async function DELETE(req: Request) {
         { error: "Vehicle ID is required" },
         { status: 400 },
       );
-    }
-
-    // 1. Get current user and company
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("company_id")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile?.company_id) {
-      return NextResponse.json({ error: "Company not found" }, { status: 403 });
     }
 
     // 2. Remove device from Traccar (non-blocking — proceed even if Traccar is unreachable)
@@ -309,7 +252,7 @@ export async function DELETE(req: Request) {
       .from("vehicles")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", id)
-      .eq("company_id", profile.company_id);
+      .eq("company_id", companyId);
 
     if (deleteError) throw deleteError;
 

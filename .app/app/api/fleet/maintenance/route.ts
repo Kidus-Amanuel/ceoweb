@@ -1,36 +1,20 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireFleetAuth } from "@/lib/auth/api-auth";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function getAuthedUserAndCompany(supabase: any) {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) return { user: null, companyId: null };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("company_id")
-    .eq("id", user.id)
-    .single();
-
-  return { user, companyId: profile?.company_id ?? null };
-}
+export const dynamic = "force-dynamic";
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 // Returns all maintenance records for the company, joined with vehicle info.
 
 export async function GET(req: Request) {
   try {
-    const supabase = await createClient();
-    const { companyId } = await getAuthedUserAndCompany(supabase);
-    if (!companyId)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await requireFleetAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, companyId } = auth;
 
     const { searchParams } = new URL(req.url);
     const vehicleId = searchParams.get("vehicle_id");
+    const qv_company_id = searchParams.get("company_id"); // Cache buster
 
     let query = supabase
       .from("vehicle_maintenance")
@@ -68,6 +52,7 @@ export async function GET(req: Request) {
 
     const { data, error } = await query;
     if (error) throw error;
+    console.log(`[Fleet API] DB Maintenance Records for company ${companyId}:`, data?.length || 0);
 
     // Shape the response to include flat vehicle fields for the table
     const shaped = (data || []).map((r: any) => ({
@@ -104,10 +89,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
-    const { companyId } = await getAuthedUserAndCompany(supabase);
-    if (!companyId)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await requireFleetAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, companyId } = auth;
 
     const body = await req.json();
 
@@ -161,10 +145,9 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const supabase = await createClient();
-    const { companyId } = await getAuthedUserAndCompany(supabase);
-    if (!companyId)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await requireFleetAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, companyId } = auth;
 
     const body = await req.json();
     const { id, ...fields } = body;
@@ -224,10 +207,9 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const supabase = await createClient();
-    const { companyId } = await getAuthedUserAndCompany(supabase);
-    if (!companyId)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = await requireFleetAuth();
+    if (auth instanceof NextResponse) return auth;
+    const { supabase, companyId } = auth;
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

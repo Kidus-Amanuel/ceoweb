@@ -3,14 +3,14 @@
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/components/shared/data-display/language-switcher";
 import { ShieldCheck, Zap, BarChart3, Globe, Sparkles } from "lucide-react";
-
+import * as React from "react";
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { t } = useTranslation();
-
+   const { t } = useTranslation();
+ 
   return (
     <div className="relative flex min-h-screen bg-[#F7F7F7] text-foreground overflow-hidden font-sans">
       {/* Global Language Switcher - Floating Top Right */}
@@ -39,7 +39,7 @@ export default function AuthLayout({
         <div className="relative z-10 mt-40 max-w-lg">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white/80 text-xs font-medium mb-4">
             <Sparkles className="w-3 h-3 text-blue-400" />
-            {t("auth.empowering_modern")}
+             {t("auth.empowering_modern")}
           </div>
           <blockquote className="space-y-3">
             <p className="text-3xl font-semibold leading-tight text-white/90">

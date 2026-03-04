@@ -21,6 +21,7 @@ import {
   requiresSuperAdmin,
   requiresCompanyUser,
   getRouteRequirements,
+  getModuleFromPathname,
 } from "./lib/auth/route-config";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -70,18 +71,40 @@ async function getUserWithTimeout(
 
 // ─── Proxy ────────────────────────────────────────────────────────────────────
 
-export async function proxy(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ── 1. Fast-path: public routes bypass auth entirely ──────────────────────
   if (isPublicRoute(pathname)) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    // Handle i18n locale cookie if missing
+    if (!request.cookies.has("NEXT_LOCALE")) {
+      const acceptLanguage = request.headers.get("accept-language");
+      const detectedLocale =
+        acceptLanguage && acceptLanguage.includes("am") ? "am" : "en";
+      response.cookies.set("NEXT_LOCALE", detectedLocale, {
+        path: "/",
+        maxAge: 31536000,
+      });
+    }
+    return response;
   }
-
+ 
   // ── 2. Build response object that carries refreshed session cookies ────────
   let response = NextResponse.next({
     request: { headers: request.headers },
   });
+ 
+  // Handle i18n locale cookie if missing for authenticated routes
+  if (!request.cookies.has("NEXT_LOCALE")) {
+    const acceptLanguage = request.headers.get("accept-language");
+    const detectedLocale =
+      acceptLanguage && acceptLanguage.includes("am") ? "am" : "en";
+    response.cookies.set("NEXT_LOCALE", detectedLocale, {
+      path: "/",
+      maxAge: 31536000,
+    });
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -162,7 +185,101 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // ── 7. Company user must have a companyId scoped to their routes ───────────
+  // ── 7. Module-level plan & permission enforcement ──────────────────────────
+  const moduleCode = getModuleFromPathname(pathname);
+  if (moduleCode) {
+    const rawPlanModules =
+      user.user_metadata?.plan_modules || user.user_metadata?.planModules;
+    const planModules = (rawPlanModules || []) as string[];
+
+    const isModuleInPlan = planModules.some(
+      (m: string) => m.toLowerCase() === moduleCode.toLowerCase(),
+    );
+
+    // Rules for blocking:
+    // 1. Company users are always blocked if the module is not in their plan.
+    // 2. Super Admins are blocked IF they have defined plan_modules AND the current module is missing.
+    //    (This allows them to test the 'Locked' flow while still having access by default if no plan is set).
+    const isLockedForUser =
+      userType === "company_user"
+        ? !isModuleInPlan
+        : !!rawPlanModules && !isModuleInPlan;
+
+    if (isLockedForUser) {
+      console.warn(
+        `[proxy] Blocked access to locked module: ${moduleCode} for user type: ${userType}`,
+      );
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: `Module ${moduleCode} is locked for your plan.` },
+          { status: 403 },
+        );
+      }
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // Also verify individual permissions (Company Users only)
+    if (userType === "company_user" && requirements.requiresPermissions) {
+      const roleName = (
+        user.user_metadata?.role_name ||
+        user.user_metadata?.roleName ||
+        ""
+      ).toLowerCase();
+
+      // ── Bypass 1: Top-level roles get full access to all plan modules ──────
+      const isHighLevelRole =
+        roleName.includes("general manager") ||
+        roleName.includes("gm") ||
+        roleName.includes("owner");
+
+      // ── Bypass 2: Module-specific manager (mirrors use-navigation logic) ───
+      // e.g. "CRM Manager" → access to crm, "HR Manager" → access to hr
+      const moduleAliases: Record<string, string[]> = {
+        hr: ["human resources", "hr module", "people", "staff"],
+        crm: ["customer", "sales", "crm"],
+        fleet: ["logistics", "shipping", "vehicles"],
+        inventory: ["stock", "warehouse", "inventory"],
+        finance: ["accounting", "finance", "billing"],
+        trade: ["trade", "import", "export", "logistics", "shipping"],
+      };
+      const currentAliases = moduleAliases[moduleCode] || [];
+      const matchesAlias = currentAliases.some((alias) =>
+        roleName.includes(alias),
+      );
+      const isModuleManager =
+        roleName.includes("manager") &&
+        (roleName.includes(moduleCode) || matchesAlias);
+
+      if (!isHighLevelRole && !isModuleManager) {
+        // ── Strict permission check for all other roles ──────────────────────
+        // Checks that the user has at least ONE permission entry for this module.
+        // Fine-grained page-level access (e.g. can they see /crm/reports?) is
+        // enforced inside individual page components via hasPermission(), NOT here.
+        const permissions = (user.user_metadata?.permissions || []) as {
+          module: string;
+          action: string;
+        }[];
+        const hasModuleAccess = permissions.some(
+          (p) => p.module.toLowerCase() === moduleCode.toLowerCase(),
+        );
+
+        if (!hasModuleAccess) {
+          console.warn(
+            `[proxy] Blocked access (missing permission) for company_user to: ${pathname}`,
+          );
+          if (pathname.startsWith("/api/")) {
+            return NextResponse.json(
+              { error: `Missing permission for module: ${moduleCode}` },
+              { status: 403 },
+            );
+          }
+          return NextResponse.redirect(new URL("/dashboard", request.url));
+        }
+      }
+    }
+  }
+
+  // ── 8. Company user must have a companyId scoped to their routes ───────────
   if (userType === "company_user" && requirements.requiresCompanyId) {
     if (!user.user_metadata?.companyId) {
       console.error(
@@ -173,7 +290,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // ── 8. All checks passed — forward request with refreshed cookies ──────────
+  // ── 9. All checks passed — forward request with refreshed cookies ──────────
   return response;
 }
 
@@ -191,6 +308,11 @@ export async function proxy(request: NextRequest) {
 //
 export const config = {
   matcher: [
+    // ── Public routes that need i18n detection ──
+    "/",
+    "/login",
+    "/signup",
+ 
     // ── Shared authenticated routes (both user types) ──
     // NOTE: "/dashboard" has a page; "/settings" does NOT have a root page.tsx —
     // only sub-routes exist (/settings/billing, /settings/company, etc.).
@@ -201,10 +323,10 @@ export const config = {
     "/profile/:path*",
     "/settings/:path+", // ← :path+ not :path* — /settings itself has no page
     "/onboarding/:path*",
-
+ 
     // ── Super admin routes ──
     "/admin/:path*",
-
+ 
     // ── Company user module routes ──
     // NOTE: App directory uses /hr not /hrm — must match actual folder name.
     "/hr/:path*",
@@ -215,7 +337,7 @@ export const config = {
     "/internationaltrade/:path*",
     "/ai-agent/:path*",
     "/chat/:path*",
-
+ 
     // ── Protected API routes (exclude /api/auth which is public) ──
     "/api/((?!auth).*)",
   ],

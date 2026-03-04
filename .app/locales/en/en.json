@@ -224,7 +224,16 @@
     "no_signal": "No Signal",
     "online": "Online",
     "offline": "Offline",
-    "just_now": "Just now"
+    "just_now": "Just now",
+    "toast_add_success": "Vehicle added successfully",
+    "toast_add_error": "Failed to add vehicle",
+    "toast_update_success": "Vehicle updated successfully",
+    "toast_update_error": "Failed to update vehicle",
+    "toast_delete_success": "Vehicle deleted successfully",
+    "toast_delete_error": "Failed to delete vehicle",
+    "toast_column_add_success": "Custom column added successfully",
+    "toast_column_update_success": "Custom column updated successfully",
+    "toast_column_delete_success": "Custom column deleted successfully"
   },
   "fleet_drivers": {
     "search_placeholder": "Search driver, vehicle...",
@@ -244,7 +253,16 @@
     "no_vehicle": "No vehicle",
     "status_active": "Active",
     "status_ended": "Ended",
-    "no_vehicle_option": "— No Vehicle (assign later) —"
+    "no_vehicle_option": "— No Vehicle (assign later) —",
+    "toast_add_success": "Driver assignment created",
+    "toast_add_error": "Failed to create assignment",
+    "toast_update_success": "Assignment updated",
+    "toast_update_error": "Failed to update assignment",
+    "toast_delete_success": "Assignment removed",
+    "toast_delete_error": "Failed to remove assignment",
+    "toast_column_add_success": "Custom column added",
+    "toast_column_update_success": "Custom column updated",
+    "toast_column_delete_success": "Custom column deleted"
   },
   "fleet_maintenance": {
     "search_placeholder": "Search description, vehicle, technician…",
@@ -275,6 +293,15 @@
     "table_title": "Maintenance Records",
     "table_description": "Click any row to edit inline. Use the + button to log a new service event.",
     "banner_overdue": "{{count}} vehicle{{plural}} overdue maintenance. Review the Next Due column and schedule service immediately.",
-    "banner_next_due": "Next Due"
+    "banner_next_due": "Next Due",
+    "toast_add_success": "Maintenance record logged",
+    "toast_add_error": "Failed to log maintenance",
+    "toast_update_success": "Record updated successfully",
+    "toast_update_error": "Failed to update record",
+    "toast_delete_success": "Record deleted successfully",
+    "toast_delete_error": "Failed to delete record",
+    "toast_column_add_success": "Custom column added",
+    "toast_column_update_success": "Custom column updated",
+    "toast_column_delete_success": "Custom column deleted"
   }
 }

@@ -87,6 +87,7 @@ export function useCompanies() {
   const switchCompany = async (companyId: string) => {
     if (!user || isSwitching) return;
 
+    console.log(`[useCompanies] Switching to company: ${companyId}`);
     setIsSwitching(true);
     const supabase = createClient();
 
@@ -97,13 +98,20 @@ export function useCompanies() {
         .update({ company_id: companyId })
         .eq("id", user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("[useCompanies] Failed to update profile:", error);
+        throw error;
+      }
+
+      console.log(`[useCompanies] Profile updated successfully to ${companyId}`);
 
       // Update local store
       setSelectedCompanyId(companyId);
 
       // Refresh UserContext to get new roleInfo (plans, permissions, etc.)
+      console.log("[useCompanies] Refreshing user context...");
       await refreshUser();
+      console.log("[useCompanies] User context refreshed.");
     } catch (err) {
       console.error("Error switching company:", err);
     } finally {

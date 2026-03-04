@@ -377,7 +377,6 @@ export function SidebarNav() {
               </div>
 
               {/* Sub Items */}
-              <AnimatePresence>
                 {leftSidebarOpen && hasSubItems && isExpanded && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
@@ -388,12 +387,22 @@ export function SidebarNav() {
                     {item.subItems?.map((sub: NavSubItem) => (
                       <Link
                         key={sub.id}
-                        href={sub.href}
+                        href={isLocked ? "#" : sub.href}
+                        onClick={(e) => {
+                          if (isLocked) {
+                            e.preventDefault();
+                            setUpgradeModal({
+                              isOpen: true,
+                              moduleName: getNavLabel(item),
+                            });
+                          }
+                        }}
                         className={cn(
                           "flex items-center gap-2 py-2 px-3 text-xs rounded-lg transition-colors",
                           pathname === sub.href
                             ? "text-primary font-semibold bg-primary/5"
                             : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+                          isLocked && "opacity-50 cursor-not-allowed",
                         )}
                       >
                         {sub.icon ? (
@@ -405,11 +414,13 @@ export function SidebarNav() {
                           />
                         ) : null}
                         {getNavLabel(sub)}
+                        {isLocked && (
+                          <Lock className="w-2.5 h-2.5 ml-auto opacity-50" />
+                        )}
                       </Link>
                     ))}
                   </motion.div>
                 )}
-              </AnimatePresence>
             </div>
           );
         })}

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>You're Invited — CEO AI</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background-color: #F0F2F5; }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#F0F2F5;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F0F2F5;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#0a0a0a 0%,#111827 60%,#1e1b4b 100%);border-radius:16px 16px 0 0;padding:40px 48px 36px;text-align:center;">
+              <!-- Logo -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="padding-bottom:24px;">
+                    <table cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="background:#ffffff;border-radius:12px;padding:10px 14px;">
+                          <span style="font-size:14px;font-weight:800;color:#0a0a0a;letter-spacing:-0.5px;font-family:'Inter',sans-serif;">CEO</span>
+                        </td>
+                        <td style="padding-left:12px;">
+                          <span style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;font-family:'Inter',sans-serif;">CEO AI</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center">
+                    <!-- Badge -->
+                    <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 16px;">
+                      <tr>
+                        <td style="background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.3);border-radius:999px;padding:6px 16px;">
+                          <span style="color:#a5b4fc;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;letter-spacing:0.5px;text-transform:uppercase;">✦ &nbsp;You've Been Invited</span>
+                        </td>
+                      </tr>
+                    </table>
+                    <h1 style="color:#ffffff;font-size:26px;font-weight:700;margin:0 0 8px;font-family:'Inter',sans-serif;letter-spacing:-0.5px;">Join Your Team on CEO AI</h1>
+                    <p style="color:rgba(255,255,255,0.6);font-size:15px;margin:0;font-family:'Inter',sans-serif;">Your organization is waiting for you</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background:#ffffff;padding:48px;">
+              <p style="color:#374151;font-size:16px;line-height:1.7;margin:0 0 24px;font-family:'Inter',sans-serif;">
+                Hello,
+              </p>
+              <p style="color:#374151;font-size:16px;line-height:1.7;margin:0 0 32px;font-family:'Inter',sans-serif;">
+                You've been invited to join your organization on <strong style="color:#111827;">CEO AI</strong> — the enterprise management platform built to power modern businesses. Click the button below to accept your invitation and set up your account.
+              </p>
+
+              <!-- Invite Card -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:linear-gradient(135deg,#F9FAFB,#EEF2FF);border:1px solid #E0E7FF;border-radius:12px;margin:0 0 32px;overflow:hidden;">
+                <tr>
+                  <td style="padding:24px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="padding-right:16px;vertical-align:middle;" width="48">
+                          <div style="width:48px;height:48px;background:linear-gradient(135deg,#3b82f6,#6366f1);border-radius:12px;text-align:center;line-height:48px;font-size:22px;">🏢</div>
+                        </td>
+                        <td style="vertical-align:middle;">
+                          <p style="color:#111827;font-size:14px;font-weight:600;margin:0 0 4px;font-family:'Inter',sans-serif;">You've been added as a team member</p>
+                          <p style="color:#6B7280;font-size:13px;margin:0;font-family:'Inter',sans-serif;">Access your modules, reports, and team workspace after setup.</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 32px;">
+                <tr>
+                  <td align="center">
+                    <a href="{{ .ConfirmationURL }}"
+                       style="display:inline-block;background:linear-gradient(135deg,#3b82f6,#6366f1);color:#ffffff;text-decoration:none;font-weight:600;font-size:16px;padding:16px 48px;border-radius:12px;font-family:'Inter',sans-serif;letter-spacing:-0.2px;box-shadow:0 4px 20px rgba(99,102,241,0.35);">
+                      Accept Invitation →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Steps -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 32px;">
+                <tr>
+                  <td>
+                    <p style="color:#111827;font-size:14px;font-weight:600;margin:0 0 16px;font-family:'Inter',sans-serif;">Getting started is simple:</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <table width="100%" cellpadding="0" cellspacing="8" border="0">
+                      <tr>
+                        <td style="padding-bottom:10px;vertical-align:top;">
+                          <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                            <tr>
+                              <td width="28" style="vertical-align:top;padding-top:2px;">
+                                <div style="width:22px;height:22px;background:#3b82f6;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;color:#fff;font-family:'Inter',sans-serif;">1</div>
+                              </td>
+                              <td style="padding-left:10px;vertical-align:top;">
+                                <p style="margin:0;color:#374151;font-size:13px;font-family:'Inter',sans-serif;line-height:1.6;"><strong>Accept the invite</strong> by clicking the button above</p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-bottom:10px;vertical-align:top;">
+                          <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                            <tr>
+                              <td width="28" style="vertical-align:top;padding-top:2px;">
+                                <div style="width:22px;height:22px;background:#6366f1;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;color:#fff;font-family:'Inter',sans-serif;">2</div>
+                              </td>
+                              <td style="padding-left:10px;vertical-align:top;">
+                                <p style="margin:0;color:#374151;font-size:13px;font-family:'Inter',sans-serif;line-height:1.6;"><strong>Create your password</strong> and secure your account</p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="vertical-align:top;">
+                          <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                            <tr>
+                              <td width="28" style="vertical-align:top;padding-top:2px;">
+                                <div style="width:22px;height:22px;background:#8b5cf6;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;color:#fff;font-family:'Inter',sans-serif;">3</div>
+                              </td>
+                              <td style="padding-left:10px;vertical-align:top;">
+                                <p style="margin:0;color:#374151;font-size:13px;font-family:'Inter',sans-serif;line-height:1.6;"><strong>Access your dashboard</strong> and start collaborating</p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Divider -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="border-top:1px solid #E5E7EB;padding-top:24px;">
+                    <p style="color:#9CA3AF;font-size:13px;line-height:1.6;margin:0 0 12px;font-family:'Inter',sans-serif;">
+                      Or paste this link into your browser:
+                    </p>
+                    <p style="word-break:break-all;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:12px 16px;color:#3b82f6;font-size:12px;font-family:monospace;margin:0;">
+                      {{ .ConfirmationURL }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color:#9CA3AF;font-size:13px;line-height:1.6;margin:0;font-family:'Inter',sans-serif;">
+                This invitation expires in <strong>48 hours</strong>. If you weren't expecting this invitation, you can safely ignore this email — your information won't be shared.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#111827;border-radius:0 0 16px 16px;padding:28px 48px;text-align:center;">
+              <p style="color:rgba(255,255,255,0.4);font-size:12px;margin:0 0 8px;font-family:'Inter',sans-serif;">
+                © 2026 CEO AI — All-in-One Enterprise Platform. All rights reserved.
+              </p>
+              <p style="color:rgba(255,255,255,0.25);font-size:11px;margin:0;font-family:'Inter',sans-serif;">
+                This is an automated message, please do not reply directly to this email.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -224,7 +224,17 @@
     "no_signal": "ምልክት የለም",
     "online": "በመስመር ላይ",
     "offline": "ከመስመር ውጪ",
-    "just_now": "አሁን ሁኗ"
+    "just_now": "አሁን ሁኗ",
+    "toast_add_success": "ተሽከርካሪው በተሳካ ሁኔታ ተጨምሯል",
+    "toast_add_error": "ተሽከርካሪ ማከል አልተቻለም",
+    "toast_update_success": "ተሽከርካሪው በተሳካ ሁኔታ ተዘምኗል",
+    "toast_update_error": "ተሽከርካሪ ማዘመን አልተቻለም",
+    "toast_delete_success": "ተሽከርካሪው በተሳካ ሁኔታ ተሰርዟል",
+    "toast_delete_error": "ተሽከርካሪ መሰረዝ አልተቻለም",
+    "toast_column_add_success": "Custom column added successfully",
+    "toast_column_update_success": "Custom column updated successfully",
+    "toast_column_delete_success": "Custom column deleted successfully"
+
   },
   "fleet_drivers": {
     "search_placeholder": "አሽከርካሪ፣ ተሽከርካሪ ፈልግ...",
