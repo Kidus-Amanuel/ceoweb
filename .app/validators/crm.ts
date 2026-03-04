@@ -14,7 +14,21 @@ const crmDateTimeSchema = z
 const emptyToUndefined = (value: unknown) =>
   value === "" || value === null ? undefined : value;
 const optionalInput = <T extends z.ZodTypeAny>(schema: T) =>
-  z.preprocess(emptyToUndefined, schema.optional().catch(undefined));
+  z.preprocess(emptyToUndefined, schema.optional());
+
+const internationalPhoneSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => {
+      if (!/^\+?[0-9 ()-]+$/.test(value)) return false;
+      const digits = value.replace(/\D/g, "");
+      return digits.length >= 7 && digits.length <= 15;
+    },
+    {
+      message: "Please enter a valid international phone number.",
+    },
+  );
 const optionalNullableDateTimeInput = z.preprocess(
   (value) => (value === "" ? undefined : value),
   z.union([crmDateTimeSchema, z.null()]).optional(),
@@ -30,6 +44,8 @@ export const crmCustomFieldTypeSchema = z.enum([
   "select",
   "boolean",
   "currency",
+  "phone",
+  "email",
 ]);
 
 export const crmCompanyScopeSchema = z.object({
@@ -58,7 +74,7 @@ export const crmCustomDataSchema = z
 export const crmCustomerStandardSchema = z.object({
   name: optionalInput(z.string().min(1).max(255)),
   email: optionalInput(z.string().email()),
-  phone: optionalInput(z.string().max(120)),
+  phone: optionalInput(internationalPhoneSchema.max(120)),
   type: optionalInput(z.enum(["person", "company"])),
   status: optionalInput(z.string().max(120)),
   assignedTo: optionalInput(z.string().uuid()),
