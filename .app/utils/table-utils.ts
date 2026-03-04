@@ -183,16 +183,57 @@ export const prettyValue = (value: unknown) => {
   if (Array.isArray(value)) return value.map(String).join(", ");
   const rec = value as Record<string, unknown>;
   if ("amount" in rec || "currency" in rec) {
-    const currency = String(rec.currency ?? "USD");
-    const amount =
-      rec.amount === null || rec.amount === undefined || rec.amount === ""
-        ? null
-        : Number(rec.amount);
-    return amount === null || Number.isNaN(amount)
-      ? currency
-      : `${currency} ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatCurrencyValue(value, defaultCurrencyOptions);
   }
   return JSON.stringify(value);
+};
+
+export const formatCurrencyValue = (
+  value: unknown,
+  options?: { label: string; value: string | number }[],
+) => {
+  const effectiveOptions =
+    Array.isArray(options) && options.length > 0 ? options : defaultCurrencyOptions;
+  const defaultCurrency = String(
+    effectiveOptions[0]?.value ?? effectiveOptions[0]?.label ?? "ETB",
+  );
+  const resolveCurrency = (raw: unknown) => {
+    const token = String(raw ?? "").trim();
+    if (!token) return defaultCurrency;
+    const matched = effectiveOptions.find(
+      (option) => norm(option.value) === norm(token) || norm(option.label) === norm(token),
+    );
+    return String(matched?.value ?? matched?.label ?? token);
+  };
+  const formatAmount = (raw: unknown) => {
+    const parsed = Number(raw ?? 0);
+    const amount = Number.isFinite(parsed) ? parsed : 0;
+    return amount.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const rec = value as Record<string, unknown>;
+    const currency = resolveCurrency(rec.currency);
+    const amount =
+      rec.amount === null || rec.amount === undefined || rec.amount === ""
+        ? 0
+        : rec.amount;
+    return `${currency} ${formatAmount(amount)}`;
+  }
+  if (typeof value === "number") {
+    return `${defaultCurrency} ${formatAmount(value)}`;
+  }
+  if (typeof value === "string") {
+    const token = value.trim();
+    if (!token) return `${defaultCurrency} ${formatAmount(0)}`;
+    const numeric = Number(token);
+    if (Number.isFinite(numeric)) return `${defaultCurrency} ${formatAmount(numeric)}`;
+    return `${resolveCurrency(token)} ${formatAmount(0)}`;
+  }
+  return `${defaultCurrency} ${formatAmount(0)}`;
 };
 
 export const resolveMetaForValues = (

@@ -84,7 +84,6 @@ export const SmartEditor = ({
   const dateInputRef = useRef<HTMLInputElement | null>(null);
   const timeInputRef = useRef<HTMLInputElement | null>(null);
   const currencyEditorRef = useRef<HTMLDivElement | null>(null);
-  const suppressCurrencyBlurCommitRef = useRef(false);
   const isCurrencyMenuOpenRef = useRef(false);
   const datetimeEditorRef = useRef<HTMLDivElement | null>(null);
   const currencyAmountDraftRef = useRef<string>("");
@@ -142,11 +141,28 @@ export const SmartEditor = ({
     const current =
       value && typeof value === "object" && !Array.isArray(value)
         ? (value as { amount?: unknown; currency?: unknown })
-        : { amount: value, currency: undefined };
-    currencyAmountDraftRef.current =
-      current.amount === null || current.amount === undefined
-        ? ""
-        : String(current.amount);
+        : (() => {
+            const raw = String(value ?? "").trim();
+            const matchedOption = options.find(
+              (option: { label: string; value: string | number }) =>
+                String(option.value).toLowerCase() === raw.toLowerCase() ||
+                String(option.label).toLowerCase() === raw.toLowerCase(),
+            );
+            if (matchedOption)
+              return {
+                amount: 0,
+                currency: String(matchedOption.value),
+              };
+            return { amount: value, currency: undefined };
+          })();
+    const parsedAmount = Number(
+      current.amount === null || current.amount === undefined || current.amount === ""
+        ? 0
+        : current.amount,
+    );
+    currencyAmountDraftRef.current = String(
+      Number.isFinite(parsedAmount) ? parsedAmount : 0,
+    );
     currencyCodeDraftRef.current = String(
       current.currency ?? options[0]?.value ?? "ETB",
     );
@@ -265,52 +281,65 @@ export const SmartEditor = ({
     const current =
       value && typeof value === "object" && !Array.isArray(value)
         ? (value as { amount?: unknown; currency?: unknown })
-        : { amount: value, currency: undefined };
+        : (() => {
+            const raw = String(value ?? "").trim();
+            const matchedOption = options.find(
+              (option: { label: string; value: string | number }) =>
+                String(option.value).toLowerCase() === raw.toLowerCase() ||
+                String(option.label).toLowerCase() === raw.toLowerCase(),
+            );
+            if (matchedOption)
+              return {
+                amount: 0,
+                currency: String(matchedOption.value),
+              };
+            return { amount: value, currency: undefined };
+          })();
     const currentCurrency = String(
       current.currency ?? options[0]?.value ?? "ETB",
     );
-    const currentAmount =
-      current.amount === null || current.amount === undefined
-        ? ""
-        : String(current.amount);
+    const parsedCurrentAmount = Number(
+      current.amount === null || current.amount === undefined || current.amount === ""
+        ? 0
+        : current.amount,
+    );
+    const currentAmount = String(
+      Number.isFinite(parsedCurrentAmount) ? parsedCurrentAmount : 0,
+    );
 
     const handleCurrencyCommit = () => {
       const amountDraft = currencyAmountDraftRef.current;
       const currencyDraft = currencyCodeDraftRef.current;
+      const parsedAmount = Number(amountDraft === "" ? 0 : amountDraft);
       if (!isAddMode)
         onCommit?.({
-          amount: amountDraft === "" ? null : Number(amountDraft),
+          amount: Number.isNaN(parsedAmount) ? 0 : parsedAmount,
           currency: currencyDraft,
         });
     };
-    const commitCurrencyOnBlurIfOutside = (
-      relatedTarget: EventTarget | null,
-    ) => {
-      if (suppressCurrencyBlurCommitRef.current) return;
+    const isCurrencyInteractionTarget = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return false;
+      return (
+        !!currencyEditorRef.current?.contains(target) ||
+        !!target.closest(
+          '[data-slot="select-trigger"],[data-slot="select-content"],[data-slot="select-item"]',
+        )
+      );
+    };
+    const commitCurrencyOnBlurIfOutside = (relatedTarget: EventTarget | null) => {
       if (isCurrencyMenuOpenRef.current) return;
-      if (!relatedTarget) {
-        requestAnimationFrame(() => {
-          const active = document.activeElement;
-          if (active && currencyEditorRef.current?.contains(active)) return;
-          handleCurrencyCommit();
-        });
-        return;
-      }
-      if (currencyEditorRef.current?.contains(relatedTarget as Node)) {
-        return;
-      }
-      handleCurrencyCommit();
+      if (isCurrencyInteractionTarget(relatedTarget)) return;
+      requestAnimationFrame(() => {
+        if (isCurrencyMenuOpenRef.current) return;
+        const active = document.activeElement;
+        if (isCurrencyInteractionTarget(active)) return;
+        handleCurrencyCommit();
+      });
     };
 
     return (
       <div
         ref={currencyEditorRef}
-        onPointerDownCapture={() => {
-          suppressCurrencyBlurCommitRef.current = true;
-          requestAnimationFrame(() => {
-            suppressCurrencyBlurCommitRef.current = false;
-          });
-        }}
         className={cn(
           "grid w-full grid-cols-[minmax(0,1fr)_120px] gap-2",
           !isAddMode && "items-center",
@@ -355,8 +384,7 @@ export const SmartEditor = ({
             if (!open) {
               requestAnimationFrame(() => {
                 const active = document.activeElement;
-                if (active && currencyEditorRef.current?.contains(active))
-                  return;
+                if (isCurrencyInteractionTarget(active)) return;
                 handleCurrencyCommit();
               });
             }
@@ -396,7 +424,7 @@ export const SmartEditor = ({
               {currentCurrency}
             </span>
           </SelectTrigger>
-          <SelectContent position="item-aligned" className={selectContentClass}>
+          <SelectContent className={selectContentClass}>
             {options.map((o: any) => (
               <SelectItem
                 className={selectItemClass}
@@ -447,7 +475,10 @@ export const SmartEditor = ({
     };
 
     return (
-      <div ref={datetimeEditorRef} className="grid w-full grid-cols-2 gap-2">
+      <div
+        ref={datetimeEditorRef}
+        className="grid w-full grid-cols-[minmax(150px,1fr)_minmax(110px,0.85fr)] gap-2"
+      >
         <Input
           ref={dateInputRef}
           type="date"
@@ -472,7 +503,7 @@ export const SmartEditor = ({
             }
             if (e.key === "Escape") onCancel?.();
           }}
-          className={baseInputClass}
+          className={`${baseInputClass} min-w-[150px]`}
         />
         <Input
           ref={timeInputRef}
@@ -498,7 +529,7 @@ export const SmartEditor = ({
             }
             if (e.key === "Escape") onCancel?.();
           }}
-          className={baseInputClass}
+          className={`${baseInputClass} min-w-[110px]`}
         />
       </div>
     );

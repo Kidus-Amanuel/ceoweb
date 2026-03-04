@@ -61,6 +61,7 @@ import {
   fieldTypeChoices,
   findSelectLabel,
   findSelectOptionIndex,
+  formatCurrencyValue,
   formatDateValue,
   getSemanticOptionTone,
   getTypeIcon,
@@ -1084,6 +1085,31 @@ export function EditableTable<
                               onClick={(event) => event.stopPropagation()}
                             />
                           );
+                        if (meta?.type === "currency")
+                          {
+                            const rawCurrency =
+                              val && typeof val === "object" && !Array.isArray(val)
+                                ? String((val as Record<string, unknown>).currency ?? "")
+                                : typeof val === "string" && Number.isNaN(Number(val))
+                                  ? val
+                                  : String(meta?.options?.[0]?.value ?? "ETB");
+                            const currencyLabel =
+                              findSelectLabel(meta?.options, rawCurrency) ?? rawCurrency;
+                            const currencyIndex = findSelectOptionIndex(
+                              meta?.options,
+                              rawCurrency,
+                            );
+                            return (
+                              <span
+                                className={cn(
+                                  "inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold",
+                                  getSemanticOptionTone(currencyLabel, currencyIndex),
+                                )}
+                              >
+                                {formatCurrencyValue(val, meta?.options)}
+                              </span>
+                            );
+                          }
                         if (meta?.type === "date" || meta?.type === "datetime")
                           return (
                             <span className="inline-flex whitespace-nowrap">
@@ -1108,6 +1134,8 @@ export function EditableTable<
                             isEditing
                               ? meta?.type === "currency"
                                 ? "min-w-[320px]"
+                                : meta?.type === "datetime"
+                                  ? "min-w-[300px]"
                                 : isEmailOrPhone
                                   ? "min-w-[350px]"
                                   : "min-w-[240px]"
@@ -1345,7 +1373,7 @@ export function EditableTable<
                 : ""}
             </p>
             <p className="whitespace-nowrap">
-              Showing {data.length} � {pageSize}/page
+              Showing {data.length} - {pageSize}/page
             </p>
           </div>
         </div>
