@@ -1,7 +1,17 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { EditableTable } from "@/components/shared/table/EditableTable";
 import { describe, it, expect, vi } from "vitest";
 import { createColumnHelper } from "@tanstack/react-table";
+
+vi.mock("framer-motion", async () => {
+  const actual =
+    await vi.importActual<typeof import("framer-motion")>("framer-motion");
+  return {
+    ...actual,
+    AnimatePresence: ({ children }: any) => <>{children}</>,
+    motion: { ...actual.motion, tr: "tr" },
+  };
+});
 
 interface TestData {
   id: string;
@@ -128,13 +138,13 @@ describe("EditableTable", () => {
       />,
     );
 
-    fireEvent.click(screen.getByLabelText(/Delete 1/i));
+    fireEvent.click(screen.getAllByLabelText(/Delete/i)[0]);
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
     expect(onDelete).toHaveBeenCalledWith("1");
   });
 
-  it("filters data based on search input", async () => {
+  it("filters data based on search input", () => {
     render(
       <EditableTable
         title="Test Table"
@@ -146,14 +156,7 @@ describe("EditableTable", () => {
     const searchInput = screen.getByPlaceholderText(/Search/i);
     fireEvent.change(searchInput, { target: { value: "Bob" } });
 
-    await waitFor(
-      () => {
-        const alice = screen.queryByText("Alice");
-        expect(alice).toBeNull();
-      },
-      { timeout: 2000 },
-    );
-
+    expect(screen.queryByText("Alice")).toBeNull();
     expect(screen.getByText("Bob")).toBeInTheDocument();
   });
 
