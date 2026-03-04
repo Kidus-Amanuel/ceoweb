@@ -8,6 +8,7 @@ import {
   GitBranch,
   Hash,
   Link2,
+  Mail,
   ListFilter,
   MapPin,
   MousePointerSquareDashed,
@@ -61,6 +62,8 @@ export const allowedTypes: VirtualColumn["type"][] = [
   "json",
   "currency",
   "status",
+  "phone",
+  "email",
 ];
 export const asColumnType = (v: unknown): VirtualColumn["type"] =>
   allowedTypes.includes(v as VirtualColumn["type"])
@@ -231,9 +234,13 @@ export const getTypeIcon = (type: unknown) => {
               ? Coins
               : t === "status"
                 ? CircleDot
-                : t === "json"
-                  ? Braces
-                  : AlignLeft;
+                : t === "phone"
+                  ? Phone
+                  : t === "email"
+                    ? Mail
+                    : t === "json"
+                      ? Braces
+                      : AlignLeft;
 };
 
 export const getTypeIconTone = (type: unknown) => {
@@ -252,9 +259,13 @@ export const getTypeIconTone = (type: unknown) => {
               ? "text-orange-700 bg-orange-50 border-orange-200"
               : t === "status"
                 ? "text-red-700 bg-red-50 border-red-200"
-                : t === "json"
-                  ? "text-slate-700 bg-slate-100 border-slate-200"
-                  : "text-blue-700 bg-blue-50 border-blue-200";
+                : t === "phone"
+                  ? "text-cyan-700 bg-cyan-50 border-cyan-200"
+                  : t === "email"
+                    ? "text-blue-700 bg-blue-50 border-blue-200"
+                    : t === "json"
+                      ? "text-slate-700 bg-slate-100 border-slate-200"
+                      : "text-blue-700 bg-blue-50 border-blue-200";
 };
 
 export const fieldTypeChoices: ColumnFieldChoice[] = [
@@ -340,7 +351,14 @@ export const fieldTypeChoices: ColumnFieldChoice[] = [
     label: "Phone",
     icon: Phone,
     tone: "text-cyan-700 bg-cyan-50 border-cyan-200",
-    enabled: false,
+    enabled: true,
+  },
+  {
+    key: "email",
+    label: "Email",
+    icon: Mail,
+    tone: "text-blue-700 bg-blue-50 border-blue-200",
+    enabled: true,
   },
   {
     key: "relation",
