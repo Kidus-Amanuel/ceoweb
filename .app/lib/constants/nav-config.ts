@@ -118,7 +118,7 @@ export const NAV_CONFIG: NavItem[] = [
     label: "CRM",
     icon: Users,
     iconClassName: "text-blue-500",
-    href: "/crm/customers",
+    href: "/crm/reports",
     module: "CRM",
     roles: ["super_admin", "company_user"],
     subItems: [
