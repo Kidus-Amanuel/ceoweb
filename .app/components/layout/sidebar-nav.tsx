@@ -284,22 +284,15 @@ export function SidebarNav() {
                   isLocked && "opacity-80 grayscale-[0.5]",
                   !leftSidebarOpen && "justify-center px-2",
                 )}
-                onClick={(e) => {
-                  if (isLocked) {
-                    e.preventDefault();
-                    setUpgradeModal({ isOpen: true, moduleName: item.label });
-                    return;
-                  }
-                  if (hasSubItems && leftSidebarOpen) {
-                    toggleExpand(item.id);
-                  }
-                }}
               >
                 <Link
-                  href={hasSubItems || isLocked ? "#" : item.href}
+                  href={isLocked ? "#" : item.href}
                   className="flex items-center gap-3 flex-1 min-w-0"
                   onClick={(e) => {
-                    if (isLocked) e.preventDefault();
+                    if (isLocked) {
+                      e.preventDefault();
+                      setUpgradeModal({ isOpen: true, moduleName: item.label });
+                    }
                   }}
                 >
                   <Icon
@@ -328,12 +321,23 @@ export function SidebarNav() {
                 )}
 
                 {leftSidebarOpen && hasSubItems && !isLocked && (
-                  <ChevronDown
-                    className={cn(
-                      "w-3 h-3 transition-transform duration-200",
-                      isExpanded && "rotate-180",
-                    )}
-                  />
+                  <button
+                    type="button"
+                    aria-label={`${isExpanded ? "Collapse" : "Expand"} ${item.label}`}
+                    className="inline-flex items-center justify-center"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleExpand(item.id);
+                    }}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        "w-3 h-3 transition-transform duration-200",
+                        isExpanded && "rotate-180",
+                      )}
+                    />
+                  </button>
                 )}
 
                 {isActive && leftSidebarOpen && (

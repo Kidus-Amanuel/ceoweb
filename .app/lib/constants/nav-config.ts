@@ -118,14 +118,14 @@ export const NAV_CONFIG: NavItem[] = [
     label: "CRM",
     icon: Users,
     iconClassName: "text-blue-500",
-    href: "/crm/reports",
+    href: "/crm/overviews",
     module: "CRM",
     roles: ["super_admin", "company_user"],
     subItems: [
       {
-        id: "reports",
-        label: "Overview",
-        href: "/crm/reports",
+        id: "overviews",
+        label: "Overviews",
+        href: "/crm/overviews",
         icon: BarChart3,
         iconClassName: "text-purple-500",
       },
