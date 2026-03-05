@@ -1,15 +1,22 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { EditableTable } from "@/components/shared/table/EditableTable";
+import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { createColumnHelper } from "@tanstack/react-table";
 
 vi.mock("framer-motion", async () => {
   const actual =
     await vi.importActual<typeof import("framer-motion")>("framer-motion");
+  const motion = new Proxy({} as Record<string, React.ComponentType<any>>, {
+    get:
+      (_, tag: string) =>
+      ({ children, layout: _layout, ...props }: any) =>
+        React.createElement(tag, props, children),
+  });
   return {
     ...actual,
     AnimatePresence: ({ children }: any) => <>{children}</>,
-    motion: { ...actual.motion, tr: "tr" },
+    motion,
   };
 });
 
@@ -127,7 +134,7 @@ describe("EditableTable", () => {
   //     expect(onAdd).toHaveBeenCalledWith({ name: "Charlie", role: "QA" });
   // });
 
-  it("calls onDelete after delete dialog confirmation", () => {
+  it("calls onDelete after delete dialog confirmation", async () => {
     const onDelete = vi.fn();
     render(
       <EditableTable
@@ -139,9 +146,11 @@ describe("EditableTable", () => {
     );
 
     fireEvent.click(screen.getAllByLabelText(/Delete/i)[0]);
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Delete$/i }));
 
-    expect(onDelete).toHaveBeenCalledWith("1");
+    await waitFor(() => {
+      expect(onDelete).toHaveBeenCalledWith("1");
+    });
   });
 
   it("filters data based on search input", () => {
