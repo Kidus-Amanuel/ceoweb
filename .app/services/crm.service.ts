@@ -1,6 +1,12 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import logger from "@/lib/utils/logger";
 import {
+  CRM_SEARCH_MATCH_LIMIT,
+  CRM_SELECT_PAGE_SIZE_DEFAULT,
+  CRM_SELECT_PAGE_SIZE_MAX,
+  CRM_TABLE_PAGE_SIZE_MAX,
+} from "@/lib/constants/crm-pagination";
+import {
   CrmCreateRowInput,
   CrmEntityType,
   CrmTable,
@@ -78,8 +84,6 @@ type ColumnDefinition = {
 };
 
 type CrmMetadata = Partial<Record<CrmEntityType, ColumnDefinition[]>>;
-const MAX_TABLE_PAGE_SIZE = 200;
-const MAX_SELECT_PAGE_SIZE = 500;
 
 const buildPagedRange = (
   page: number,
@@ -437,7 +441,11 @@ export const crmService = {
   }: ListRowsParams): Promise<
     ServiceResult<{ data: Record<string, unknown>[]; count: number }>
   > {
-    const { from, to } = buildPagedRange(page, pageSize, MAX_TABLE_PAGE_SIZE);
+    const { from, to } = buildPagedRange(
+      page,
+      pageSize,
+      CRM_TABLE_PAGE_SIZE_MAX,
+    );
     const searchTerm = search?.trim();
     if (!searchTerm) {
       const { data, error, count } = await supabase
@@ -480,7 +488,7 @@ export const crmService = {
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .or(`name.ilike.${q},email.ilike.${q},phone.ilike.${q}`)
-        .limit(500);
+        .limit(CRM_SEARCH_MATCH_LIMIT);
 
     if (matchedCustomersError) {
       return { error: matchedCustomersError.message };
@@ -524,7 +532,7 @@ export const crmService = {
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .or(dealSearchParts.join(","))
-      .limit(500);
+      .limit(CRM_SEARCH_MATCH_LIMIT);
 
     if (matchedDealsError) {
       return { error: matchedDealsError.message };
@@ -646,20 +654,35 @@ export const crmService = {
         updated_at: new Date().toISOString(),
       };
     }
-
-    const { data, error } = await supabase
+    const expectedUpdatedAt =
+      typeof (payload as { expectedUpdatedAt?: unknown }).expectedUpdatedAt ===
+      "string"
+        ? String((payload as { expectedUpdatedAt?: unknown }).expectedUpdatedAt)
+        : undefined;
+    let updateQuery = supabase
       .from(payload.table)
       .update(updatePayload)
       .eq("id", rowId)
-      .eq("company_id", companyId)
-      .select("*")
-      .single();
+      .eq("company_id", companyId);
+    if (expectedUpdatedAt) {
+      updateQuery = updateQuery.eq("updated_at", expectedUpdatedAt);
+    }
+    const { data, error } = await updateQuery.select("*");
 
     if (error) {
       return { error: error.message };
     }
+    if (!data || data.length === 0) {
+      if (expectedUpdatedAt) {
+        return {
+          error:
+            "This row was updated by someone else. Refresh and retry your change.",
+        };
+      }
+      return { error: "Row not found." };
+    }
 
-    return { data };
+    return { data: data[0] as Record<string, unknown> };
   },
 
   async deleteRow({
@@ -1152,11 +1175,15 @@ export const crmService = {
     supabase,
     companyId,
     page = 1,
-    pageSize = MAX_SELECT_PAGE_SIZE,
+    pageSize = CRM_SELECT_PAGE_SIZE_DEFAULT,
   }: SelectListParams): Promise<
     ServiceResult<{ label: string; value: string }[]>
   > {
-    const { from, to } = buildPagedRange(page, pageSize, MAX_SELECT_PAGE_SIZE);
+    const { from, to } = buildPagedRange(
+      page,
+      pageSize,
+      CRM_SELECT_PAGE_SIZE_MAX,
+    );
     const { data, error } = await supabase
       .from("profiles")
       .select("id, full_name, email")
@@ -1192,11 +1219,15 @@ export const crmService = {
     supabase,
     companyId,
     page = 1,
-    pageSize = MAX_SELECT_PAGE_SIZE,
+    pageSize = CRM_SELECT_PAGE_SIZE_DEFAULT,
   }: SelectListParams): Promise<
     ServiceResult<{ label: string; value: string }[]>
   > {
-    const { from, to } = buildPagedRange(page, pageSize, MAX_SELECT_PAGE_SIZE);
+    const { from, to } = buildPagedRange(
+      page,
+      pageSize,
+      CRM_SELECT_PAGE_SIZE_MAX,
+    );
     const { data, error } = await supabase
       .from("customers")
       .select("id, name")
@@ -1222,9 +1253,13 @@ export const crmService = {
     supabase,
     companyId,
     page = 1,
-    pageSize = MAX_SELECT_PAGE_SIZE,
+    pageSize = CRM_SELECT_PAGE_SIZE_DEFAULT,
   }: SelectListParams): Promise<ServiceResult<SelectOption[]>> {
-    const { from, to } = buildPagedRange(page, pageSize, MAX_SELECT_PAGE_SIZE);
+    const { from, to } = buildPagedRange(
+      page,
+      pageSize,
+      CRM_SELECT_PAGE_SIZE_MAX,
+    );
     const { data, error } = await supabase
       .from("deals")
       .select("id, title")

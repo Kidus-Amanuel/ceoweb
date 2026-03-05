@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  CRM_TABLE_PAGE_SIZE_DEFAULT,
+  CRM_TABLE_PAGE_SIZE_MAX,
+} from "@/lib/constants/crm-pagination";
 
 const crmActivityTypeSchema = z.enum([
   "call",
@@ -128,7 +132,13 @@ export const crmActivityStandardSchema = z.object({
 export const crmTableViewInputSchema = crmCompanyScopeSchema.extend({
   table: crmTableSchema,
   page: z.coerce.number().int().positive().optional().default(1),
-  pageSize: z.coerce.number().int().positive().max(200).optional().default(50),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(CRM_TABLE_PAGE_SIZE_MAX)
+    .optional()
+    .default(CRM_TABLE_PAGE_SIZE_DEFAULT),
   search: optionalInput(z.string().max(120)),
 });
 
@@ -177,18 +187,21 @@ export const crmUpdateRowInputSchema = z.discriminatedUnion("table", [
   crmCompanyScopeSchema.extend({
     table: z.literal("customers"),
     rowId: z.string().uuid("Invalid row id"),
+    expectedUpdatedAt: optionalInput(crmDateTimeSchema),
     standardData: crmCustomerStandardSchema,
     customData: crmCustomDataSchema.optional(),
   }),
   crmCompanyScopeSchema.extend({
     table: z.literal("deals"),
     rowId: z.string().uuid("Invalid row id"),
+    expectedUpdatedAt: optionalInput(crmDateTimeSchema),
     standardData: crmDealStandardSchema,
     customData: crmCustomDataSchema.optional(),
   }),
   crmCompanyScopeSchema.extend({
     table: z.literal("activities"),
     rowId: z.string().uuid("Invalid row id"),
+    expectedUpdatedAt: optionalInput(crmDateTimeSchema),
     standardData: crmActivityStandardSchema,
     customData: crmCustomDataSchema.optional(),
   }),
