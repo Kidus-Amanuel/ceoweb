@@ -2,7 +2,7 @@ import { BarChart3, Handshake, ListTodo, Users } from "lucide-react";
 import type { VirtualColumn } from "@/components/shared/table/EditableTable";
 
 export type CrmDataTable = "customers" | "deals" | "activities";
-export type CrmTable = CrmDataTable | "reports";
+export type CrmTable = CrmDataTable | "overviews";
 export type CrmEntity = CrmDataTable;
 
 export type RawRow = Record<string, unknown> & {
@@ -46,8 +46,8 @@ export const VIEW_META = {
     icon: ListTodo,
     iconClass: "text-amber-500",
   },
-  reports: {
-    title: "Reports",
+  overviews: {
+    title: "Overviews",
     icon: BarChart3,
     iconClass: "text-purple-500",
   },
@@ -152,6 +152,13 @@ export const toFriendlyCrmError = (input: string) => {
   }
   if (/duplicate key value violates unique constraint/i.test(message)) {
     return "A record with the same value already exists.";
+  }
+  if (
+    /updated by someone else|conflict|stale data|precondition failed/i.test(
+      message,
+    )
+  ) {
+    return "This row changed in the background. Refresh and try again.";
   }
   return message;
 };
