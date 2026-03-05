@@ -193,7 +193,9 @@ export const formatCurrencyValue = (
   options?: { label: string; value: string | number }[],
 ) => {
   const effectiveOptions =
-    Array.isArray(options) && options.length > 0 ? options : defaultCurrencyOptions;
+    Array.isArray(options) && options.length > 0
+      ? options
+      : defaultCurrencyOptions;
   const defaultCurrency = String(
     effectiveOptions[0]?.value ?? effectiveOptions[0]?.label ?? "ETB",
   );
@@ -201,7 +203,9 @@ export const formatCurrencyValue = (
     const token = String(raw ?? "").trim();
     if (!token) return defaultCurrency;
     const matched = effectiveOptions.find(
-      (option) => norm(option.value) === norm(token) || norm(option.label) === norm(token),
+      (option) =>
+        norm(option.value) === norm(token) ||
+        norm(option.label) === norm(token),
     );
     return String(matched?.value ?? matched?.label ?? token);
   };
@@ -230,7 +234,8 @@ export const formatCurrencyValue = (
     const token = value.trim();
     if (!token) return `${defaultCurrency} ${formatAmount(0)}`;
     const numeric = Number(token);
-    if (Number.isFinite(numeric)) return `${defaultCurrency} ${formatAmount(numeric)}`;
+    if (Number.isFinite(numeric))
+      return `${defaultCurrency} ${formatAmount(numeric)}`;
     return `${resolveCurrency(token)} ${formatAmount(0)}`;
   }
   return `${defaultCurrency} ${formatAmount(0)}`;

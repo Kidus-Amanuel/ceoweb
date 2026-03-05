@@ -156,7 +156,9 @@ export const SmartEditor = ({
             return { amount: value, currency: undefined };
           })();
     const parsedAmount = Number(
-      current.amount === null || current.amount === undefined || current.amount === ""
+      current.amount === null ||
+        current.amount === undefined ||
+        current.amount === ""
         ? 0
         : current.amount,
     );
@@ -299,7 +301,9 @@ export const SmartEditor = ({
       current.currency ?? options[0]?.value ?? "ETB",
     );
     const parsedCurrentAmount = Number(
-      current.amount === null || current.amount === undefined || current.amount === ""
+      current.amount === null ||
+        current.amount === undefined ||
+        current.amount === ""
         ? 0
         : current.amount,
     );
@@ -326,7 +330,9 @@ export const SmartEditor = ({
         )
       );
     };
-    const commitCurrencyOnBlurIfOutside = (relatedTarget: EventTarget | null) => {
+    const commitCurrencyOnBlurIfOutside = (
+      relatedTarget: EventTarget | null,
+    ) => {
       if (isCurrencyMenuOpenRef.current) return;
       if (isCurrencyInteractionTarget(relatedTarget)) return;
       requestAnimationFrame(() => {

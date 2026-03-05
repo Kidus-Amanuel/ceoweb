@@ -2,7 +2,11 @@
 "use no memo";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import dynamic from "next/dynamic";
+import type {
+  MouseEvent as ReactMouseEvent,
+  UIEvent as ReactUIEvent,
+} from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -27,14 +31,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/shared/ui/button/Button";
 import { Checkbox } from "@/components/shared/ui/checkbox/Checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/shared/ui/dialog";
 import { Input } from "@/components/shared/ui/input/Input";
 import {
   Popover,
@@ -74,6 +70,7 @@ import {
   resolveMetaForValues,
   toColumnKey,
 } from "@/utils/table-utils";
+import type { DeleteTarget } from "./editable-table/DeleteConfirmationDialog";
 
 export type { VirtualColumn };
 
@@ -135,13 +132,16 @@ interface EditableTableProps<
   pageSize?: number;
   onPageChange?: (page: number) => void;
   selectedRowId?: string | null;
+  onSelectionChange?: (rowIds: string[]) => void;
+  onReachBottom?: () => void;
+  hasMoreRows?: boolean;
+  isFetchingMoreRows?: boolean;
 }
 
-type DeleteTarget = {
-  kind: "row" | "column";
-  id: string;
-  label: string;
-} | null;
+const DeleteConfirmationDialog = dynamic(
+  () => import("./editable-table/DeleteConfirmationDialog"),
+  { loading: () => null, ssr: false },
+);
 const useSafeTableInterop = <TData extends RowData>(
   options: Parameters<typeof useReactTable<TData>>[0],
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -170,6 +170,10 @@ export function EditableTable<
   pageSize = 50,
   onPageChange,
   selectedRowId = null,
+  onSelectionChange,
+  onReachBottom,
+  hasMoreRows = false,
+  isFetchingMoreRows = false,
 }: EditableTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
@@ -191,6 +195,7 @@ export function EditableTable<
   const [newColOptionsValue, setNewColOptionsValue] = useState("");
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const reachedBottomLockRef = useRef(false);
   const rowElementsRef = useRef<Record<string, HTMLTableRowElement | null>>({});
   const [rowHeights, setRowHeights] = useState<Record<string, number>>({});
   const newColLabel = useRef("");
@@ -539,6 +544,16 @@ export function EditableTable<
         : { ...rowSelection, [selectedRowId]: true },
     [rowSelection, selectedRowId],
   );
+  useEffect(() => {
+    if (!onSelectionChange) return;
+    const selectedIds = Object.entries(effectiveRowSelection)
+      .filter(([, isSelected]) => !!isSelected)
+      .map(([id]) => id);
+    onSelectionChange(selectedIds);
+  }, [effectiveRowSelection, onSelectionChange]);
+  useEffect(() => {
+    if (!isFetchingMoreRows) reachedBottomLockRef.current = false;
+  }, [isFetchingMoreRows]);
   const rowsById = useMemo(
     () => new Map(data.map((entry) => [entry.id, entry] as const)),
     [data],
@@ -726,6 +741,15 @@ export function EditableTable<
   };
 
   const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const handleTableScroll = (event: ReactUIEvent<HTMLDivElement>) => {
+    if (!onReachBottom || !hasMoreRows || isFetchingMoreRows) return;
+    const target = event.currentTarget;
+    const nearBottom =
+      target.scrollHeight - target.scrollTop - target.clientHeight < 96;
+    if (!nearBottom || reachedBottomLockRef.current) return;
+    reachedBottomLockRef.current = true;
+    onReachBottom();
+  };
   const isEmailColumn = (columnId: string, type: unknown) =>
     type === "email" || columnId.toLowerCase().includes("email");
   const isPhoneColumn = (columnId: string, type: unknown) =>
@@ -804,7 +828,10 @@ export function EditableTable<
         </div>
       )}
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto custom-scrollbar pb-2">
+        <div
+          className="flex-1 min-h-0 overflow-x-auto overflow-y-auto custom-scrollbar pb-2"
+          onScroll={handleTableScroll}
+        >
           <Table className="w-full min-w-[1170px] table-auto border-collapse border border-border/70">
             <TableHeader className="sticky top-0 z-30 bg-white [&_tr]:border-b [&_tr]:border-border/70">
               {table.getHeaderGroups().map((group) => (
@@ -1085,31 +1112,40 @@ export function EditableTable<
                               onClick={(event) => event.stopPropagation()}
                             />
                           );
-                        if (meta?.type === "currency")
-                          {
-                            const rawCurrency =
-                              val && typeof val === "object" && !Array.isArray(val)
-                                ? String((val as Record<string, unknown>).currency ?? "")
-                                : typeof val === "string" && Number.isNaN(Number(val))
-                                  ? val
-                                  : String(meta?.options?.[0]?.value ?? "ETB");
-                            const currencyLabel =
-                              findSelectLabel(meta?.options, rawCurrency) ?? rawCurrency;
-                            const currencyIndex = findSelectOptionIndex(
-                              meta?.options,
-                              rawCurrency,
-                            );
-                            return (
-                              <span
-                                className={cn(
-                                  "inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold",
-                                  getSemanticOptionTone(currencyLabel, currencyIndex),
-                                )}
-                              >
-                                {formatCurrencyValue(val, meta?.options)}
-                              </span>
-                            );
-                          }
+                        if (meta?.type === "currency") {
+                          const rawCurrency =
+                            val &&
+                            typeof val === "object" &&
+                            !Array.isArray(val)
+                              ? String(
+                                  (val as Record<string, unknown>).currency ??
+                                    "",
+                                )
+                              : typeof val === "string" &&
+                                  Number.isNaN(Number(val))
+                                ? val
+                                : String(meta?.options?.[0]?.value ?? "ETB");
+                          const currencyLabel =
+                            findSelectLabel(meta?.options, rawCurrency) ??
+                            rawCurrency;
+                          const currencyIndex = findSelectOptionIndex(
+                            meta?.options,
+                            rawCurrency,
+                          );
+                          return (
+                            <span
+                              className={cn(
+                                "inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-semibold",
+                                getSemanticOptionTone(
+                                  currencyLabel,
+                                  currencyIndex,
+                                ),
+                              )}
+                            >
+                              {formatCurrencyValue(val, meta?.options)}
+                            </span>
+                          );
+                        }
                         if (meta?.type === "date" || meta?.type === "datetime")
                           return (
                             <span className="inline-flex whitespace-nowrap">
@@ -1136,9 +1172,9 @@ export function EditableTable<
                                 ? "min-w-[320px]"
                                 : meta?.type === "datetime"
                                   ? "min-w-[300px]"
-                                : isEmailOrPhone
-                                  ? "min-w-[350px]"
-                                  : "min-w-[240px]"
+                                  : isEmailOrPhone
+                                    ? "min-w-[350px]"
+                                    : "min-w-[240px]"
                               : sizeClasses,
                             isEditing ? "" : i === 0 ? "px-4" : "px-6",
                           )}
@@ -1315,6 +1351,11 @@ export function EditableTable<
         </div>
       </div>
       <div className="shrink-0 border-t border-border bg-white">
+        {isFetchingMoreRows ? (
+          <div className="border-b border-border/70 px-6 py-2 text-xs text-[#787774]">
+            Loading more rows...
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between px-6 py-4 gap-3">
           <div className="flex flex-col items-start gap-2">
             {!!onAdd && (
@@ -1378,45 +1419,12 @@ export function EditableTable<
           </div>
         </div>
       </div>
-      <Dialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {deleteTarget?.kind === "column" ? "Delete Column" : "Delete Row"}
-            </DialogTitle>
-            <DialogDescription>
-              {deleteTarget?.kind === "column"
-                ? `Delete custom column "${deleteTarget?.label}"?`
-                : `Delete row "${deleteTarget?.label}"? This cannot be undone.`}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeleteTarget(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={() => {
-                if (!deleteTarget) return;
-                if (deleteTarget.kind === "column")
-                  onColumnDelete?.(deleteTarget.id);
-                else onDelete?.(deleteTarget.id);
-                setDeleteTarget(null);
-              }}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteConfirmationDialog
+        deleteTarget={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirmRow={onDelete}
+        onConfirmColumn={onColumnDelete}
+      />
     </div>
   );
 }
