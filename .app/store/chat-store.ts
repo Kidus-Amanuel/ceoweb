@@ -178,6 +178,8 @@ interface ChatActions {
   deleteConversation: (conversationId: string) => void;
   setSearchQuery: (query: string) => void;
   setTyping: (conversationId: string, isTyping: boolean) => void;
+  appendToMessage: (conversationId: string, messageId: string, text: string) => void;
+  addMessage: (conversationId: string, message: Message) => void;
 }
 
 export const useChatStore = create<ChatState & ChatActions>()(
@@ -236,32 +238,6 @@ export const useChatStore = create<ChatState & ChatActions>()(
             };
           });
 
-          // Simulate AI response for AI chat
-          const conversation = get().conversations.find(
-            (c) => c.id === conversationId,
-          );
-          if (conversation?.type === "ai") {
-            setTimeout(() => {
-              const aiMessage: Message = {
-                id: `ai-msg-${Date.now()}`,
-                senderId: "ai",
-                content:
-                  "This is a simulated AI response. I'm processing your request.",
-                createdAt: new Date().toISOString(),
-                type: "text",
-              };
-
-              set((state) => ({
-                messages: {
-                  ...state.messages,
-                  [conversationId]: [
-                    ...(state.messages[conversationId] || []),
-                    aiMessage,
-                  ],
-                },
-              }));
-            }, 1000);
-          }
         },
 
         markAsRead: (conversationId) => {
@@ -279,6 +255,36 @@ export const useChatStore = create<ChatState & ChatActions>()(
                 ? { ...conv, isPinned: !conv.isPinned }
                 : conv,
             ),
+          }));
+        },
+
+        appendToMessage: (
+          conversationId,
+          messageId,
+          text,
+        ) => {
+          set((state) => {
+            const msgs = state.messages[conversationId] || [];
+            return {
+              messages: {
+                ...state.messages,
+                [conversationId]: msgs.map((m) =>
+                  m.id === messageId ? { ...m, content: m.content + text } : m,
+                ),
+              },
+            };
+          });
+        },
+
+        addMessage: (conversationId, message) => {
+          set((state) => ({
+            messages: {
+              ...state.messages,
+              [conversationId]: [
+                ...(state.messages[conversationId] || []),
+                message,
+              ],
+            },
           }));
         },
 

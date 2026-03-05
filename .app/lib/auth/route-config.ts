@@ -14,6 +14,7 @@ export const PUBLIC_ROUTES = [
   "/forgot-password",
   "/reset-password",
   "/api/auth",
+  "/api/ai/agent",
 ];
 
 /**
