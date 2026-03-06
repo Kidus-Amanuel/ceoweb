@@ -52,7 +52,10 @@ export async function GET(req: Request) {
 
     const { data, error } = await query;
     if (error) throw error;
-    console.log(`[Fleet API] DB Maintenance Records for company ${companyId}:`, data?.length || 0);
+    console.log(
+      `[Fleet API] DB Maintenance Records for company ${companyId}:`,
+      data?.length || 0,
+    );
 
     // Shape the response to include flat vehicle fields for the table
     const shaped = (data || []).map((r: any) => ({

@@ -104,7 +104,7 @@ export function getModuleFromPathname(pathname: string): string | null {
   if (segments.length === 0) return null;
 
   let firstSegment = segments[0].toLowerCase();
-  
+
   // If we're in the API, we care about the NEXT segment for module identification
   if (firstSegment === "api" && segments.length > 1) {
     firstSegment = segments[1].toLowerCase();

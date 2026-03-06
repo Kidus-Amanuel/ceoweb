@@ -21,7 +21,10 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    console.log(`[Fleet API] DB Vehicles for company ${companyId}:`, dbVehicles?.length || 0);
+    console.log(
+      `[Fleet API] DB Vehicles for company ${companyId}:`,
+      dbVehicles?.length || 0,
+    );
 
     // 2. Fetch live data from Traccar
     try {
@@ -94,7 +97,10 @@ export async function GET(req: Request) {
 
       // Cache Traccar live data for 30 s — reduces external HTTP calls
       const res = NextResponse.json(mergedData);
-      res.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=60");
+      res.headers.set(
+        "Cache-Control",
+        "private, max-age=30, stale-while-revalidate=60",
+      );
       return res;
     } catch (traccarError) {
       console.warn("[Fleet API] Traccar Live Fetch Failed:", traccarError);

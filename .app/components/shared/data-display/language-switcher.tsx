@@ -26,7 +26,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
     i18n.changeLanguage(code);
     router.refresh(); // Tell the server to refresh components that might depend on the locale
   };
- 
+
   React.useEffect(() => {
     if (i18n.language) {
       document.cookie = `NEXT_LOCALE=${i18n.language}; path=/; max-age=31536000`;

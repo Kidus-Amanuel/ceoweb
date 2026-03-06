@@ -47,7 +47,10 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    console.log(`[Fleet API] DB Driver Assignments for company ${companyId}:`, assignments?.length || 0);
+    console.log(
+      `[Fleet API] DB Driver Assignments for company ${companyId}:`,
+      assignments?.length || 0,
+    );
 
     // Shape the data
     const shaped = assignments.map((a: any) => {
@@ -150,7 +153,7 @@ export async function PATCH(req: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
-      .eq("company_id", companyId)  // ✅ Security: scope to current company
+      .eq("company_id", companyId) // ✅ Security: scope to current company
       .select()
       .single();
 
@@ -182,7 +185,7 @@ export async function DELETE(req: Request) {
       .from("driver_assignments")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", id)
-      .eq("company_id", companyId);  // ✅ Security: scope to current company
+      .eq("company_id", companyId); // ✅ Security: scope to current company
 
     if (error) throw error;
     return NextResponse.json({ success: true });

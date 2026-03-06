@@ -377,50 +377,50 @@ export function SidebarNav() {
               </div>
 
               {/* Sub Items */}
-                {leftSidebarOpen && hasSubItems && isExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden pl-9 space-y-1"
-                  >
-                    {item.subItems?.map((sub: NavSubItem) => (
-                      <Link
-                        key={sub.id}
-                        href={isLocked ? "#" : sub.href}
-                        onClick={(e) => {
-                          if (isLocked) {
-                            e.preventDefault();
-                            setUpgradeModal({
-                              isOpen: true,
-                              moduleName: getNavLabel(item),
-                            });
-                          }
-                        }}
-                        className={cn(
-                          "flex items-center gap-2 py-2 px-3 text-xs rounded-lg transition-colors",
-                          pathname === sub.href
-                            ? "text-primary font-semibold bg-primary/5"
-                            : "text-muted-foreground hover:text-foreground hover:bg-background/50",
-                          isLocked && "opacity-50 cursor-not-allowed",
-                        )}
-                      >
-                        {sub.icon ? (
-                          <sub.icon
-                            className={cn(
-                              "w-3.5 h-3.5 shrink-0",
-                              sub.iconClassName ?? "text-muted-foreground",
-                            )}
-                          />
-                        ) : null}
-                        {getNavLabel(sub)}
-                        {isLocked && (
-                          <Lock className="w-2.5 h-2.5 ml-auto opacity-50" />
-                        )}
-                      </Link>
-                    ))}
-                  </motion.div>
-                )}
+              {leftSidebarOpen && hasSubItems && isExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden pl-9 space-y-1"
+                >
+                  {item.subItems?.map((sub: NavSubItem) => (
+                    <Link
+                      key={sub.id}
+                      href={isLocked ? "#" : sub.href}
+                      onClick={(e) => {
+                        if (isLocked) {
+                          e.preventDefault();
+                          setUpgradeModal({
+                            isOpen: true,
+                            moduleName: getNavLabel(item),
+                          });
+                        }
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 py-2 px-3 text-xs rounded-lg transition-colors",
+                        pathname === sub.href
+                          ? "text-primary font-semibold bg-primary/5"
+                          : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+                        isLocked && "opacity-50 cursor-not-allowed",
+                      )}
+                    >
+                      {sub.icon ? (
+                        <sub.icon
+                          className={cn(
+                            "w-3.5 h-3.5 shrink-0",
+                            sub.iconClassName ?? "text-muted-foreground",
+                          )}
+                        />
+                      ) : null}
+                      {getNavLabel(sub)}
+                      {isLocked && (
+                        <Lock className="w-2.5 h-2.5 ml-auto opacity-50" />
+                      )}
+                    </Link>
+                  ))}
+                </motion.div>
+              )}
             </div>
           );
         })}

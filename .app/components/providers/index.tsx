@@ -10,7 +10,13 @@ import { I18nextProvider } from "react-i18next";
 import i18n from "@/lib/i18n/config";
 import { ToastContainer } from "@/components/shared/ui/toast/ToastContainer";
 
-export function Providers({ children, locale }: { children: React.ReactNode; locale?: string }) {
+export function Providers({
+  children,
+  locale,
+}: {
+  children: React.ReactNode;
+  locale?: string;
+}) {
   // Sync initialization synchronously for the first render
   useMemo(() => {
     initI18n(locale);

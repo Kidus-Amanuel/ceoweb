@@ -103,7 +103,9 @@ export function useCompanies() {
         throw error;
       }
 
-      console.log(`[useCompanies] Profile updated successfully to ${companyId}`);
+      console.log(
+        `[useCompanies] Profile updated successfully to ${companyId}`,
+      );
 
       // Update local store
       setSelectedCompanyId(companyId);

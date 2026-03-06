@@ -79,15 +79,21 @@ export default function DriversPage() {
     onSuccess: () => toast.success(t("fleet_drivers.toast_column_add_success")),
   });
   const updateColumn = useUpdateFleetColumn("drivers", companyId, {
-    onSuccess: () => toast.success(t("fleet_drivers.toast_column_update_success")),
+    onSuccess: () =>
+      toast.success(t("fleet_drivers.toast_column_update_success")),
   });
   const deleteColumn = useDeleteFleetColumn("drivers", companyId, {
-    onSuccess: () => toast.success(t("fleet_drivers.toast_column_delete_success")),
+    onSuccess: () =>
+      toast.success(t("fleet_drivers.toast_column_delete_success")),
   });
 
   // ── Derived options ──────────────────────────────────────────────────
   const data: Assignment[] = useMemo(
-    () => rawDrivers.map((r: any) => ({ ...r, customValues: r.custom_fields || {} })),
+    () =>
+      rawDrivers.map((r: any) => ({
+        ...r,
+        customValues: r.custom_fields || {},
+      })),
     [rawDrivers],
   );
 
@@ -115,7 +121,9 @@ export default function DriversPage() {
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "ended">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "ended">(
+    "all",
+  );
 
   const isActive = (a: Assignment) =>
     !a.end_date || new Date(a.end_date) >= new Date();
@@ -248,14 +256,16 @@ export default function DriversPage() {
           if (!endDate)
             return (
               <div className="flex items-center gap-1 text-emerald-500 text-[10px] font-bold">
-                <BadgeCheck className="w-3 h-3" /> {t("fleet_drivers.status_active")}
+                <BadgeCheck className="w-3 h-3" />{" "}
+                {t("fleet_drivers.status_active")}
               </div>
             );
           const past = new Date(endDate) < new Date();
           return (
             <div
-              className={`flex items-center gap-1 text-[10px] font-semibold ${past ? "text-slate-400" : "text-orange-500"
-                }`}
+              className={`flex items-center gap-1 text-[10px] font-semibold ${
+                past ? "text-slate-400" : "text-orange-500"
+              }`}
             >
               {!past && <Clock className="w-3 h-3" />}
               {new Date(endDate).toLocaleDateString()}
@@ -286,7 +296,9 @@ export default function DriversPage() {
               variant={active ? "success" : "default"}
               className="text-[9px] px-2"
             >
-              {active ? t("fleet_drivers.status_active") : t("fleet_drivers.status_ended")}
+              {active
+                ? t("fleet_drivers.status_active")
+                : t("fleet_drivers.status_ended")}
             </Badge>
           );
         },
@@ -304,7 +316,8 @@ export default function DriversPage() {
       await addDriver.mutateAsync({
         driver_id: newItem.driver_id,
         vehicle_id: vehicleId,
-        start_date: newItem.start_date || new Date().toISOString().split("T")[0],
+        start_date:
+          newItem.start_date || new Date().toISOString().split("T")[0],
         end_date: newItem.end_date || null,
         notes: newItem.notes || null,
         custom_fields: newItem.customValues || {},
@@ -316,7 +329,13 @@ export default function DriversPage() {
 
   const handleUpdate = async (id: string, updatedFields: any) => {
     try {
-      const standardKeys = ["driver_id", "vehicle_id", "start_date", "end_date", "notes"];
+      const standardKeys = [
+        "driver_id",
+        "vehicle_id",
+        "start_date",
+        "end_date",
+        "notes",
+      ];
       const updatePayload: any = { id };
       const customData: any = updatedFields.customValues || {};
 
@@ -329,7 +348,10 @@ export default function DriversPage() {
       });
 
       const existing = data.find((a) => a.id === id);
-      const mergedCustom = { ...(existing?.custom_fields || {}), ...customData };
+      const mergedCustom = {
+        ...(existing?.custom_fields || {}),
+        ...customData,
+      };
       if (Object.keys(mergedCustom).length > 0) {
         updatePayload.custom_fields = mergedCustom;
       }
@@ -355,7 +377,9 @@ export default function DriversPage() {
       fieldLabel: payload.label,
       fieldName: payload.key,
       fieldType: payload.type === "status" ? "select" : payload.type,
-      fieldOptions: (payload.options ?? []).map((o: any) => String(o.value ?? o.label)),
+      fieldOptions: (payload.options ?? []).map((o: any) =>
+        String(o.value ?? o.label),
+      ),
     });
   };
 
@@ -366,7 +390,9 @@ export default function DriversPage() {
       fieldLabel: payload.label,
       fieldName: payload.key,
       fieldType: payload.type === "status" ? "select" : payload.type,
-      fieldOptions: (payload.options ?? []).map((o: any) => String(o.value ?? o.label)),
+      fieldOptions: (payload.options ?? []).map((o: any) =>
+        String(o.value ?? o.label),
+      ),
     });
   };
 
@@ -395,8 +421,9 @@ export default function DriversPage() {
                 key={f}
                 variant={statusFilter === f ? "secondary" : "ghost"}
                 size="sm"
-                className={`h-7 px-2.5 text-[9px] font-bold uppercase rounded-md gap-1 ${statusFilter === f ? "bg-white shadow-sm" : ""
-                  }`}
+                className={`h-7 px-2.5 text-[9px] font-bold uppercase rounded-md gap-1 ${
+                  statusFilter === f ? "bg-white shadow-sm" : ""
+                }`}
                 onClick={() => setStatusFilter(f)}
               >
                 {f === "active" && (
@@ -414,7 +441,9 @@ export default function DriversPage() {
 
         <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-wider text-slate-400">
           <span>{t("fleet_drivers.stat_total", { count: stats.total })}</span>
-          <span className="text-emerald-500">{t("fleet_drivers.stat_active", { count: stats.active })}</span>
+          <span className="text-emerald-500">
+            {t("fleet_drivers.stat_active", { count: stats.active })}
+          </span>
           <span className="text-blue-500">
             {t("fleet_drivers.stat_with_vehicle", { count: stats.withVehicle })}
           </span>

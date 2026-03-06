@@ -21,11 +21,15 @@ import {
 
 export const fleetKeys = {
   all: ["fleet"] as const,
-  vehicles: (companyId?: string) => ["fleet", "vehicles", companyId || "global"] as const,
-  drivers: (companyId?: string) => ["fleet", "drivers", companyId || "global"] as const,
-  maintenance: (companyId?: string) => ["fleet", "maintenance", companyId || "global"] as const,
+  vehicles: (companyId?: string) =>
+    ["fleet", "vehicles", companyId || "global"] as const,
+  drivers: (companyId?: string) =>
+    ["fleet", "drivers", companyId || "global"] as const,
+  maintenance: (companyId?: string) =>
+    ["fleet", "maintenance", companyId || "global"] as const,
   vehicleTypes: () => ["fleet", "vehicle-types"] as const,
-  employees: (companyId?: string) => ["fleet", "employees", companyId || "global"] as const,
+  employees: (companyId?: string) =>
+    ["fleet", "employees", companyId || "global"] as const,
   columnDefs: (entity: string, companyId: string) =>
     ["fleet", "column-defs", entity, companyId] as const,
 };
@@ -48,7 +52,8 @@ async function apiFetch<T>(url: string): Promise<T> {
 export function useVehicles(companyId?: string) {
   return useQuery({
     queryKey: fleetKeys.vehicles(companyId),
-    queryFn: () => apiFetch<any[]>(`/api/fleet/vehicles?company_id=${companyId}`),
+    queryFn: () =>
+      apiFetch<any[]>(`/api/fleet/vehicles?company_id=${companyId}`),
     staleTime: 30_000,
     refetchInterval: 60_000,
     enabled: !!companyId, // Prevents fetching if no company is selected
@@ -105,7 +110,9 @@ export function useDeleteVehicle(companyId?: string, options?: any) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/fleet/vehicles?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/fleet/vehicles?id=${id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
         const e = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(e.error || "Failed to delete vehicle");
@@ -130,7 +137,7 @@ export function useDeleteVehicle(companyId?: string, options?: any) {
     },
     onSuccess: (...args: any[]) => {
       options?.onSuccess?.(...args);
-    }
+    },
   });
 }
 
@@ -139,7 +146,8 @@ export function useDeleteVehicle(companyId?: string, options?: any) {
 export function useDrivers(companyId?: string) {
   return useQuery({
     queryKey: fleetKeys.drivers(companyId),
-    queryFn: () => apiFetch<any[]>(`/api/fleet/drivers?company_id=${companyId}`),
+    queryFn: () =>
+      apiFetch<any[]>(`/api/fleet/drivers?company_id=${companyId}`),
     staleTime: 60_000,
     enabled: !!companyId,
   });
@@ -195,7 +203,9 @@ export function useDeleteDriver(companyId?: string, options?: any) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/fleet/drivers?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/fleet/drivers?id=${id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
         const e = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(e.error || "Failed to delete driver assignment");
@@ -220,7 +230,7 @@ export function useDeleteDriver(companyId?: string, options?: any) {
     },
     onSuccess: (...args: any[]) => {
       options?.onSuccess?.(...args);
-    }
+    },
   });
 }
 
@@ -229,7 +239,8 @@ export function useDeleteDriver(companyId?: string, options?: any) {
 export function useMaintenance(companyId?: string) {
   return useQuery({
     queryKey: fleetKeys.maintenance(companyId),
-    queryFn: () => apiFetch<any[]>(`/api/fleet/maintenance?company_id=${companyId}`),
+    queryFn: () =>
+      apiFetch<any[]>(`/api/fleet/maintenance?company_id=${companyId}`),
     staleTime: 60_000,
     enabled: !!companyId,
   });
@@ -287,7 +298,9 @@ export function useDeleteMaintenance(companyId?: string, options?: any) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/fleet/maintenance?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/fleet/maintenance?id=${id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
         const e = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(e.error || "Failed to delete maintenance record");
@@ -312,7 +325,7 @@ export function useDeleteMaintenance(companyId?: string, options?: any) {
     },
     onSuccess: (...args: any[]) => {
       options?.onSuccess?.(...args);
-    }
+    },
   });
 }
 
@@ -329,7 +342,10 @@ export function useVehicleTypes() {
 export function useEmployees(companyId?: string) {
   return useQuery({
     queryKey: fleetKeys.employees(companyId),
-    queryFn: () => apiFetch<any[]>(`/api/hr/employees?company_id=${companyId}`).catch(() => []),
+    queryFn: () =>
+      apiFetch<any[]>(`/api/hr/employees?company_id=${companyId}`).catch(
+        () => [],
+      ),
     staleTime: 5 * 60_000,
     enabled: !!companyId,
   });
@@ -361,7 +377,7 @@ export function useFleetColumnDefs(
 export function useAddFleetColumn(
   entity: "vehicles" | "drivers" | "maintenance",
   companyId: string | undefined,
-  options?: any
+  options?: any,
 ) {
   const qc = useQueryClient();
   return useMutation({
@@ -380,12 +396,16 @@ export function useAddFleetColumn(
 export function useUpdateFleetColumn(
   entity: "vehicles" | "drivers" | "maintenance",
   companyId: string | undefined,
-  options?: any
+  options?: any,
 ) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: any) =>
-      updateFleetCustomFieldAction({ companyId: companyId!, entityType: entity, ...payload }),
+      updateFleetCustomFieldAction({
+        companyId: companyId!,
+        entityType: entity,
+        ...payload,
+      }),
     ...options,
     onSuccess: (...args: any[]) => {
       qc.invalidateQueries({
@@ -399,7 +419,7 @@ export function useUpdateFleetColumn(
 export function useDeleteFleetColumn(
   entity: "vehicles" | "drivers" | "maintenance",
   companyId: string | undefined,
-  options?: any
+  options?: any,
 ) {
   const qc = useQueryClient();
   return useMutation({
