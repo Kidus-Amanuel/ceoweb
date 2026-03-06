@@ -84,7 +84,7 @@
       "customers": "ደንበኞች",
       "deals": "ስምምነቶች",
       "activities": "እንቅስቃሴዎች",
-      "reports": "ሪፖርቶች",
+      "reports": "ኦቨርቪውስ",
       "stock_level": "የክምችት ደረጃ",
       "warehouses": "መጋዘኖች",
       "suppliers": "አቅራቢዎች",
@@ -234,7 +234,6 @@
     "toast_column_add_success": "Custom column added successfully",
     "toast_column_update_success": "Custom column updated successfully",
     "toast_column_delete_success": "Custom column deleted successfully"
-
   },
   "fleet_drivers": {
     "search_placeholder": "አሽከርካሪ፣ ተሽከርካሪ ፈልግ...",

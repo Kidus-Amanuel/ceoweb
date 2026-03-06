@@ -8,6 +8,7 @@ import {
   GitBranch,
   Hash,
   Link2,
+  Mail,
   ListFilter,
   MapPin,
   MousePointerSquareDashed,
@@ -61,6 +62,8 @@ export const allowedTypes: VirtualColumn["type"][] = [
   "json",
   "currency",
   "status",
+  "phone",
+  "email",
 ];
 export const asColumnType = (v: unknown): VirtualColumn["type"] =>
   allowedTypes.includes(v as VirtualColumn["type"])
@@ -117,6 +120,8 @@ export const getOptionToneByIndex = (i: number) =>
 
 export const getSemanticOptionTone = (label: unknown, index: number) => {
   const text = norm(label);
+  if (/(in progress|ongoing|wip)/.test(text))
+    return "bg-cyan-100 text-cyan-700 border-cyan-200";
   if (
     /(inactive|overdue|lost|cancel|failed|error|declined|rejected|blocked|delinquent)/.test(
       text,
@@ -178,16 +183,62 @@ export const prettyValue = (value: unknown) => {
   if (Array.isArray(value)) return value.map(String).join(", ");
   const rec = value as Record<string, unknown>;
   if ("amount" in rec || "currency" in rec) {
-    const currency = String(rec.currency ?? "USD");
-    const amount =
-      rec.amount === null || rec.amount === undefined || rec.amount === ""
-        ? null
-        : Number(rec.amount);
-    return amount === null || Number.isNaN(amount)
-      ? currency
-      : `${currency} ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatCurrencyValue(value, defaultCurrencyOptions);
   }
   return JSON.stringify(value);
+};
+
+export const formatCurrencyValue = (
+  value: unknown,
+  options?: { label: string; value: string | number }[],
+) => {
+  const effectiveOptions =
+    Array.isArray(options) && options.length > 0
+      ? options
+      : defaultCurrencyOptions;
+  const defaultCurrency = String(
+    effectiveOptions[0]?.value ?? effectiveOptions[0]?.label ?? "ETB",
+  );
+  const resolveCurrency = (raw: unknown) => {
+    const token = String(raw ?? "").trim();
+    if (!token) return defaultCurrency;
+    const matched = effectiveOptions.find(
+      (option) =>
+        norm(option.value) === norm(token) ||
+        norm(option.label) === norm(token),
+    );
+    return String(matched?.value ?? matched?.label ?? token);
+  };
+  const formatAmount = (raw: unknown) => {
+    const parsed = Number(raw ?? 0);
+    const amount = Number.isFinite(parsed) ? parsed : 0;
+    return amount.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const rec = value as Record<string, unknown>;
+    const currency = resolveCurrency(rec.currency);
+    const amount =
+      rec.amount === null || rec.amount === undefined || rec.amount === ""
+        ? 0
+        : rec.amount;
+    return `${currency} ${formatAmount(amount)}`;
+  }
+  if (typeof value === "number") {
+    return `${defaultCurrency} ${formatAmount(value)}`;
+  }
+  if (typeof value === "string") {
+    const token = value.trim();
+    if (!token) return `${defaultCurrency} ${formatAmount(0)}`;
+    const numeric = Number(token);
+    if (Number.isFinite(numeric))
+      return `${defaultCurrency} ${formatAmount(numeric)}`;
+    return `${resolveCurrency(token)} ${formatAmount(0)}`;
+  }
+  return `${defaultCurrency} ${formatAmount(0)}`;
 };
 
 export const resolveMetaForValues = (
@@ -229,9 +280,13 @@ export const getTypeIcon = (type: unknown) => {
               ? Coins
               : t === "status"
                 ? CircleDot
-                : t === "json"
-                  ? Braces
-                  : AlignLeft;
+                : t === "phone"
+                  ? Phone
+                  : t === "email"
+                    ? Mail
+                    : t === "json"
+                      ? Braces
+                      : AlignLeft;
 };
 
 export const getTypeIconTone = (type: unknown) => {
@@ -250,9 +305,13 @@ export const getTypeIconTone = (type: unknown) => {
               ? "text-orange-700 bg-orange-50 border-orange-200"
               : t === "status"
                 ? "text-red-700 bg-red-50 border-red-200"
-                : t === "json"
-                  ? "text-slate-700 bg-slate-100 border-slate-200"
-                  : "text-blue-700 bg-blue-50 border-blue-200";
+                : t === "phone"
+                  ? "text-cyan-700 bg-cyan-50 border-cyan-200"
+                  : t === "email"
+                    ? "text-blue-700 bg-blue-50 border-blue-200"
+                    : t === "json"
+                      ? "text-slate-700 bg-slate-100 border-slate-200"
+                      : "text-blue-700 bg-blue-50 border-blue-200";
 };
 
 export const fieldTypeChoices: ColumnFieldChoice[] = [
@@ -338,7 +397,14 @@ export const fieldTypeChoices: ColumnFieldChoice[] = [
     label: "Phone",
     icon: Phone,
     tone: "text-cyan-700 bg-cyan-50 border-cyan-200",
-    enabled: false,
+    enabled: true,
+  },
+  {
+    key: "email",
+    label: "Email",
+    icon: Mail,
+    tone: "text-blue-700 bg-blue-50 border-blue-200",
+    enabled: true,
   },
   {
     key: "relation",

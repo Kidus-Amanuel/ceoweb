@@ -2,7 +2,7 @@ import { BarChart3, Handshake, ListTodo, Users } from "lucide-react";
 import type { VirtualColumn } from "@/components/shared/table/EditableTable";
 
 export type CrmDataTable = "customers" | "deals" | "activities";
-export type CrmTable = CrmDataTable | "reports";
+export type CrmTable = CrmDataTable | "overviews";
 export type CrmEntity = CrmDataTable;
 
 export type RawRow = Record<string, unknown> & {
@@ -46,8 +46,8 @@ export const VIEW_META = {
     icon: ListTodo,
     iconClass: "text-amber-500",
   },
-  reports: {
-    title: "Reports",
+  overviews: {
+    title: "Overviews",
     icon: BarChart3,
     iconClass: "text-purple-500",
   },
@@ -77,6 +77,61 @@ const pickInput = (
 export const toFriendlyCrmError = (input: string) => {
   const message = String(input || "").trim();
   if (!message) return "Something went wrong. Please try again.";
+  if (
+    /typeerror:\s*fetch failed/i.test(message) ||
+    /failed to fetch/i.test(message) ||
+    /network\s*error/i.test(message) ||
+    /net::err_/i.test(message) ||
+    /econnrefused|enotfound|etimedout|econnreset/i.test(message)
+  ) {
+    return "Network error. Please check your internet connection and try again.";
+  }
+
+  if (/(standardData|customData|customValues|payload|data)\./i.test(message)) {
+    const toTitle = (value: string) =>
+      value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : "Field";
+    const toLabel = (path: string) =>
+      toTitle(
+        path
+          .replace(
+            /^(standardData|customData|customValues|payload|data)\.?/i,
+            "",
+          )
+          .replace(/\[[0-9]+\]/g, "")
+          .split(".")
+          .filter(Boolean)
+          .map((segment) => segment.replace(/_/g, " "))
+          .join(" "),
+      );
+    const normalized = message
+      .split("|")
+      .map((chunk) => chunk.trim())
+      .map((chunk) => {
+        const match = chunk.match(/^([a-zA-Z0-9_.[\]-]+)\s*:\s*(.+)$/);
+        if (!match) return chunk;
+        const fieldLabel = toLabel(match[1]);
+        const issue = match[2].trim();
+        if (
+          /invalid input: expected .* received undefined/i.test(issue) ||
+          /required/i.test(issue) ||
+          /too_small/i.test(issue)
+        ) {
+          return `${fieldLabel} is required.`;
+        }
+        if (/email/i.test(fieldLabel) && /invalid/i.test(issue)) {
+          return "Please enter a valid email address.";
+        }
+        if (
+          /phone|mobile|tel/i.test(fieldLabel) &&
+          /invalid|pattern/i.test(issue)
+        ) {
+          return "Please enter a valid phone number.";
+        }
+        return `${fieldLabel}: ${issue.replace(/^invalid input:\s*/i, "")}`;
+      })
+      .join(" ");
+    return normalized;
+  }
 
   if (/violates not-null constraint/i.test(message)) {
     const match = message.match(/column "([^"]+)"/i);
@@ -97,6 +152,13 @@ export const toFriendlyCrmError = (input: string) => {
   }
   if (/duplicate key value violates unique constraint/i.test(message)) {
     return "A record with the same value already exists.";
+  }
+  if (
+    /updated by someone else|conflict|stale data|precondition failed/i.test(
+      message,
+    )
+  ) {
+    return "This row changed in the background. Refresh and try again.";
   }
   return message;
 };
@@ -129,13 +191,21 @@ export const normalizeRowForGrid = (
 });
 
 export const mapFieldType = (value: string): VirtualColumn["type"] => {
-  if (value === "number") return "number";
-  if (value === "select") return "select";
-  if (value === "status") return "status";
-  if (value === "boolean") return "boolean";
-  if (value === "date") return "date";
-  if (value === "datetime") return "datetime";
-  if (value === "currency") return "currency";
+  const token = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  if (token === "number") return "number";
+  if (token === "select") return "select";
+  if (token === "status") return "status";
+  if (token === "boolean") return "boolean";
+  if (token === "date") return "date";
+  if (token === "datetime" || token === "date_time" || token === "timestamp")
+    return "datetime";
+  if (token === "currency" || token === "money") return "currency";
+  if (token === "phone" || token === "tel" || token === "telephone")
+    return "phone";
+  if (token === "email" || token === "e_mail") return "email";
   return "text";
 };
 

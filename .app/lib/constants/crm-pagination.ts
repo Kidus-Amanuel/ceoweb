@@ -1,0 +1,5 @@
+export const CRM_TABLE_PAGE_SIZE_DEFAULT = 50;
+export const CRM_TABLE_PAGE_SIZE_MAX = 200;
+export const CRM_SELECT_PAGE_SIZE_DEFAULT = 200;
+export const CRM_SELECT_PAGE_SIZE_MAX = 500;
+export const CRM_SEARCH_MATCH_LIMIT = 500;

@@ -70,7 +70,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8, y: 20 }}
               onClick={toggleRightSidebar}
-              className="fixed right-6 bottom-6 z-40 bg-black text-white p-4 rounded-2xl shadow-2xl shadow-black/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 border border-white/10 group"
+              className="fixed left-1/2 -translate-x-1/2 bottom-6 z-40 bg-black text-white p-4 rounded-2xl shadow-2xl shadow-black/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 border border-white/10 group"
             >
               <div className="relative">
                 <Bot className="w-5 h-5" />
