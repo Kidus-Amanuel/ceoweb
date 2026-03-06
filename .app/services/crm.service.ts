@@ -927,12 +927,16 @@ export const crmService = {
       entity_type: entityType,
       field_name: fieldName,
     });
-    metadata[entityType] = [
-      ...current.filter(
-        (entry) => entry.id !== next.id && entry.field_name !== next.field_name,
-      ),
-      next,
-    ];
+    const existingIndex = current.findIndex(
+      (entry) => entry.id === next.id || entry.field_name === next.field_name,
+    );
+    if (existingIndex >= 0) {
+      const reordered = [...current];
+      reordered[existingIndex] = next;
+      metadata[entityType] = reordered;
+    } else {
+      metadata[entityType] = [...current, next];
+    }
 
     const nextSettings = applyMetadataToSettings(company.settings, metadata);
     const { error: updateError } = await supabase
@@ -990,6 +994,17 @@ export const crmService = {
     companyId: string;
     payload: CustomFieldPayload;
   }): Promise<ServiceResult<Record<string, unknown>>> {
+    const optionBasedType =
+      payload.fieldType === "select" || payload.fieldType === "currency";
+    const normalizedOptions = optionBasedType
+      ? normalizeOptionValues(payload.fieldType, payload.fieldOptions ?? [])
+      : [];
+    if (optionBasedType && normalizedOptions.length === 0) {
+      return {
+        error: "At least one option is required for select fields.",
+      };
+    }
+
     const response = await this.saveColumnDefinition({
       supabase,
       companyId,
@@ -998,13 +1013,7 @@ export const crmService = {
         field_name: payload.fieldName || toSnakeCase(payload.fieldLabel),
         field_label: payload.fieldLabel,
         field_type: payload.fieldType,
-        field_options:
-          payload.fieldType === "select" || payload.fieldType === "currency"
-            ? normalizeOptionValues(
-                payload.fieldType,
-                payload.fieldOptions ?? [],
-              )
-            : null,
+        field_options: optionBasedType ? normalizedOptions : null,
         is_required: payload.isRequired ?? false,
         is_active: true,
       },
@@ -1049,10 +1058,6 @@ export const crmService = {
     const isTypeChange = existing.field_type !== payload.fieldType;
     const optionBasedType =
       payload.fieldType === "select" || payload.fieldType === "currency";
-    const existingOptions = normalizeOptionValues(
-      payload.fieldType,
-      existing.field_options ?? [],
-    );
     const incomingOptions = optionBasedType
       ? normalizeOptionValues(payload.fieldType, payload.fieldOptions ?? [])
       : [];
@@ -1084,8 +1089,12 @@ export const crmService = {
 
     let nextOptions: string[] | null = null;
     if (optionBasedType) {
-      const requestedOptions =
-        incomingOptions.length > 0 ? incomingOptions : existingOptions;
+      if (incomingOptions.length === 0) {
+        return {
+          error: "At least one option is required for select fields.",
+        };
+      }
+      const requestedOptions = incomingOptions;
       const requestedKeys = new Set(
         requestedOptions.map((value) => value.toLowerCase()),
       );
