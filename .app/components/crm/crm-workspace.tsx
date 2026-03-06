@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, Search } from "lucide-react";
+import { AlertTriangle, RefreshCw, Search } from "lucide-react";
 import { Input } from "@/components/shared/ui/input/Input";
+import { Button } from "@/components/shared/ui/button/Button";
 import { useCompanies } from "@/hooks/use-companies";
 import { VIEW_META, type CrmTable } from "./workspace/crm-workspace.shared";
 import { CrmWorkspaceErrorBoundary } from "./workspace/CrmWorkspaceErrorBoundary";
@@ -24,6 +25,9 @@ export function CrmWorkspace({
   const initialQuery = searchParams.get("q") ?? "";
   const [workspaceSearchQuery, setWorkspaceSearchQuery] =
     useState(initialQuery);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
   const activeTable: CrmTable = defaultTable;
 
   if (!selectedCompany?.id) {
@@ -66,6 +70,20 @@ export function CrmWorkspace({
               className="h-10 pl-9 !border-[#BEC9DD] focus-visible:!border-[#AAB9D3] focus-visible:ring-blue-200"
             />
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-xl border-[#BEC9DD] px-4"
+            onClick={() => {
+              setIsRefreshing(true);
+              setRefreshNonce((value) => value + 1);
+            }}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 text-emerald-500 ${isRefreshing || isMutating ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -75,21 +93,35 @@ export function CrmWorkspace({
             <CustomersTab
               companyId={selectedCompany.id}
               searchQuery={workspaceSearchQuery}
+              refreshNonce={refreshNonce}
+              onRefreshStateChange={setIsRefreshing}
+              onMutationStateChange={setIsMutating}
             />
           ) : null}
           {activeTable === "deals" ? (
             <DealsTab
               companyId={selectedCompany.id}
               searchQuery={workspaceSearchQuery}
+              refreshNonce={refreshNonce}
+              onRefreshStateChange={setIsRefreshing}
+              onMutationStateChange={setIsMutating}
             />
           ) : null}
           {activeTable === "activities" ? (
             <ActivitiesTab
               companyId={selectedCompany.id}
               searchQuery={workspaceSearchQuery}
+              refreshNonce={refreshNonce}
+              onRefreshStateChange={setIsRefreshing}
+              onMutationStateChange={setIsMutating}
             />
           ) : null}
-          {activeTable === "overviews" ? <OverviewsTab /> : null}
+          {activeTable === "overviews" ? (
+            <OverviewsTab
+              refreshNonce={refreshNonce}
+              onRefreshStateChange={setIsRefreshing}
+            />
+          ) : null}
         </CrmWorkspaceErrorBoundary>
       </div>
     </div>
