@@ -109,7 +109,7 @@ export const SmartEditor = ({
   const setEditorRef = (
     element: HTMLInputElement | HTMLTextAreaElement | null,
   ) => {
-    if (!isAddMode && inputRef) inputRef.current = element;
+    if (inputRef) inputRef.current = element;
   };
   const handleGridNavigation = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "Tab") return false;
@@ -193,17 +193,21 @@ export const SmartEditor = ({
 
   if (type === "select" || type === "status") {
     const options = Array.isArray(meta?.options) ? meta.options : [];
+    const normalizedValue = String(value ?? "").trim();
+    const defaultOption = options[0];
+    const selectedValue =
+      normalizedValue.length > 0
+        ? normalizedValue
+        : defaultOption
+          ? String(defaultOption.value)
+          : "";
     const selectedOption = options.find(
-      (o: any) =>
-        String(o.value).toLowerCase() ===
-        String(value ?? "")
-          .trim()
-          .toLowerCase(),
+      (o: any) => String(o.value).toLowerCase() === selectedValue.toLowerCase(),
     );
-    const selectedIndex = findSelectOptionIndex(options, value);
+    const selectedIndex = findSelectOptionIndex(options, selectedValue);
     return (
       <Select
-        value={String(value ?? "")}
+        value={selectedValue}
         onValueChange={(next) => {
           onChange(next);
           if (!isAddMode) onCommit?.(next);

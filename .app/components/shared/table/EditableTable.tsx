@@ -194,6 +194,10 @@ export function EditableTable<
   const [newColLabelValue, setNewColLabelValue] = useState("");
   const [newColOptionsValue, setNewColOptionsValue] = useState("");
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const addRowFirstInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(
+    null,
+  );
+  const addRowRef = useRef<HTMLTableRowElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const reachedBottomLockRef = useRef(false);
   const rowElementsRef = useRef<Record<string, HTMLTableRowElement | null>>({});
@@ -297,26 +301,15 @@ export function EditableTable<
       newColOptions.current,
       newColType === "currency",
     ).map((value) => ({ label: value, value }));
-    const options =
-      newColType === "currency"
-        ? parsedOptions.length
-          ? parsedOptions
-          : defaultCurrencyOptions.map((e) => ({
-              label: String(e.value).toUpperCase(),
-              value: String(e.value).toUpperCase(),
-            }))
-        : newColType === "status"
-          ? parsedOptions.length
-            ? parsedOptions
-            : [
-                { label: "Pending", value: "Pending" },
-                { label: "In Progress", value: "In Progress" },
-                { label: "Done", value: "Done" },
-                { label: "Cancelled", value: "Cancelled" },
-              ]
-          : newColType === "select"
-            ? parsedOptions
-            : undefined;
+    const isOptionFieldType =
+      newColType === "select" ||
+      newColType === "currency" ||
+      newColType === "status";
+    if (isOptionFieldType && parsedOptions.length === 0) {
+      setColFormError("At least one option is required for select fields.");
+      return;
+    }
+    const options = isOptionFieldType ? parsedOptions : undefined;
     const next = { label, key, type: newColType, options };
     if (editingColumnId && onColumnUpdate)
       onColumnUpdate(editingColumnId, next);
@@ -392,11 +385,9 @@ export function EditableTable<
                   }}
                   onNameChange={(value: string) => {
                     newColLabel.current = value;
-                    setNewColLabelValue(value);
                   }}
                   onOptionsChange={(value: string) => {
                     newColOptions.current = value;
-                    setNewColOptionsValue(value);
                   }}
                   error={colFormError}
                   onSave={handleSaveColumn}
@@ -446,7 +437,11 @@ export function EditableTable<
               )}
             >
               {findSelectLabel(meta.options, val) ??
-                (meta.options?.length ? "Unknown" : prettyValue(val))}
+                (meta.options?.length
+                  ? String(
+                      meta.options[0]?.label ?? meta.options[0]?.value ?? "",
+                    )
+                  : prettyValue(val))}
             </span>
           );
         if (meta?.type === "date")
@@ -559,6 +554,25 @@ export function EditableTable<
     [data],
   );
 
+  useEffect(() => {
+    if (!isAdding) return;
+    const focusFirstCell = () => {
+      addRowRef.current?.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+      });
+      const node = addRowFirstInputRef.current;
+      if (!node) return;
+      node.focus();
+      const len = String(node.value ?? "").length;
+      try {
+        node.setSelectionRange(len, len);
+      } catch {}
+    };
+    const raf = requestAnimationFrame(focusFirstCell);
+    return () => cancelAnimationFrame(raf);
+  }, [isAdding]);
+
   const table = useSafeTableInterop({
     data,
     columns: finalColumns,
@@ -595,6 +609,7 @@ export function EditableTable<
       if (!onUpdate) return;
       const row = rowsById.get(id);
       if (!row) return;
+      const savingCell = { id, columnId };
       const payload = isVirtual
         ? ({
             customValues: {
@@ -612,11 +627,25 @@ export function EditableTable<
           typeof (maybePromise as Promise<void>).then === "function"
         ) {
           (maybePromise as Promise<void>)
-            .then(() => setEditingCell(null))
+            .then(() =>
+              setEditingCell((current) =>
+                current &&
+                current.id === savingCell.id &&
+                current.columnId === savingCell.columnId
+                  ? null
+                  : current,
+              ),
+            )
             .catch(() => {});
           return;
         }
-        setEditingCell(null);
+        setEditingCell((current) =>
+          current &&
+          current.id === savingCell.id &&
+          current.columnId === savingCell.columnId
+            ? null
+            : current,
+        );
       } catch {}
     },
     [leafColumnsById, onUpdate, rowsById],
@@ -1092,7 +1121,11 @@ export function EditableTable<
                             >
                               {findSelectLabel(meta.options, val) ??
                                 (meta.options?.length
-                                  ? "Unknown"
+                                  ? String(
+                                      meta.options[0]?.label ??
+                                        meta.options[0]?.value ??
+                                        "",
+                                    )
                                   : prettyValue(val))}
                             </span>
                           );
@@ -1251,6 +1284,7 @@ export function EditableTable<
               <AnimatePresence mode="wait">
                 {isAdding && (
                   <motion.tr
+                    ref={addRowRef}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 10 }}
@@ -1285,6 +1319,7 @@ export function EditableTable<
                         >
                           <SmartEditor
                             isAddMode
+                            inputRef={i === 0 ? addRowFirstInputRef : undefined}
                             meta={meta}
                             fieldKey={String(virtualKey ?? columnId)}
                             placeholder={`Set ${placeholderLabel}...`}
@@ -1364,7 +1399,65 @@ export function EditableTable<
                 variant="outline"
                 onClick={() => {
                   setIsAdding(true);
-                  setNewRowData({});
+                  setNewRowData(() => {
+                    const next: Record<string, unknown> = {};
+                    table.getVisibleFlatColumns().forEach((column) => {
+                      const isVirtual = !!column.columnDef.meta?.isVirtual;
+                      const virtualKey = String(
+                        column.columnDef.meta?.virtualKey ?? column.id,
+                      );
+                      const meta = resolveMetaForValues(
+                        column.columnDef.meta,
+                        {},
+                      );
+                      if (meta?.type === "select" || meta?.type === "status") {
+                        const firstOption = meta.options?.[0];
+                        if (!firstOption) return;
+                        const defaultValue = String(firstOption.value);
+                        if (isVirtual) {
+                          const existingCustomValues =
+                            next.customValues &&
+                            typeof next.customValues === "object" &&
+                            !Array.isArray(next.customValues)
+                              ? (next.customValues as Record<string, unknown>)
+                              : {};
+                          next.customValues = {
+                            ...existingCustomValues,
+                            [virtualKey]: defaultValue,
+                          };
+                          return;
+                        }
+                        next[column.id] = defaultValue;
+                        return;
+                      }
+                      if (meta?.type === "currency") {
+                        const firstCurrency = String(
+                          meta.options?.[0]?.value ??
+                            defaultCurrencyOptions[0]?.value ??
+                            "ETB",
+                        );
+                        const defaultValue = {
+                          amount: 0,
+                          currency: firstCurrency,
+                        };
+                        if (isVirtual) {
+                          const existingCustomValues =
+                            next.customValues &&
+                            typeof next.customValues === "object" &&
+                            !Array.isArray(next.customValues)
+                              ? (next.customValues as Record<string, unknown>)
+                              : {};
+                          next.customValues = {
+                            ...existingCustomValues,
+                            [virtualKey]: defaultValue,
+                          };
+                          return;
+                        }
+                        next[column.id] = defaultValue;
+                      }
+                    });
+                    return next;
+                  });
                 }}
                 aria-label="New Record"
                 className="h-11 rounded-xl border-[#E6EAFA] bg-[#F5F7FF] px-5 text-[15px] font-semibold text-[#4166C9] hover:bg-[#EEF3FF]"
