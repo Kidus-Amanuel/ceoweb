@@ -114,6 +114,7 @@ interface EditableTableProps<
   virtualColumns?: VirtualColumn[];
   title?: string;
   description?: string;
+  hideHeader?: boolean;
   onAdd?: (data: Partial<T>) => void | Promise<void>;
   onUpdate?: (id: string, data: Partial<T>) => void | Promise<void>;
   onDelete?: (id: string) => void;
@@ -155,6 +156,7 @@ export function EditableTable<
   virtualColumns = [],
   title,
   description,
+  hideHeader = false,
   onAdd,
   onUpdate,
   onDelete,
@@ -831,7 +833,7 @@ export function EditableTable<
       ref={containerRef}
       className="flex min-h-0 flex-col h-full bg-white rounded-[20px] border border-border shadow-[0_8px_40px_rgba(0,0,0,0.04)] overflow-hidden"
     >
-      {(title || description || searchable) && (
+      {!hideHeader && (title || description || searchable) && (
         <div className="px-6 py-5 border-b border-border bg-white space-y-3">
           {title && (
             <h3 className="text-2xl font-bold text-[#37352F] tracking-tight antialiased">

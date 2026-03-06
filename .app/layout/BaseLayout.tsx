@@ -1,24 +1,28 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
 import "@/styles/globals.css";
 import { Providers } from "@/components/providers";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "CEO Web Project",
   description: "Enterprise Management Platform",
 };
 
-export default function BaseLayout({
+export default async function BaseLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get("NEXT_LOCALE")?.value || "en";
+
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <Providers>{children}</Providers>
+    <html lang={locale} suppressHydrationWarning>
+      <body
+        className="antialiased font-sans"
+        style={{ fontFamily: "Inter, system-ui, -apple-system, sans-serif" }}
+      >
+        <Providers locale={locale}>{children}</Providers>
       </body>
     </html>
   );

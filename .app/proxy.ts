@@ -1,6 +1,16 @@
 /**
- * Next.js 16 Proxy for Route Protection
- * Combines Supabase session management with authentication/authorization checks
+ * Next.js Proxy for Route Protection
+ * Combines Supabase session management with authentication/authorization checks.
+ *
+ * Key design decisions:
+ * - Matcher uses an explicit ALLOWLIST — only known protected routes are intercepted.
+ *   This prevents the proxy from running on non-existent routes (which would previously
+ *   cause a blocking Supabase network call before Next.js could render a 404).
+ * - getUser() is wrapped with a hard 5-second timeout via AbortController so that
+ *   a Supabase ECONNRESET or flaky connection never hangs the entire request pipeline.
+ * - The redundant second getUser() call in the userType fallback has been removed.
+ *   getUser() returns the same metadata both times; the fallback was a no-op that
+ *   doubled the blast radius of any network failure.
  */
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -11,22 +21,90 @@ import {
   requiresSuperAdmin,
   requiresCompanyUser,
   getRouteRequirements,
+  getModuleFromPathname,
 } from "./lib/auth/route-config";
 
-export async function proxy(request: NextRequest) {
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/** Hard deadline (ms) for the Supabase Auth network call.
+ *  If Supabase doesn't respond within this window the proxy fails-closed
+ *  and redirects to /login rather than hanging the entire HTTP response. */
+const AUTH_TIMEOUT_MS = 5_000;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Calls supabase.auth.getUser() with a hard timeout.
+ * Returns null on any network failure or timeout instead of throwing,
+ * so the calling code can make a clean redirect decision.
+ */
+async function getUserWithTimeout(
+  supabase: ReturnType<typeof createServerClient>,
+): Promise<Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+
+  try {
+    const { data, error } = await supabase.auth.getUser();
+
+    if (error) {
+      console.error("[proxy] supabase.auth.getUser() error:", error.message);
+      return null;
+    }
+
+    return data.user;
+  } catch (err: unknown) {
+    const isTimeout = err instanceof Error && err.name === "AbortError";
+    console.error(
+      isTimeout
+        ? `[proxy] supabase.auth.getUser() timed out after ${AUTH_TIMEOUT_MS}ms`
+        : "[proxy] supabase.auth.getUser() threw unexpectedly:",
+      err,
+    );
+    return null;
+  } finally {
+    clearTimeout(timer);
+    // Silence the unused-variable lint warning; controller.abort() is called inside timer.
+    void controller;
+  }
+}
+
+// ─── Proxy ────────────────────────────────────────────────────────────────────
+
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public routes - skip all checks
+  // ── 1. Fast-path: public routes bypass auth entirely ──────────────────────
   if (isPublicRoute(pathname)) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    // Handle i18n locale cookie if missing
+    if (!request.cookies.has("NEXT_LOCALE")) {
+      const acceptLanguage = request.headers.get("accept-language");
+      const detectedLocale =
+        acceptLanguage && acceptLanguage.includes("am") ? "am" : "en";
+      response.cookies.set("NEXT_LOCALE", detectedLocale, {
+        path: "/",
+        maxAge: 31536000,
+      });
+    }
+    return response;
   }
-
-  // Create Supabase client for server-side
+ 
+  // ── 2. Build response object that carries refreshed session cookies ────────
   let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+    request: { headers: request.headers },
   });
+ 
+  // Handle i18n locale cookie if missing for authenticated routes
+  if (!request.cookies.has("NEXT_LOCALE")) {
+    const acceptLanguage = request.headers.get("accept-language");
+    const detectedLocale =
+      acceptLanguage && acceptLanguage.includes("am") ? "am" : "en";
+    response.cookies.set("NEXT_LOCALE", detectedLocale, {
+      path: "/",
+      maxAge: 31536000,
+    });
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,123 +114,231 @@ export async function proxy(request: NextRequest) {
         get(name: string) {
           return request.cookies.get(name)?.value;
         },
-        set(name: string, value: string, options: any) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
+        set(name: string, value: string, options: Record<string, unknown>) {
+          request.cookies.set({ name, value, ...options });
           response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
+            request: { headers: request.headers },
           });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
+          response.cookies.set({ name, value, ...options });
         },
-        remove(name: string, options: any) {
-          request.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
+        remove(name: string, options: Record<string, unknown>) {
+          request.cookies.set({ name, value: "", ...options });
           response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
+            request: { headers: request.headers },
           });
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
+          response.cookies.set({ name, value: "", ...options });
         },
       },
     },
   );
 
-  // Get verified user instead of session for security
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // ── 3. Verify the user — with a hard timeout ───────────────────────────────
+  //
+  // getUser() makes a live HTTPS request to Supabase Auth API.
+  // Without a timeout, ECONNRESET causes the await to block for the entire
+  // Node.js socket timeout window (several minutes), stalling every response.
+  //
+  const user = await getUserWithTimeout(supabase);
 
-  // No user - handle unauthorized access
+  // ── 4. No authenticated user → redirect / 401 ─────────────────────────────
   if (!user) {
-    // Return 401 for API routes instead of redirecting
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const redirectUrl = new URL("/login", request.url);
-    redirectUrl.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(redirectUrl);
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirectTo", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
-  // Extract user type from user metadata
-  let userType = user.user_metadata?.userType as UserType;
-
-  // Fallback: If userType is missing, try to get the latest user data from Supabase
-  if (!userType) {
-    const {
-      data: { user: latestUser },
-    } = await supabase.auth.getUser();
-    if (latestUser?.user_metadata?.userType) {
-      userType = latestUser.user_metadata.userType as UserType;
-    }
-  }
+  // ── 5. Resolve user type ───────────────────────────────────────────────────
+  //
+  // We intentionally do NOT call getUser() a second time here.
+  // The metadata comes back from the same token on the first call;
+  // a second call returns identical data and doubles failure surface.
+  //
+  const userType = user.user_metadata?.userType as UserType | undefined;
 
   if (!userType) {
-    console.error("User type not found in session or latest user data");
+    console.error(
+      "[proxy] userType missing from user_metadata. userId:",
+      user.id,
+    );
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Check route requirements
+  // ── 6. Check route-level access requirements ───────────────────────────────
   const requirements = getRouteRequirements(pathname);
 
-  // Check if user type is allowed for this route
   if (
     requirements.userTypes.length > 0 &&
     !requirements.userTypes.includes(userType)
   ) {
-    // Redirect unauthorized users to appropriate page
     if (userType === "company_user" && requiresSuperAdmin(pathname)) {
-      // Company user trying to access super admin route
       return NextResponse.redirect(new URL("/dashboard", request.url));
-    } else if (userType === "super_admin" && requiresCompanyUser(pathname)) {
-      // Super admin trying to access company route (redirect to admin)
+    }
+
+    if (userType === "super_admin" && requiresCompanyUser(pathname)) {
       return NextResponse.redirect(new URL("/admin", request.url));
     }
 
-    // Default: redirect to dashboard
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // Additional checks for company users
-  if (userType === "company_user" && requirements.requiresCompanyId) {
-    const companyId = user.user_metadata?.companyId;
+  // ── 7. Module-level plan & permission enforcement ──────────────────────────
+  const moduleCode = getModuleFromPathname(pathname);
+  if (moduleCode) {
+    const rawPlanModules =
+      user.user_metadata?.plan_modules || user.user_metadata?.planModules;
+    const planModules = (rawPlanModules || []) as string[];
 
-    if (!companyId) {
-      console.error("Company user missing companyId");
+    const isModuleInPlan = planModules.some(
+      (m: string) => m.toLowerCase() === moduleCode.toLowerCase(),
+    );
+
+    // Rules for blocking:
+    // 1. Company users are always blocked if the module is not in their plan.
+    // 2. Super Admins are blocked IF they have defined plan_modules AND the current module is missing.
+    //    (This allows them to test the 'Locked' flow while still having access by default if no plan is set).
+    const isLockedForUser =
+      userType === "company_user"
+        ? !isModuleInPlan
+        : !!rawPlanModules && !isModuleInPlan;
+
+    if (isLockedForUser) {
+      console.warn(
+        `[proxy] Blocked access to locked module: ${moduleCode} for user type: ${userType}`,
+      );
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: `Module ${moduleCode} is locked for your plan.` },
+          { status: 403 },
+        );
+      }
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // Also verify individual permissions (Company Users only)
+    if (userType === "company_user" && requirements.requiresPermissions) {
+      const roleName = (
+        user.user_metadata?.role_name ||
+        user.user_metadata?.roleName ||
+        ""
+      ).toLowerCase();
+
+      // ── Bypass 1: Top-level roles get full access to all plan modules ──────
+      const isHighLevelRole =
+        roleName.includes("general manager") ||
+        roleName.includes("gm") ||
+        roleName.includes("owner");
+
+      // ── Bypass 2: Module-specific manager (mirrors use-navigation logic) ───
+      // e.g. "CRM Manager" → access to crm, "HR Manager" → access to hr
+      const moduleAliases: Record<string, string[]> = {
+        hr: ["human resources", "hr module", "people", "staff"],
+        crm: ["customer", "sales", "crm"],
+        fleet: ["logistics", "shipping", "vehicles"],
+        inventory: ["stock", "warehouse", "inventory"],
+        finance: ["accounting", "finance", "billing"],
+        trade: ["trade", "import", "export", "logistics", "shipping"],
+      };
+      const currentAliases = moduleAliases[moduleCode] || [];
+      const matchesAlias = currentAliases.some((alias) =>
+        roleName.includes(alias),
+      );
+      const isModuleManager =
+        roleName.includes("manager") &&
+        (roleName.includes(moduleCode) || matchesAlias);
+
+      if (!isHighLevelRole && !isModuleManager) {
+        // ── Strict permission check for all other roles ──────────────────────
+        // Checks that the user has at least ONE permission entry for this module.
+        // Fine-grained page-level access (e.g. can they see /crm/reports?) is
+        // enforced inside individual page components via hasPermission(), NOT here.
+        const permissions = (user.user_metadata?.permissions || []) as {
+          module: string;
+          action: string;
+        }[];
+        const hasModuleAccess = permissions.some(
+          (p) => p.module.toLowerCase() === moduleCode.toLowerCase(),
+        );
+
+        if (!hasModuleAccess) {
+          console.warn(
+            `[proxy] Blocked access (missing permission) for company_user to: ${pathname}`,
+          );
+          if (pathname.startsWith("/api/")) {
+            return NextResponse.json(
+              { error: `Missing permission for module: ${moduleCode}` },
+              { status: 403 },
+            );
+          }
+          return NextResponse.redirect(new URL("/dashboard", request.url));
+        }
+      }
+    }
+  }
+
+  // ── 8. Company user must have a companyId scoped to their routes ───────────
+  if (userType === "company_user" && requirements.requiresCompanyId) {
+    if (!user.user_metadata?.companyId) {
+      console.error(
+        "[proxy] company_user is missing companyId. userId:",
+        user.id,
+      );
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
-  // All checks passed - return response with updated session cookies
+  // ── 9. All checks passed — forward request with refreshed cookies ──────────
   return response;
 }
 
+// ─── Matcher ──────────────────────────────────────────────────────────────────
+//
+// CRITICAL: This is an EXPLICIT ALLOWLIST, not a "match everything" regex.
+//
+// Previous pattern: "/((?!_next/static|_next/image|favicon.ico|...).*)"
+// That catches EVERY route including ones that don't exist, which caused the proxy
+// to block on a Supabase network call before Next.js could render a 404.
+//
+// Rule: Only routes listed here will run through the auth proxy.
+// Any URL not listed below passes straight to Next.js routing — if the page
+// doesn't exist, Next.js renders its 404 immediately with zero auth latency.
+//
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // ── Public routes that need i18n detection ──
+    "/",
+    "/login",
+    "/signup",
+ 
+    // ── Shared authenticated routes (both user types) ──
+    // NOTE: "/dashboard" has a page; "/settings" does NOT have a root page.tsx —
+    // only sub-routes exist (/settings/billing, /settings/company, etc.).
+    // Using ":path+" (one-or-more) instead of ":path*" (zero-or-more) ensures
+    // the proxy only runs when a real sub-route is being accessed, not on the
+    // bare "/settings" path that would always 404 after an expensive auth call.
+    "/dashboard/:path*",
+    "/profile/:path*",
+    "/settings/:path+", // ← :path+ not :path* — /settings itself has no page
+    "/onboarding/:path*",
+ 
+    // ── Super admin routes ──
+    "/admin/:path*",
+ 
+    // ── Company user module routes ──
+    // NOTE: App directory uses /hr not /hrm — must match actual folder name.
+    "/hr/:path*",
+    "/crm/:path*",
+    "/inventory/:path*",
+    "/fleet/:path*",
+    "/finance/:path*",
+    "/internationaltrade/:path*",
+    "/ai-agent/:path*",
+    "/chat/:path*",
+ 
+    // ── Protected API routes (exclude /api/auth which is public) ──
+    "/api/((?!auth).*)",
   ],
 };

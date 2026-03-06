@@ -84,13 +84,6 @@ export const NAV_CONFIG: NavItem[] = [
         iconClassName: "text-cyan-500",
       },
       {
-        id: "fleet-shipments",
-        label: "Shipments",
-        href: "/fleet/shipments",
-        icon: Ship,
-        iconClassName: "text-blue-500",
-      },
-      {
         id: "fleet-vehicles",
         label: "Vehicles",
         href: "/fleet/vehicles",
@@ -123,7 +116,7 @@ export const NAV_CONFIG: NavItem[] = [
     roles: ["super_admin", "company_user"],
     subItems: [
       {
-        id: "overviews",
+        id: "reports",
         label: "Overviews",
         href: "/crm/overviews",
         icon: BarChart3,
@@ -299,7 +292,7 @@ export const NAV_CONFIG: NavItem[] = [
     label: "Settings",
     icon: Settings,
     iconClassName: "text-slate-500",
-    href: "/settings",
+    href: "/coming-soon",
     roles: ["super_admin", "company_user"],
   },
 ];
