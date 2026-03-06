@@ -59,10 +59,27 @@ export default function VehiclesPage() {
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
+  // ── UI state for Pagination ─────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "online" | "offline"
+  >("all");
+
   // ── Data via React Query ──────────────────────────────────────────────────
-  const { data: vehicles = [], isLoading: loadingVehicles } =
-    useVehicles(companyId);
-  const { data: drivers = [] } = useDrivers(companyId);
+  const { data: vehicleResponse, isLoading: loadingVehicles } =
+    useVehicles(companyId, { 
+      page, 
+      pageSize, 
+      search: searchTerm, 
+      status: statusFilter 
+    });
+  
+  const vehicles = useMemo(() => vehicleResponse?.data || [], [vehicleResponse]);
+  const totalVehicles = vehicleResponse?.total || 0;
+
+  const { data: drivers = [] as any[] } = useDrivers(companyId);
   const { data: vehicleTypes = [] } = useVehicleTypes();
   const { data: columnDefs = [] } = useFleetColumnDefs("vehicles", companyId);
 
@@ -97,12 +114,6 @@ export default function VehiclesPage() {
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<
-    "all" | "online" | "offline"
-  >("all");
-
-  const data = vehicles;
 
   // Build unique driver options from driver_assignments.
   // driver_id is the UUID of the employee; driver_name is the display label.
@@ -112,7 +123,10 @@ export default function VehiclesPage() {
     const opts: { label: string; value: string }[] = [
       { label: `— ${t("fleet_vehicles.unassigned")} —`, value: "none" },
     ];
-    for (const d of drivers) {
+    
+    const driverList = (drivers as any)?.data || (drivers as any) || [];
+    
+    for (const d of driverList) {
       if (d.driver_id && !seen.has(d.driver_id)) {
         seen.add(d.driver_id);
         opts.push({ label: d.driver_name || d.driver_id, value: d.driver_id });
@@ -211,8 +225,8 @@ export default function VehiclesPage() {
         },
         cell: ({ row }: any) => {
           const driverId = row.original.assigned_driver_id;
-          // Find the driver record from driver_assignments that matches this vehicle's assigned driver
-          const driverRecord = drivers.find((d) => d.driver_id === driverId);
+          const driverList = (drivers as any)?.data || (drivers as any) || [];
+          const driverRecord = driverList.find((d: any) => d.driver_id === driverId);
           if (!driverId || !driverRecord)
             return (
               <span className="text-muted-foreground italic text-xs">
@@ -308,24 +322,10 @@ export default function VehiclesPage() {
     [driverOptions, drivers, t, vehicleTypes],
   );
 
-  const filteredData = useMemo(() => {
-    return data.filter((v) => {
-      const driverRecord = drivers.find(
-        (d) => d.driver_id === v.assigned_driver_id,
-      );
-      const searchStr =
-        `${v.make} ${v.model} ${v.license_plate} ${driverRecord?.driver_name || ""} ${v.custom_fields?.gps_id || ""}`.toLowerCase();
-      const matchesSearch = searchStr.includes(searchTerm.toLowerCase());
-
-      const isActive = v.is_active || v.traccar_status?.trim() === "online";
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "online" && isActive) ||
-        (statusFilter === "offline" && !isActive);
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [data, searchTerm, statusFilter, drivers]);
+  // With server-side filtering, filteredData is basically data from API
+  const displayData = useMemo(() => {
+    return vehicles;
+  }, [vehicles]);
 
   const handleUpdate = async (id: string, updatedFields: any) => {
     try {
@@ -356,7 +356,7 @@ export default function VehiclesPage() {
         }
       });
 
-      const existing = data.find((v) => v.id === id);
+      const existing = vehicles.find((v) => v.id === id);
       const mergedCustom = {
         ...(existing?.custom_fields || {}),
         ...customData,
@@ -540,7 +540,7 @@ export default function VehiclesPage() {
       <div className="bg-white rounded-3xl border border-border overflow-hidden shadow-sm min-h-[600px] flex flex-col">
         {viewMode === "list" ? (
           <EditableTable
-            data={filteredData.map((v) => ({
+            data={displayData.map((v) => ({
               ...v,
               gps_id: v.custom_fields?.gps_id || "",
               gps_status: v.custom_fields?.gps_status || "inactive",
@@ -558,10 +558,15 @@ export default function VehiclesPage() {
             onColumnAdd={handleColumnAdd}
             onColumnUpdate={handleColumnUpdate}
             onColumnDelete={handleColumnDelete}
+            pagination={true}
+            currentPage={page}
+            totalRows={totalVehicles}
+            pageSize={pageSize}
+            onPageChange={(p) => setPage(p)}
           />
         ) : (
           <div className="flex-1 w-full relative">
-            <VehicleMap vehicles={filteredData} />
+            <VehicleMap vehicles={displayData} />
           </div>
         )}
       </div>

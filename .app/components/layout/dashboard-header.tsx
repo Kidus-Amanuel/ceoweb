@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "@/components/shared/data-display/language-switcher";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 interface DashboardHeaderProps {
   onMobileMenuToggle?: () => void;
@@ -88,10 +89,7 @@ export function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderProps) {
         <LanguageSwitcher />
 
         {/* Notifications */}
-        <button className="relative p-2 hover:bg-muted/50 rounded-xl transition-colors text-muted-foreground hover:text-foreground border border-border/50">
-          <Bell className="w-4 h-4 text-amber-500" />
-          <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-primary rounded-full border-2 border-background" />
-        </button>
+        <NotificationBell />
       </div>
     </header>
   );

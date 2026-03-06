@@ -56,9 +56,25 @@ export default function DriversPage() {
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
+  // ── UI state for Pagination ─────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "ended">(
+    "all",
+  );
+
   // ── Data via React Query ──────────────────────────────────────────────────
-  const { data: rawDrivers = [], isLoading: loading } = useDrivers(companyId);
-  const { data: rawVehicles = [] } = useVehicles(companyId);
+  const { data: driverResponse, isLoading: loading } = useDrivers(companyId, {
+    page,
+    pageSize,
+    search: searchTerm,
+    status: statusFilter
+  });
+
+  const rawDrivers = useMemo(() => driverResponse?.data || [], [driverResponse]);
+  const totalDrivers = driverResponse?.total || 0;
+  const { data: rawVehicles = [] as any[] } = useVehicles(companyId);
   const { data: employees = [] } = useEmployees(companyId);
   const { data: columnDefs = [] } = useFleetColumnDefs("drivers", companyId);
 
@@ -106,41 +122,26 @@ export default function DriversPage() {
     [employees],
   );
 
-  const vehicleOptions = useMemo(
-    () => [
+  const vehicleOptions = useMemo(() => {
+    const list = (rawVehicles as any)?.data || (rawVehicles as any) || [];
+    return [
       { label: t("fleet_drivers.no_vehicle_option"), value: "none" },
-      ...(rawVehicles as any[]).map((v: any) => ({
+      ...list.map((v: any) => ({
         label: `${v.make || ""} ${v.model || ""} ${
           v.license_plate ? "\u00b7 " + v.license_plate : ""
         }`.trim(),
         value: v.id,
       })),
-    ],
-    [rawVehicles, t],
-  );
-
-  // ── UI state ─────────────────────────────────────────────────────────────
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "ended">(
-    "all",
-  );
+    ];
+  }, [rawVehicles, t]);
 
   const isActive = (a: Assignment) =>
     !a.end_date || new Date(a.end_date) >= new Date();
 
-  const filteredData = useMemo(() => {
-    return data.filter((a) => {
-      const searchStr =
-        `${a.driver_name} ${a.driver_email} ${a.vehicle_label || ""} ${a.vehicle_plate} ${a.notes}`.toLowerCase();
-      const matchesSearch = searchStr.includes(searchTerm.toLowerCase());
-      const active = isActive(a);
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "active" && active) ||
-        (statusFilter === "ended" && !active);
-      return matchesSearch && matchesStatus;
-    });
-  }, [data, searchTerm, statusFilter]);
+  // With server-side filtering, data is already filtered/assigned
+  const displayData = useMemo(() => {
+    return data;
+  }, [data]);
 
   const stats = useMemo(
     () => ({
@@ -440,7 +441,7 @@ export default function DriversPage() {
         </div>
 
         <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-wider text-slate-400">
-          <span>{t("fleet_drivers.stat_total", { count: stats.total })}</span>
+          <span>{t("fleet_drivers.stat_total", { count: totalDrivers })}</span>
           <span className="text-emerald-500">
             {t("fleet_drivers.stat_active", { count: stats.active })}
           </span>
@@ -456,7 +457,7 @@ export default function DriversPage() {
         ) : (
           <EditableTable
             hideHeader={true}
-            data={filteredData}
+            data={displayData}
             columns={columns}
             virtualColumns={virtualColumns}
             onAdd={handleAdd}
@@ -465,6 +466,11 @@ export default function DriversPage() {
             onColumnAdd={handleColumnAdd}
             onColumnUpdate={handleColumnUpdate}
             onColumnDelete={handleColumnDelete}
+            pagination={true}
+            currentPage={page}
+            totalRows={totalDrivers}
+            pageSize={pageSize}
+            onPageChange={(p) => setPage(p)}
           />
         )}
       </div>

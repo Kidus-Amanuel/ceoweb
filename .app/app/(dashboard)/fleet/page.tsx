@@ -203,23 +203,23 @@ export default function FleetOverviewPage() {
       else setLoading(true);
       try {
         const [vRes, dRes, mRes, fRes] = await Promise.all([
-          fetch("/api/fleet/vehicles"),
-          fetch("/api/fleet/drivers"),
-          fetch("/api/fleet/maintenance"),
+          fetch("/api/fleet/vehicles?pageSize=10000"),
+          fetch("/api/fleet/drivers?pageSize=10000"),
+          fetch("/api/fleet/maintenance?pageSize=10000"),
           fetch("/api/fleet/fuel-logs").catch(() => ({ ok: false })),
         ]);
 
-        const [vData, dData, mData, fData] = await Promise.all([
+        const [vJson, dJson, mJson, fJson] = await Promise.all([
           vRes.ok ? (vRes as Response).json() : [],
           dRes.ok ? (dRes as Response).json() : [],
           mRes.ok ? (mRes as Response).json() : [],
           (fRes as any).ok ? (fRes as Response).json() : [],
         ]);
 
-        setVehicles(vData || []);
-        setDrivers(dData || []);
-        setMaintenance(mData || []);
-        setFuelLogs(fData || []);
+        setVehicles(vJson?.data || vJson || []);
+        setDrivers(dJson?.data || dJson || []);
+        setMaintenance(mJson?.data || mJson || []);
+        setFuelLogs(fJson?.data || fJson || []);
         setLastRefresh(new Date());
       } catch (err) {
         console.error("[Fleet Overview] load failed:", err);

@@ -180,9 +180,23 @@ export default function MaintenancePage() {
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
+  // ── UI state for Pagination ─────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | MaintenanceType>("all");
+
   // ── Data via React Query ──────────────────────────────────────────────────
-  const { data: rawMaintenance = [], isLoading: loading } =
-    useMaintenance(companyId);
+  const { data: maintenanceResponse, isLoading: loading } =
+    useMaintenance(companyId, {
+      page,
+      pageSize,
+      search: searchTerm,
+      type: typeFilter
+    });
+    
+  const rawMaintenance = useMemo(() => maintenanceResponse?.data || [], [maintenanceResponse]);
+  const totalMaintenance = maintenanceResponse?.total || 0;
   const { data: rawVehicles = [] } = useVehicles(companyId);
   const { data: columnDefs = [] } = useFleetColumnDefs(
     "maintenance",
@@ -225,20 +239,17 @@ export default function MaintenancePage() {
     [rawMaintenance],
   );
 
-  const vehicleOptions = useMemo(
-    () =>
-      (rawVehicles as any[]).map((v: any) => ({
-        label: `${v.make ?? ""} ${v.model ?? ""} ${
-          v.license_plate ? "· " + v.license_plate : ""
-        }`.trim(),
-        value: v.id,
-      })),
-    [rawVehicles],
-  );
+  const vehicleOptions = useMemo(() => {
+    const list = (rawVehicles as any)?.data || (rawVehicles as any) || [];
+    return list.map((v: any) => ({
+      label: `${v.make ?? ""} ${v.model ?? ""} ${
+        v.license_plate ? "· " + v.license_plate : ""
+      }`.trim(),
+      value: v.id,
+    }));
+  }, [rawVehicles]);
 
-  // ── UI state ─────────────────────────────────────────────────────────────
-  const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | MaintenanceType>("all");
+  const isActive = true; // For any unused items without errors
 
   // ── Stats ──────────────────────────────────────────────────────────────────
 
@@ -260,25 +271,10 @@ export default function MaintenancePage() {
 
   // ── Filtered data ──────────────────────────────────────────────────────────
 
-  const filteredData = useMemo(() => {
-    return data.filter((r) => {
-      const q = searchTerm.toLowerCase();
-      const haystack = [
-        r.description,
-        r.vehicle_label,
-        r.vehicle_plate,
-        r.performed_by,
-        r.notes,
-        r.type,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      const matchesSearch = !q || haystack.includes(q);
-      const matchesType = typeFilter === "all" || r.type === typeFilter;
-      return matchesSearch && matchesType;
-    });
-  }, [data, searchTerm, typeFilter]);
+  // With server-side filtering, filteredData is basically data from API
+  const displayData = useMemo(() => {
+    return data;
+  }, [data]);
 
   // ── Virtual Columns ────────────────────────────────────────────────────────
 
@@ -648,8 +644,8 @@ export default function MaintenancePage() {
         {/* Record count */}
         <span className="ml-auto text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">
           {t("fleet_maintenance.record_count", {
-            filtered: filteredData.length,
-            total: data.length,
+            filtered: displayData.length,
+            total: totalMaintenance,
           })}
         </span>
       </div>
@@ -662,7 +658,7 @@ export default function MaintenancePage() {
           <EditableTable
             title={t("fleet_maintenance.table_title")}
             description={t("fleet_maintenance.table_description")}
-            data={filteredData}
+            data={displayData}
             columns={columns}
             virtualColumns={virtualColumns}
             onAdd={handleAdd}
@@ -672,6 +668,11 @@ export default function MaintenancePage() {
             onColumnAdd={handleColumnAdd}
             onColumnUpdate={handleColumnUpdate}
             onColumnDelete={handleColumnDelete}
+            pagination={true}
+            currentPage={page}
+            totalRows={totalMaintenance}
+            pageSize={pageSize}
+            onPageChange={(p) => setPage(p)}
           />
         )}
       </div>

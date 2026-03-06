@@ -6,13 +6,17 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const qv_company_id = searchParams.get("company_id"); // Cache buster
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "20");
+    const search = searchParams.get("search") || "";
+    const status = searchParams.get("status") || "all";
+    
     const auth = await requireFleetAuth();
     if (auth instanceof NextResponse) return auth;
     const { supabase, companyId } = auth;
 
     // Fetch driver assignments with employee and vehicle details
-    const { data: assignments, error } = await supabase
+    let query = supabase
       .from("driver_assignments")
       .select(
         `
@@ -41,19 +45,33 @@ export async function GET(req: Request) {
           license_plate
         )
       `,
+        { count: "exact" }
       )
       .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+      .is("deleted_at", null);
+
+    if (search) {
+      // Basic text search on driver assignments
+      query = query.or(`notes.ilike.%${search}%`);
+    }
+
+    if (status === "active") {
+      query = query.or('end_date.is.null,end_date.gte.now()');
+    } else if (status === "ended") {
+      query = query.lt('end_date', 'now()');
+    }
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data: assignments, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (error) throw error;
-    console.log(
-      `[Fleet API] DB Driver Assignments for company ${companyId}:`,
-      assignments?.length || 0,
-    );
-
+    
     // Shape the data
-    const shaped = assignments.map((a: any) => {
+    const shaped = (assignments || []).map((a: any) => {
       const emp = a.employees;
       const veh = a.vehicles;
       return {
@@ -66,19 +84,39 @@ export async function GET(req: Request) {
         custom_fields: a.custom_fields || {},
         // Employee fields (read-only display)
         driver_name: emp
-          ? `${emp.first_name} ${emp.last_name}`.trim()
+          ? `${emp.first_name || ""} ${emp.last_name || ""}`.trim()
           : "Unknown",
         driver_email: emp?.email || "",
         driver_title: emp?.job_title || "",
         driver_code: emp?.employee_code || "",
         // Vehicle fields (read-only display)
-        vehicle_label: veh ? `${veh.make} ${veh.model}` : null,
+        vehicle_label: veh ? `${veh.make || ""} ${veh.model || ""}` : null,
         vehicle_plate: veh?.license_plate || veh?.vehicle_number || "",
         vehicle_number: veh?.vehicle_number || "",
       };
     });
 
-    return NextResponse.json(shaped);
+    // Frontend fallback filtering for complicated relation search
+    let textFiltered = shaped;
+    if (search) {
+      const q = search.toLowerCase();
+      textFiltered = shaped.filter(a => 
+        (a.driver_name && a.driver_name.toLowerCase().includes(q)) ||
+        (a.driver_email && a.driver_email.toLowerCase().includes(q)) ||
+        (a.vehicle_label && a.vehicle_label.toLowerCase().includes(q)) ||
+        (a.vehicle_plate && a.vehicle_plate.toLowerCase().includes(q)) ||
+        (a.notes && a.notes.toLowerCase().includes(q))
+      );
+    }
+    
+    // We return total as count from DB, but if textFiltered is smaller due to frontend filter, 
+    // it will just reduce current page. Real full-text cross-table search should be done in DB view.
+    return NextResponse.json({
+        data: textFiltered,
+        total: search ? textFiltered.length : (count || 0),
+        page,
+        pageSize
+    });
   } catch (error: any) {
     console.error("[Fleet Drivers API] GET Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
