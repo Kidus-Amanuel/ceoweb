@@ -1,17 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { VirtualColumn } from "@/components/shared/table/EditableTable";
-import {
-  createCrmCustomFieldAction,
-  createCrmRowAction,
-  deleteCrmCustomFieldAction,
-  deleteCrmRowAction,
-  getCrmTableViewAction,
-  updateCrmCustomFieldAction,
-  updateCrmRowAction,
-} from "@/app/api/crm/crm";
 import { CRM_TABLE_PAGE_SIZE_DEFAULT } from "@/lib/constants/crm-pagination";
 import {
   asRecord,
@@ -24,75 +16,167 @@ import {
   type RawRow,
   type SelectOption,
 } from "@/components/crm/workspace/crm-workspace.shared";
+import {
+  createCrmCustomFieldAction,
+  createCrmRowAction,
+  deleteCrmCustomFieldAction,
+  deleteCrmRowAction,
+  updateCrmCustomFieldAction,
+  updateCrmRowAction,
+} from "@/components/crm/workspace/queries/crm-workspace.query-actions";
+import {
+  crmKeys,
+  getCrmFiltersHash,
+  isCrmRowsKeyForScope,
+  normalizeCrmWorkspaceFilters,
+  useCrmColumnsQuery,
+  useCrmRelationsQueries,
+  useCrmRowsQuery,
+  type CrmRowsQueryData,
+} from "@/components/crm/workspace/queries/crm-workspace.queries";
 import { CrmWorkspaceTable } from "@/components/crm/workspace/CrmWorkspaceTable";
 import TabSkeleton from "./TabSkeleton";
 
 type CustomersTabProps = {
   companyId: string;
   searchQuery: string;
+  refreshNonce?: number;
+  onRefreshStateChange?: (refreshing: boolean) => void;
+  onMutationStateChange?: (mutating: boolean) => void;
 };
+
+const TABLE = "customers" as const;
+
+const isSameQueryKey = (left: readonly unknown[], right: readonly unknown[]) =>
+  left.length === right.length &&
+  left.every((value, index) => value === right[index]);
+
+const mergePayloadIntoRow = (row: RawRow, payload: Record<string, unknown>) => {
+  const nextRow = { ...row };
+  for (const [key, value] of Object.entries(payload)) {
+    if (key === "customValues") {
+      const mergedCustom = {
+        ...asRecord(row.custom_data ?? row.custom_fields),
+        ...asRecord(value),
+      };
+      nextRow.custom_data = mergedCustom;
+      nextRow.custom_fields = mergedCustom;
+      continue;
+    }
+    (nextRow as Record<string, unknown>)[key] = value;
+  }
+  return nextRow;
+};
+
+const toVirtualColumns = (fields: Record<string, unknown>[]): VirtualColumn[] =>
+  fields.map((field) => {
+    const rawOptions = Array.isArray(field.field_options)
+      ? field.field_options
+      : [];
+    return {
+      id: String(field.field_name ?? field.id),
+      label: String(field.field_label || field.field_name),
+      key: String(field.field_name),
+      type: mapFieldType(String(field.field_type || "text")),
+      options: rawOptions.map((option: unknown) =>
+        option && typeof option === "object" && !Array.isArray(option)
+          ? {
+              label: String(
+                (option as { label?: unknown }).label ??
+                  (option as { value?: unknown }).value ??
+                  "",
+              ),
+              value: String(
+                (option as { value?: unknown }).value ??
+                  (option as { label?: unknown }).label ??
+                  "",
+              ),
+            }
+          : { label: String(option), value: String(option) },
+      ),
+    };
+  });
 
 export default function CustomersTab({
   companyId,
   searchQuery,
+  refreshNonce = 0,
+  onRefreshStateChange,
+  onMutationStateChange,
 }: CustomersTabProps) {
   const searchParams = useSearchParams();
-  const [rows, setRows] = useState<RawRow[]>([]);
-  const [columnDefinitions, setColumnDefinitions] = useState<
-    Record<string, unknown>[]
-  >([]);
-  const [users, setUsers] = useState<SelectOption[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalRows, setTotalRows] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
+  const queryClient = useQueryClient();
   const pageSize = CRM_TABLE_PAGE_SIZE_DEFAULT;
   const selectedRowId = searchParams.get("rowId");
+  const [pageState, setPageState] = useState({ page: 1, search: "" });
+  const [error, setError] = useState<string | null>(null);
+  const rowUpdateQueueRef = useRef(new Map<string, Promise<void>>());
 
-  const loadTableView = useCallback(
-    async (page: number) => {
-      setIsPending(true);
-      setError(null);
-      try {
-        const response = await getCrmTableViewAction({
-          companyId,
-          table: "customers",
-          page,
-          pageSize,
-          search: searchQuery || undefined,
-        });
-        if (!response.success || !response.data) {
-          setError(
-            toFriendlyCrmError(response.error || "Failed to load customers."),
-          );
-          return;
-        }
-        setRows((response.data.rows as RawRow[]) || []);
-        setColumnDefinitions(response.data.columnDefinitions || []);
-        setTotalRows(response.data.totalRows || 0);
-        setUsers(response.data.users || []);
-      } catch (loadError) {
-        setError(
-          toFriendlyCrmError(
-            loadError instanceof Error
-              ? loadError.message
-              : "Failed to load customers.",
-          ),
-        );
-      } finally {
-        setIsPending(false);
-      }
-    },
-    [companyId, pageSize, searchQuery],
+  const normalizedSearch = useMemo(
+    () => normalizeCrmWorkspaceFilters({ search: searchQuery }).search,
+    [searchQuery],
   );
+  const filtersHash = useMemo(
+    () => getCrmFiltersHash({ search: normalizedSearch }),
+    [normalizedSearch],
+  );
+  const currentPage =
+    pageState.search === normalizedSearch ? pageState.page : 1;
+
+  const rowsRootParams = useMemo(
+    () => ({
+      companyId,
+      table: TABLE,
+      pageSize,
+      search: normalizedSearch,
+      filtersHash,
+    }),
+    [companyId, filtersHash, normalizedSearch, pageSize],
+  );
+  const rowsParams = useMemo(
+    () => ({
+      ...rowsRootParams,
+      page: currentPage,
+    }),
+    [currentPage, rowsRootParams],
+  );
+  const currentRowsKey = useMemo(() => crmKeys.rows(rowsParams), [rowsParams]);
+
+  const rowsQuery = useCrmRowsQuery(rowsParams);
+  const columnsQuery = useCrmColumnsQuery({ companyId, table: TABLE });
+  const relationsQuery = useCrmRelationsQueries({ companyId, table: TABLE });
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
+    if (!refreshNonce) return;
+    onRefreshStateChange?.(true);
+    void Promise.all([
+      rowsQuery.refetch(),
+      columnsQuery.refetch(),
+      relationsQuery.refetchAll(),
+      queryClient.invalidateQueries({
+        queryKey: crmKeys.counts({ companyId }),
+      }),
+    ]).finally(() => onRefreshStateChange?.(false));
+  }, [
+    refreshNonce,
+    rowsQuery,
+    columnsQuery,
+    relationsQuery,
+    queryClient,
+    companyId,
+    onRefreshStateChange,
+  ]);
 
-  useEffect(() => {
-    void loadTableView(currentPage);
-  }, [currentPage, loadTableView]);
+  const rows = useMemo(
+    () => rowsQuery.data?.rows ?? [],
+    [rowsQuery.data?.rows],
+  );
+  const totalRows = rowsQuery.data?.totalRows ?? 0;
+  const columnDefinitions = useMemo(
+    () => columnsQuery.data ?? [],
+    [columnsQuery.data],
+  );
+  const users = relationsQuery.users;
 
   const rowsById = useMemo(
     () => new Map(rows.map((row) => [row.id, row] as const)),
@@ -107,58 +191,69 @@ export default function CustomersTab({
     [users],
   );
   const gridData = useMemo(
-    () => rows.map((row) => normalizeRowForGrid("customers", row)),
+    () => rows.map((row) => normalizeRowForGrid(TABLE, row)),
     [rows],
   );
-  const virtualColumns = useMemo<VirtualColumn[]>(
-    () =>
-      columnDefinitions.map((field) => {
-        const rawOptions = Array.isArray(field.field_options)
-          ? field.field_options
-          : [];
-        return {
-          id: String(field.field_name ?? field.id),
-          label: String(field.field_label || field.field_name),
-          key: String(field.field_name),
-          type: mapFieldType(String(field.field_type || "text")),
-          options: rawOptions.map((option: unknown) =>
-            option && typeof option === "object" && !Array.isArray(option)
-              ? {
-                  label: String(
-                    (option as { label?: unknown }).label ??
-                      (option as { value?: unknown }).value ??
-                      "",
-                  ),
-                  value: String(
-                    (option as { value?: unknown }).value ??
-                      (option as { label?: unknown }).label ??
-                      "",
-                  ),
-                }
-              : { label: String(option), value: String(option) },
-          ),
-        };
-      }),
+  const virtualColumns = useMemo(
+    () => toVirtualColumns(columnDefinitions),
     [columnDefinitions],
   );
 
-  const handleAddRow = async (payload: Record<string, unknown>) => {
-    setError(null);
-    try {
+  const queryError =
+    (rowsQuery.error instanceof Error && rowsQuery.error.message) ||
+    (columnsQuery.error instanceof Error && columnsQuery.error.message) ||
+    relationsQuery.error ||
+    null;
+  const displayError = error ?? queryError;
+
+  const setCurrentRowsData = useCallback(
+    (updater: (current: CrmRowsQueryData) => CrmRowsQueryData) => {
+      queryClient.setQueryData<CrmRowsQueryData>(currentRowsKey, (current) =>
+        current ? updater(current) : current,
+      );
+    },
+    [currentRowsKey, queryClient],
+  );
+
+  const invalidateRowsScope = useCallback(
+    (includeCurrentPage = false) =>
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey as readonly unknown[];
+          if (!isCrmRowsKeyForScope(key, rowsRootParams)) return false;
+          return includeCurrentPage || !isSameQueryKey(key, currentRowsKey);
+        },
+      }),
+    [currentRowsKey, queryClient, rowsRootParams],
+  );
+
+  const createRowMutation = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
       const response = await createCrmRowAction({
         companyId,
-        table: "customers",
-        standardData: crmViewHelpers.serializeStandardData(
-          "customers",
-          payload,
-        ),
+        table: TABLE,
+        standardData: crmViewHelpers.serializeStandardData(TABLE, payload),
         customData: asRecord(payload.customValues),
       });
-      if (!response.success) {
+      if (!response.success || !response.data) {
         throw new Error(response.error || "Failed to create customer row.");
       }
-      await loadTableView(currentPage);
-    } catch (mutationError) {
+      return response.data as RawRow;
+    },
+    onSuccess: (createdRow) => {
+      setCurrentRowsData((current) => ({
+        rows:
+          currentPage === 1
+            ? [createdRow, ...current.rows].slice(0, pageSize)
+            : current.rows,
+        totalRows: current.totalRows + 1,
+      }));
+      void invalidateRowsScope(currentPage !== 1);
+      void queryClient.invalidateQueries({
+        queryKey: crmKeys.counts({ companyId }),
+      });
+    },
+    onError: (mutationError) => {
       setError(
         toFriendlyCrmError(
           mutationError instanceof Error
@@ -166,41 +261,56 @@ export default function CustomersTab({
             : "Failed to create customer row.",
         ),
       );
-      throw mutationError;
-    }
-  };
+    },
+  });
 
-  const handleUpdateRow = async (
-    rowId: string,
-    payload: Record<string, unknown>,
-  ) => {
-    setError(null);
-    const existingRow = rowsById.get(rowId);
-    const nextCustomValues =
-      payload.customValues !== undefined
-        ? asRecord(payload.customValues)
-        : asRecord(existingRow?.custom_data ?? existingRow?.custom_fields);
-    try {
+  const updateRowMutation = useMutation({
+    mutationFn: async ({
+      rowId,
+      payload,
+    }: {
+      rowId: string;
+      payload: Record<string, unknown>;
+    }) => {
+      const existingRow = rowsById.get(rowId);
+      const nextCustomValues =
+        payload.customValues !== undefined
+          ? asRecord(payload.customValues)
+          : asRecord(existingRow?.custom_data ?? existingRow?.custom_fields);
       const response = await updateCrmRowAction({
         companyId,
-        table: "customers",
+        table: TABLE,
         rowId,
         standardData: crmViewHelpers.serializeStandardData(
-          "customers",
+          TABLE,
           payload,
           existingRow,
         ),
         customData: nextCustomValues,
-        expectedUpdatedAt:
-          typeof existingRow?.updated_at === "string"
-            ? existingRow.updated_at
-            : undefined,
       });
-      if (!response.success) {
+      if (!response.success || !response.data) {
         throw new Error(response.error || "Failed to update customer row.");
       }
-      await loadTableView(currentPage);
-    } catch (mutationError) {
+      return { rowId, row: response.data as RawRow };
+    },
+    onMutate: async ({ rowId, payload }) => {
+      setError(null);
+      await queryClient.cancelQueries({ queryKey: currentRowsKey });
+      const previous =
+        queryClient.getQueryData<CrmRowsQueryData>(currentRowsKey);
+      if (previous) {
+        queryClient.setQueryData<CrmRowsQueryData>(currentRowsKey, {
+          ...previous,
+          rows: previous.rows.map((row) =>
+            row.id === rowId ? mergePayloadIntoRow(row, payload) : row,
+          ),
+        });
+      }
+      return { previous };
+    },
+    onError: (mutationError, _vars, context) => {
+      if (context?.previous)
+        queryClient.setQueryData(currentRowsKey, context.previous);
       setError(
         toFriendlyCrmError(
           mutationError instanceof Error
@@ -208,23 +318,44 @@ export default function CustomersTab({
             : "Failed to update customer row.",
         ),
       );
-      throw mutationError;
-    }
-  };
+    },
+    onSuccess: ({ rowId, row }) => {
+      setCurrentRowsData((current) => ({
+        ...current,
+        rows: current.rows.map((currentRow) =>
+          currentRow.id === rowId ? (row as RawRow) : currentRow,
+        ),
+      }));
+    },
+  });
 
-  const handleDeleteRow = async (rowId: string) => {
-    setError(null);
-    try {
+  const deleteRowMutation = useMutation({
+    mutationFn: async (rowId: string) => {
       const response = await deleteCrmRowAction({
         companyId,
-        table: "customers",
+        table: TABLE,
         rowId,
       });
       if (!response.success) {
         throw new Error(response.error || "Failed to delete customer row.");
       }
-      await loadTableView(currentPage);
-    } catch (mutationError) {
+    },
+    onMutate: async (rowId) => {
+      setError(null);
+      await queryClient.cancelQueries({ queryKey: currentRowsKey });
+      const previous =
+        queryClient.getQueryData<CrmRowsQueryData>(currentRowsKey);
+      if (previous) {
+        queryClient.setQueryData<CrmRowsQueryData>(currentRowsKey, {
+          rows: previous.rows.filter((row) => row.id !== rowId),
+          totalRows: Math.max(0, previous.totalRows - 1),
+        });
+      }
+      return { previous };
+    },
+    onError: (mutationError, _rowId, context) => {
+      if (context?.previous)
+        queryClient.setQueryData(currentRowsKey, context.previous);
       setError(
         toFriendlyCrmError(
           mutationError instanceof Error
@@ -232,16 +363,20 @@ export default function CustomersTab({
             : "Failed to delete customer row.",
         ),
       );
-      throw mutationError;
-    }
-  };
+    },
+    onSuccess: () => {
+      void invalidateRowsScope(true);
+      void queryClient.invalidateQueries({
+        queryKey: crmKeys.counts({ companyId }),
+      });
+    },
+  });
 
-  const handleAddColumn = async (column: Omit<VirtualColumn, "id">) => {
-    setError(null);
-    try {
+  const createColumnMutation = useMutation({
+    mutationFn: async (column: Omit<VirtualColumn, "id">) => {
       const response = await createCrmCustomFieldAction({
         companyId,
-        entityType: tableToEntity("customers"),
+        entityType: tableToEntity(TABLE),
         fieldLabel: column.label,
         fieldName: column.key,
         fieldType:
@@ -258,11 +393,17 @@ export default function CustomersTab({
             : undefined,
         isRequired: false,
       });
-      if (!response.success) {
+      if (!response.success || !response.data) {
         throw new Error(response.error || "Failed to create custom field.");
       }
-      await loadTableView(currentPage);
-    } catch (mutationError) {
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: crmKeys.columns({ companyId, table: TABLE }),
+      });
+      void invalidateRowsScope(true);
+    },
+    onError: (mutationError) => {
       setError(
         toFriendlyCrmError(
           mutationError instanceof Error
@@ -270,20 +411,21 @@ export default function CustomersTab({
             : "Failed to create custom field.",
         ),
       );
-      throw mutationError;
-    }
-  };
+    },
+  });
 
-  const handleUpdateColumn = async (
-    columnId: string,
-    column: Omit<VirtualColumn, "id">,
-  ) => {
-    setError(null);
-    try {
+  const updateColumnMutation = useMutation({
+    mutationFn: async ({
+      columnId,
+      column,
+    }: {
+      columnId: string;
+      column: Omit<VirtualColumn, "id">;
+    }) => {
       const response = await updateCrmCustomFieldAction({
         companyId,
         fieldId: columnId,
-        entityType: tableToEntity("customers"),
+        entityType: tableToEntity(TABLE),
         fieldLabel: column.label,
         fieldName: column.key,
         fieldType:
@@ -300,11 +442,17 @@ export default function CustomersTab({
             : undefined,
         isRequired: false,
       });
-      if (!response.success) {
+      if (!response.success || !response.data) {
         throw new Error(response.error || "Failed to update custom field.");
       }
-      await loadTableView(currentPage);
-    } catch (mutationError) {
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: crmKeys.columns({ companyId, table: TABLE }),
+      });
+      void invalidateRowsScope(true);
+    },
+    onError: (mutationError) => {
       setError(
         toFriendlyCrmError(
           mutationError instanceof Error
@@ -312,13 +460,11 @@ export default function CustomersTab({
             : "Failed to update custom field.",
         ),
       );
-      throw mutationError;
-    }
-  };
+    },
+  });
 
-  const handleDeleteColumn = async (columnId: string) => {
-    setError(null);
-    try {
+  const deleteColumnMutation = useMutation({
+    mutationFn: async (columnId: string) => {
       const response = await deleteCrmCustomFieldAction({
         companyId,
         fieldId: columnId,
@@ -326,8 +472,14 @@ export default function CustomersTab({
       if (!response.success) {
         throw new Error(response.error || "Failed to delete custom field.");
       }
-      await loadTableView(currentPage);
-    } catch (mutationError) {
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: crmKeys.columns({ companyId, table: TABLE }),
+      });
+      void invalidateRowsScope(true);
+    },
+    onError: (mutationError) => {
       setError(
         toFriendlyCrmError(
           mutationError instanceof Error
@@ -335,28 +487,107 @@ export default function CustomersTab({
             : "Failed to delete custom field.",
         ),
       );
-      throw mutationError;
-    }
-  };
+    },
+  });
 
-  if (isPending && rows.length === 0) return <TabSkeleton rows={8} />;
+  const isMutating =
+    createRowMutation.isPending ||
+    updateRowMutation.isPending ||
+    deleteRowMutation.isPending ||
+    createColumnMutation.isPending ||
+    updateColumnMutation.isPending ||
+    deleteColumnMutation.isPending;
+
+  useEffect(() => {
+    onMutationStateChange?.(isMutating);
+    return () => onMutationStateChange?.(false);
+  }, [isMutating, onMutationStateChange]);
+
+  const handleAddRow = useCallback(
+    async (payload: Record<string, unknown>) => {
+      setError(null);
+      await createRowMutation.mutateAsync(payload);
+    },
+    [createRowMutation],
+  );
+  const handleUpdateRow = useCallback(
+    async (rowId: string, payload: Record<string, unknown>) => {
+      setError(null);
+      const previous =
+        rowUpdateQueueRef.current.get(rowId) ?? Promise.resolve();
+      const run: Promise<void> = previous
+        .catch(() => undefined)
+        .then(() => updateRowMutation.mutateAsync({ rowId, payload }))
+        .then(() => undefined)
+        .finally(() => {
+          if (rowUpdateQueueRef.current.get(rowId) === run) {
+            rowUpdateQueueRef.current.delete(rowId);
+          }
+        });
+      rowUpdateQueueRef.current.set(rowId, run);
+      await run;
+    },
+    [updateRowMutation],
+  );
+  const handleDeleteRow = useCallback(
+    async (rowId: string) => {
+      setError(null);
+      await deleteRowMutation.mutateAsync(rowId);
+    },
+    [deleteRowMutation],
+  );
+  const handleAddColumn = useCallback(
+    async (column: Omit<VirtualColumn, "id">) => {
+      setError(null);
+      await createColumnMutation.mutateAsync(column);
+    },
+    [createColumnMutation],
+  );
+  const handleUpdateColumn = useCallback(
+    async (columnId: string, column: Omit<VirtualColumn, "id">) => {
+      setError(null);
+      await updateColumnMutation.mutateAsync({ columnId, column });
+    },
+    [updateColumnMutation],
+  );
+  const handleDeleteColumn = useCallback(
+    async (columnId: string) => {
+      setError(null);
+      await deleteColumnMutation.mutateAsync(columnId);
+    },
+    [deleteColumnMutation],
+  );
+  const handlePageChange = useCallback(
+    (page: number) => {
+      setPageState({ page, search: normalizedSearch });
+    },
+    [normalizedSearch],
+  );
+
+  const isInitialLoading =
+    (rowsQuery.isPending ||
+      columnsQuery.isPending ||
+      relationsQuery.isPending) &&
+    rows.length === 0;
+
+  if (isInitialLoading) return <TabSkeleton rows={8} />;
 
   return (
     <div className="h-full min-h-0">
-      {error ? (
+      {displayError ? (
         <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+          {displayError}
         </div>
       ) : null}
       <CrmWorkspaceTable
-        table="customers"
+        table={TABLE}
         gridData={gridData}
         relations={relations}
         virtualColumns={virtualColumns}
         currentPage={currentPage}
         totalRows={totalRows}
         pageSize={pageSize}
-        onPageChange={setCurrentPage}
+        onPageChange={handlePageChange}
         onAdd={handleAddRow}
         onUpdate={handleUpdateRow}
         onDelete={handleDeleteRow}

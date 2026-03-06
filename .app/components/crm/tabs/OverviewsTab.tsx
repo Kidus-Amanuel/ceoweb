@@ -1,63 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getCrmTablesAction } from "@/app/api/crm/crm";
+import { useEffect } from "react";
 import { useCompanies } from "@/hooks/use-companies";
-import {
-  DEFAULT_COUNTS,
-  toFriendlyCrmError,
-  type TableCounts,
-} from "../workspace/crm-workspace.shared";
+import { useCrmCountsQuery } from "../workspace/queries/crm-workspace.queries";
 
-export function OverviewsTab() {
+type OverviewsTabProps = {
+  refreshNonce?: number;
+  onRefreshStateChange?: (refreshing: boolean) => void;
+};
+
+export function OverviewsTab({
+  refreshNonce = 0,
+  onRefreshStateChange,
+}: OverviewsTabProps) {
   const { selectedCompany } = useCompanies();
-  const [tableCounts, setTableCounts] = useState<TableCounts>(DEFAULT_COUNTS);
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
+  const countsQuery = useCrmCountsQuery(selectedCompany?.id ?? null, true);
+  const { refetch } = countsQuery;
+  const tableCounts = countsQuery.data;
+  const error =
+    countsQuery.error instanceof Error ? countsQuery.error.message : null;
+  const isPending = countsQuery.isPending;
 
   useEffect(() => {
-    const companyId = selectedCompany?.id;
-    if (!companyId) return;
-    let disposed = false;
-
-    const run = async () => {
-      setIsPending(true);
-      setError(null);
-      try {
-        const response = await getCrmTablesAction({ companyId });
-        if (!response.success || !response.data) {
-          setError(
-            toFriendlyCrmError(
-              response.error || "Failed to load CRM overviews.",
-            ),
-          );
-          return;
-        }
-        if (disposed) return;
-        setTableCounts({
-          customers: response.data.customers ?? 0,
-          deals: response.data.deals ?? 0,
-          activities: response.data.activities ?? 0,
-        });
-      } catch (loadError) {
-        if (disposed) return;
-        setError(
-          toFriendlyCrmError(
-            loadError instanceof Error
-              ? loadError.message
-              : "Failed to load CRM overviews.",
-          ),
-        );
-      } finally {
-        if (!disposed) setIsPending(false);
-      }
-    };
-
-    void run();
-    return () => {
-      disposed = true;
-    };
-  }, [selectedCompany?.id]);
+    if (!refreshNonce) return;
+    onRefreshStateChange?.(true);
+    void refetch().finally(() => onRefreshStateChange?.(false));
+  }, [onRefreshStateChange, refreshNonce, refetch]);
 
   return (
     <div className="space-y-3">
@@ -72,7 +40,7 @@ export function OverviewsTab() {
             Total Customers
           </p>
           <p className="mt-2 text-2xl font-semibold text-[#37352F]">
-            {isPending ? "..." : tableCounts.customers}
+            {isPending ? "..." : (tableCounts?.customers ?? 0)}
           </p>
         </div>
         <div className="rounded-xl border border-[#E9E9E7] bg-white px-5 py-4">
@@ -80,7 +48,7 @@ export function OverviewsTab() {
             Active Deals
           </p>
           <p className="mt-2 text-2xl font-semibold text-[#37352F]">
-            {isPending ? "..." : tableCounts.deals}
+            {isPending ? "..." : (tableCounts?.deals ?? 0)}
           </p>
         </div>
         <div className="rounded-xl border border-[#E9E9E7] bg-white px-5 py-4">
@@ -88,7 +56,7 @@ export function OverviewsTab() {
             Pending Activities
           </p>
           <p className="mt-2 text-2xl font-semibold text-[#37352F]">
-            {isPending ? "..." : tableCounts.activities}
+            {isPending ? "..." : (tableCounts?.activities ?? 0)}
           </p>
         </div>
       </div>
