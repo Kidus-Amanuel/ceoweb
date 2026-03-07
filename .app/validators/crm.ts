@@ -33,6 +33,18 @@ const internationalPhoneSchema = z
       message: "Please enter a valid international phone number.",
     },
   );
+const dealContactInputSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) =>
+      z.string().uuid().safeParse(value).success ||
+      z.string().email().safeParse(value).success ||
+      internationalPhoneSchema.safeParse(value).success,
+    {
+      message: "Contact must be a valid UUID, email, or phone number.",
+    },
+  );
 const optionalNullableDateTimeInput = z.preprocess(
   (value) => (value === "" ? undefined : value),
   z.union([crmDateTimeSchema, z.null()]).optional(),
@@ -88,8 +100,8 @@ export const crmCustomerStandardSchema = z.object({
 export const crmDealStandardSchema = z.object({
   customerId: optionalInput(z.string().uuid()),
   customer_id: optionalInput(z.string().uuid()),
-  contactId: optionalInput(z.string().uuid()),
-  contact_id: optionalInput(z.string().uuid()),
+  contactId: optionalInput(dealContactInputSchema),
+  contact_id: optionalInput(dealContactInputSchema),
   title: optionalInput(z.string().min(1).max(255)),
   description: optionalInput(z.string().max(5000)),
   value: optionalInput(z.coerce.number().nonnegative()),
@@ -111,18 +123,15 @@ export const crmDealStandardSchema = z.object({
 });
 
 export const crmActivityStandardSchema = z.object({
-  related_type: optionalInput(z.string().max(120)),
+  related_type: optionalInput(z.enum(["customer", "deal"])),
   related_id: optionalInput(z.string().uuid()),
-  activity_type: z.preprocess(
-    emptyToUndefined,
-    crmActivityTypeSchema.optional().default("task"),
-  ),
+  activity_type: optionalInput(crmActivityTypeSchema),
   status: optionalInput(z.string().max(120)),
   subject: optionalInput(z.string().max(255)),
   notes: optionalInput(z.string().max(5000)),
   due_date: optionalNullableDateTimeInput,
   completed_at: optionalNullableDateTimeInput,
-  relatedType: optionalInput(z.string().max(120)),
+  relatedType: optionalInput(z.enum(["customer", "deal"])),
   relatedId: optionalInput(z.string().uuid()),
   activityType: optionalInput(crmActivityTypeSchema),
   dueDate: optionalNullableDateTimeInput,

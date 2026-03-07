@@ -98,6 +98,9 @@ export const SmartEditor = ({
     normalizedKey.includes("phone") ||
     normalizedKey.includes("mobile") ||
     normalizedKey.includes("tel");
+  const selectOptions = Array.isArray(meta?.options) ? meta.options : [];
+  const normalizedSelectValue = String(value ?? "").trim();
+  const selectDefaultOption = selectOptions[0];
   const baseInputClass =
     "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm shadow-none ring-0 focus-visible:ring-0";
   const baseSelectTriggerClass =
@@ -177,6 +180,14 @@ export const SmartEditor = ({
     datetimeTimeDraftRef.current = parts.time;
   }, [type, value]);
 
+  useEffect(() => {
+    if (!(type === "select" || type === "status")) return;
+    if (!isAddMode) return;
+    if (normalizedSelectValue.length > 0) return;
+    if (!selectDefaultOption) return;
+    onChange(String(selectDefaultOption.value));
+  }, [isAddMode, normalizedSelectValue, onChange, selectDefaultOption, type]);
+
   if (type === "boolean") {
     return (
       <div className="flex items-center h-full px-1">
@@ -192,9 +203,9 @@ export const SmartEditor = ({
   }
 
   if (type === "select" || type === "status") {
-    const options = Array.isArray(meta?.options) ? meta.options : [];
-    const normalizedValue = String(value ?? "").trim();
-    const defaultOption = options[0];
+    const options = selectOptions;
+    const normalizedValue = normalizedSelectValue;
+    const defaultOption = selectDefaultOption;
     const selectedValue =
       normalizedValue.length > 0
         ? normalizedValue
@@ -351,7 +362,7 @@ export const SmartEditor = ({
       <div
         ref={currencyEditorRef}
         className={cn(
-          "grid w-full grid-cols-[minmax(0,1fr)_120px] gap-2",
+          "grid w-full min-w-[220px] grid-cols-[minmax(90px,1fr)_120px] gap-2",
           !isAddMode && "items-center",
         )}
       >
@@ -386,7 +397,7 @@ export const SmartEditor = ({
             }
             if (e.key === "Escape") onCancel?.();
           }}
-          className={baseInputClass}
+          className={`${baseInputClass} min-w-[90px]`}
         />
         <Select
           onOpenChange={(open) => {

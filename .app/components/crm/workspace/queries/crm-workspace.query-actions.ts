@@ -7,6 +7,7 @@ import {
   getCrmCustomersOptionsAction,
   getCrmDealsOptionsAction,
   getCrmRowsAction,
+  getCrmTrendAction,
   getCrmTablesAction,
   getCrmUsersOptionsAction,
   updateCrmCustomFieldAction,
@@ -20,6 +21,7 @@ export {
   deleteCrmCustomFieldAction,
   deleteCrmRowAction,
   getCrmRowsAction,
+  getCrmTrendAction,
   getCrmUsersOptionsAction,
   getCrmCustomersOptionsAction,
   getCrmDealsOptionsAction,
@@ -38,3 +40,6 @@ export const getCrmColumnsAction = (input: {
 
 export const getCrmCountsAction = (input: { companyId: string }) =>
   getCrmTablesAction(input);
+
+export const getCrmMonthlyTrendAction = (input: { companyId: string }) =>
+  getCrmTrendAction(input);

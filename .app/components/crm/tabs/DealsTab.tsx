@@ -12,10 +12,10 @@ import {
   normalizeFieldOptions,
   normalizeRowForGrid,
   tableToEntity,
-  toFriendlyCrmError,
   type RawRow,
   type SelectOption,
 } from "@/components/crm/workspace/crm-workspace.shared";
+import { showCrmToast } from "@/components/crm/workspace/crm-toast";
 import {
   createCrmCustomFieldAction,
   createCrmRowAction,
@@ -109,7 +109,6 @@ export default function DealsTab({
   const pageSize = CRM_TABLE_PAGE_SIZE_DEFAULT;
   const selectedRowId = searchParams.get("rowId");
   const [pageState, setPageState] = useState({ page: 1, search: "" });
-  const [error, setError] = useState<string | null>(null);
   const rowUpdateQueueRef = useRef(new Map<string, Promise<void>>());
 
   const normalizedSearch = useMemo(
@@ -205,7 +204,6 @@ export default function DealsTab({
     (columnsQuery.error instanceof Error && columnsQuery.error.message) ||
     relationsQuery.error ||
     null;
-  const displayError = error ?? queryError;
 
   const setCurrentRowsData = useCallback(
     (updater: (current: CrmRowsQueryData) => CrmRowsQueryData) => {
@@ -253,15 +251,23 @@ export default function DealsTab({
       void queryClient.invalidateQueries({
         queryKey: crmKeys.counts({ companyId }),
       });
+      showCrmToast({
+        op: "rowCreate",
+        tableLabel: "Deals",
+        mode: "success",
+        message: "Row created.",
+      });
     },
     onError: (mutationError) => {
-      setError(
-        toFriendlyCrmError(
+      showCrmToast({
+        op: "rowCreate",
+        tableLabel: "Deals",
+        mode: "error",
+        message:
           mutationError instanceof Error
             ? mutationError.message
             : "Failed to create deal row.",
-        ),
-      );
+      });
     },
   });
 
@@ -295,7 +301,6 @@ export default function DealsTab({
       return { rowId, row: response.data as RawRow };
     },
     onMutate: async ({ rowId, payload }) => {
-      setError(null);
       await queryClient.cancelQueries({ queryKey: currentRowsKey });
       const previous =
         queryClient.getQueryData<CrmRowsQueryData>(currentRowsKey);
@@ -312,13 +317,15 @@ export default function DealsTab({
     onError: (mutationError, _vars, context) => {
       if (context?.previous)
         queryClient.setQueryData(currentRowsKey, context.previous);
-      setError(
-        toFriendlyCrmError(
+      showCrmToast({
+        op: "rowUpdate",
+        tableLabel: "Deals",
+        mode: "error",
+        message:
           mutationError instanceof Error
             ? mutationError.message
             : "Failed to update deal row.",
-        ),
-      );
+      });
     },
     onSuccess: ({ rowId, row }) => {
       setCurrentRowsData((current) => ({
@@ -327,6 +334,12 @@ export default function DealsTab({
           currentRow.id === rowId ? (row as RawRow) : currentRow,
         ),
       }));
+      showCrmToast({
+        op: "rowUpdate",
+        tableLabel: "Deals",
+        mode: "success",
+        message: "Row updated.",
+      });
     },
   });
 
@@ -342,7 +355,6 @@ export default function DealsTab({
       }
     },
     onMutate: async (rowId) => {
-      setError(null);
       await queryClient.cancelQueries({ queryKey: currentRowsKey });
       const previous =
         queryClient.getQueryData<CrmRowsQueryData>(currentRowsKey);
@@ -357,18 +369,26 @@ export default function DealsTab({
     onError: (mutationError, _rowId, context) => {
       if (context?.previous)
         queryClient.setQueryData(currentRowsKey, context.previous);
-      setError(
-        toFriendlyCrmError(
+      showCrmToast({
+        op: "rowDelete",
+        tableLabel: "Deals",
+        mode: "error",
+        message:
           mutationError instanceof Error
             ? mutationError.message
             : "Failed to delete deal row.",
-        ),
-      );
+      });
     },
     onSuccess: () => {
       void invalidateRowsScope(true);
       void queryClient.invalidateQueries({
         queryKey: crmKeys.counts({ companyId }),
+      });
+      showCrmToast({
+        op: "rowDelete",
+        tableLabel: "Deals",
+        mode: "success",
+        message: "Row deleted.",
       });
     },
   });
@@ -403,15 +423,23 @@ export default function DealsTab({
         queryKey: crmKeys.columns({ companyId, table: TABLE }),
       });
       void invalidateRowsScope(true);
+      showCrmToast({
+        op: "columnCreate",
+        tableLabel: "Deals",
+        mode: "success",
+        message: "Field added.",
+      });
     },
     onError: (mutationError) => {
-      setError(
-        toFriendlyCrmError(
+      showCrmToast({
+        op: "columnCreate",
+        tableLabel: "Deals",
+        mode: "error",
+        message:
           mutationError instanceof Error
             ? mutationError.message
             : "Failed to create custom field.",
-        ),
-      );
+      });
     },
   });
 
@@ -452,15 +480,23 @@ export default function DealsTab({
         queryKey: crmKeys.columns({ companyId, table: TABLE }),
       });
       void invalidateRowsScope(true);
+      showCrmToast({
+        op: "columnUpdate",
+        tableLabel: "Deals",
+        mode: "success",
+        message: "Field updated.",
+      });
     },
     onError: (mutationError) => {
-      setError(
-        toFriendlyCrmError(
+      showCrmToast({
+        op: "columnUpdate",
+        tableLabel: "Deals",
+        mode: "error",
+        message:
           mutationError instanceof Error
             ? mutationError.message
             : "Failed to update custom field.",
-        ),
-      );
+      });
     },
   });
 
@@ -479,15 +515,23 @@ export default function DealsTab({
         queryKey: crmKeys.columns({ companyId, table: TABLE }),
       });
       void invalidateRowsScope(true);
+      showCrmToast({
+        op: "columnDelete",
+        tableLabel: "Deals",
+        mode: "success",
+        message: "Field deleted.",
+      });
     },
     onError: (mutationError) => {
-      setError(
-        toFriendlyCrmError(
+      showCrmToast({
+        op: "columnDelete",
+        tableLabel: "Deals",
+        mode: "error",
+        message:
           mutationError instanceof Error
             ? mutationError.message
             : "Failed to delete custom field.",
-        ),
-      );
+      });
     },
   });
 
@@ -506,14 +550,12 @@ export default function DealsTab({
 
   const handleAddRow = useCallback(
     async (payload: Record<string, unknown>) => {
-      setError(null);
       await createRowMutation.mutateAsync(payload);
     },
     [createRowMutation],
   );
   const handleUpdateRow = useCallback(
     async (rowId: string, payload: Record<string, unknown>) => {
-      setError(null);
       const previous =
         rowUpdateQueueRef.current.get(rowId) ?? Promise.resolve();
       const run: Promise<void> = previous
@@ -532,28 +574,24 @@ export default function DealsTab({
   );
   const handleDeleteRow = useCallback(
     async (rowId: string) => {
-      setError(null);
       await deleteRowMutation.mutateAsync(rowId);
     },
     [deleteRowMutation],
   );
   const handleAddColumn = useCallback(
     async (column: Omit<VirtualColumn, "id">) => {
-      setError(null);
       await createColumnMutation.mutateAsync(column);
     },
     [createColumnMutation],
   );
   const handleUpdateColumn = useCallback(
     async (columnId: string, column: Omit<VirtualColumn, "id">) => {
-      setError(null);
       await updateColumnMutation.mutateAsync({ columnId, column });
     },
     [updateColumnMutation],
   );
   const handleDeleteColumn = useCallback(
     async (columnId: string) => {
-      setError(null);
       await deleteColumnMutation.mutateAsync(columnId);
     },
     [deleteColumnMutation],
@@ -575,9 +613,9 @@ export default function DealsTab({
 
   return (
     <div className="h-full min-h-0">
-      {displayError ? (
+      {queryError ? (
         <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {displayError}
+          {queryError}
         </div>
       ) : null}
       <CrmWorkspaceTable
