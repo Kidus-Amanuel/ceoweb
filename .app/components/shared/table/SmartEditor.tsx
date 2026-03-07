@@ -186,13 +186,7 @@ export const SmartEditor = ({
     if (normalizedSelectValue.length > 0) return;
     if (!selectDefaultOption) return;
     onChange(String(selectDefaultOption.value));
-  }, [
-    isAddMode,
-    normalizedSelectValue,
-    onChange,
-    selectDefaultOption,
-    type,
-  ]);
+  }, [isAddMode, normalizedSelectValue, onChange, selectDefaultOption, type]);
 
   if (type === "boolean") {
     return (
