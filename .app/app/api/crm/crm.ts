@@ -132,6 +132,43 @@ export async function getCrmTablesAction(
   return { success: true, data: response.data };
 }
 
+export async function getCrmTrendAction(input: unknown): Promise<
+  ActionResult<
+    {
+      month: string;
+      key: string;
+      customers: number;
+      deals: number;
+      activities: number;
+    }[]
+  >
+> {
+  const parsed = crmCompanyScopeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: zodErrorToText(parsed.error) };
+  }
+
+  const auth = await getAuthContext(parsed.data.companyId);
+  if (!auth.success || !auth.data) {
+    return { success: false, error: auth.error };
+  }
+
+  const response = await crmService.getMonthlyTrend({
+    supabase: auth.data.supabase,
+    companyId: auth.data.companyId,
+    months: 6,
+  });
+
+  if (response.error || !response.data) {
+    return {
+      success: false,
+      error: response.error || "Failed to load CRM trend",
+    };
+  }
+
+  return { success: true, data: response.data };
+}
+
 export async function getCrmRowsAction(input: unknown): Promise<
   ActionResult<{
     rows: Record<string, unknown>[];
@@ -661,7 +698,7 @@ export async function getGlobalSearchResultsAction(input: unknown): Promise<
     await Promise.all([
       supabase
         .from("activities")
-        .select("id,subject,activity_type,status,related_type,related_id")
+        .select("id,subject,activity_type,completed_at,related_type,related_id")
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .or(`subject.ilike.${q},notes.ilike.${q},activity_type.ilike.${q}`)
@@ -669,7 +706,9 @@ export async function getGlobalSearchResultsAction(input: unknown): Promise<
       matchedCustomerIds.length
         ? supabase
             .from("activities")
-            .select("id,subject,activity_type,status,related_type,related_id")
+            .select(
+              "id,subject,activity_type,completed_at,related_type,related_id",
+            )
             .eq("company_id", companyId)
             .is("deleted_at", null)
             .eq("related_type", "customer")
@@ -679,7 +718,9 @@ export async function getGlobalSearchResultsAction(input: unknown): Promise<
       matchedDealIds.length
         ? supabase
             .from("activities")
-            .select("id,subject,activity_type,status,related_type,related_id")
+            .select(
+              "id,subject,activity_type,completed_at,related_type,related_id",
+            )
             .eq("company_id", companyId)
             .is("deleted_at", null)
             .eq("related_type", "deal")
@@ -727,7 +768,7 @@ export async function getGlobalSearchResultsAction(input: unknown): Promise<
       return {
         id: `activity:${row.id}`,
         title: row.subject || relatedLabel || "Untitled Activity",
-        subtitle: `${row.activity_type || "activity"} • ${row.status || "pending"}`,
+        subtitle: `${row.activity_type || "activity"} • ${row.completed_at ? "completed" : "pending"}`,
         href: `/crm/activities?q=${encodedQuery}&rowId=${row.id}`,
         category: "Activities",
       };
