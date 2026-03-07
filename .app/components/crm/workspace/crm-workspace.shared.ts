@@ -86,6 +86,9 @@ export const toFriendlyCrmError = (input: string) => {
   ) {
     return "Network error. Please check your internet connection and try again.";
   }
+  if (/an unexpected response was received from the server/i.test(message)) {
+    return "Server returned an unexpected response. Please try again.";
+  }
 
   if (/(standardData|customData|customValues|payload|data)\./i.test(message)) {
     const toTitle = (value: string) =>
@@ -163,30 +166,11 @@ export const toFriendlyCrmError = (input: string) => {
   return message;
 };
 
-const deriveActivityStatus = (row: RawRow): string => {
-  if (row.completed_at) {
-    return "Completed";
-  }
-
-  if (typeof row.due_date === "string") {
-    const dueDate = new Date(row.due_date);
-    if (!Number.isNaN(dueDate.getTime()) && dueDate.getTime() < Date.now()) {
-      return "Overdue";
-    }
-  }
-
-  return "Pending";
-};
-
 export const normalizeRowForGrid = (
-  table: CrmTable,
+  _table: CrmTable,
   row: RawRow,
 ): Record<string, unknown> => ({
   ...row,
-  status:
-    table === "activities"
-      ? (row.status ?? deriveActivityStatus(row))
-      : row.status,
   customValues: asRecord(row.custom_data ?? row.custom_fields),
 });
 
@@ -297,6 +281,15 @@ export const crmViewHelpers = {
               meta: customerMeta,
             },
             {
+              header: "Contact",
+              accessorKey: "contact_display",
+              meta: { type: "text", readOnly: true },
+            },
+            {
+              header: "Description",
+              accessorKey: "description",
+            },
+            {
               header: "Assigned To",
               accessorKey: "assigned_to",
               meta: userMeta,
@@ -366,17 +359,18 @@ export const crmViewHelpers = {
               meta: { type: "datetime" },
             },
             {
-              header: "Status",
-              accessorKey: "status",
-              meta: {
-                type: "select",
-                options: [
-                  { label: "Pending", value: "Pending" },
-                  { label: "Completed", value: "Completed" },
-                  { label: "Overdue", value: "Overdue" },
-                  { label: "Cancelled", value: "Cancelled" },
-                ],
-              },
+              header: "Notes",
+              accessorKey: "notes",
+            },
+            {
+              header: "Completed At",
+              accessorKey: "completed_at",
+              meta: { type: "datetime" },
+            },
+            {
+              header: "Created By",
+              accessorKey: "created_by",
+              meta: userMeta,
             },
           ];
   },
@@ -432,19 +426,12 @@ export const crmViewHelpers = {
     }
 
     const dueDateInput = pickInput(payload, "due_date", "dueDate");
-    const statusInput = hasOwn(payload, "status")
-      ? String(payload.status ?? "")
-      : undefined;
     let completedAtInput = pickInput(payload, "completed_at", "completedAt");
-
     if (
-      statusInput?.toLowerCase() === "completed" &&
-      completedAtInput === undefined
+      completedAtInput === undefined &&
+      existingRow?.completed_at !== undefined
     ) {
-      completedAtInput = existingRow?.completed_at ?? new Date().toISOString();
-    }
-    if (statusInput && statusInput.toLowerCase() !== "completed") {
-      completedAtInput = null;
+      completedAtInput = existingRow.completed_at;
     }
 
     return {
@@ -457,10 +444,12 @@ export const crmViewHelpers = {
       ...(pickInput(payload, "activity_type", "activityType") !== undefined
         ? { activityType: pickInput(payload, "activity_type", "activityType") }
         : {}),
-      ...(hasOwn(payload, "status") ? { status: payload.status } : {}),
       ...(hasOwn(payload, "subject") ? { subject: payload.subject } : {}),
       ...(hasOwn(payload, "notes") ? { notes: payload.notes } : {}),
       ...(dueDateInput !== undefined ? { dueDate: dueDateInput } : {}),
+      ...(pickInput(payload, "created_by", "createdBy") !== undefined
+        ? { createdBy: pickInput(payload, "created_by", "createdBy") }
+        : {}),
       ...(completedAtInput !== undefined
         ? { completedAt: completedAtInput }
         : {}),

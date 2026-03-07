@@ -12,6 +12,7 @@ import {
   getCrmCountsAction,
   getCrmCustomersOptionsAction,
   getCrmDealsOptionsAction,
+  getCrmMonthlyTrendAction,
   getCrmRowsAction,
   getCrmUsersOptionsAction,
 } from "./crm-workspace.query-actions";
@@ -126,6 +127,8 @@ export const crmKeys = {
   }) => ["crm", "meta", params.companyId, params.table, params.kind] as const,
   counts: (params: { companyId: string }) =>
     ["crm", "counts", params.companyId] as const,
+  trend: (params: { companyId: string }) =>
+    ["crm", "trend", params.companyId] as const,
   search: (params: { companyId: string; query: string; filtersHash: string }) =>
     [
       "crm",
@@ -252,7 +255,10 @@ export const useCrmRelationsQueries = (
   params: { companyId: string; table: CrmDataTable } | null,
 ) => {
   const enabledUsers =
-    !!params && (params.table === "customers" || params.table === "deals");
+    !!params &&
+    (params.table === "customers" ||
+      params.table === "deals" ||
+      params.table === "activities");
   const enabledCustomers =
     !!params && (params.table === "deals" || params.table === "activities");
   const enabledDeals = !!params && params.table === "activities";
@@ -409,5 +415,27 @@ export const useCrmCountsQuery = (companyId: string | null, enabled = true) =>
       if (!companyId) return DEFAULT_COUNTS;
       const response = await getCrmCountsAction({ companyId });
       return throwIfError<TableCounts>(response) ?? DEFAULT_COUNTS;
+    },
+  });
+
+export type CrmMonthlyTrendPoint = {
+  month: string;
+  key: string;
+  customers: number;
+  deals: number;
+  activities: number;
+};
+
+export const useCrmTrendQuery = (companyId: string | null, enabled = true) =>
+  useQuery<CrmMonthlyTrendPoint[]>({
+    queryKey: companyId
+      ? crmKeys.trend({ companyId })
+      : ["crm", "trend", "disabled"],
+    enabled: !!companyId && enabled,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      if (!companyId) return [];
+      const response = await getCrmMonthlyTrendAction({ companyId });
+      return throwIfError<CrmMonthlyTrendPoint[]>(response) ?? [];
     },
   });
