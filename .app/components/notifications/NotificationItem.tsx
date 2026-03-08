@@ -52,17 +52,11 @@ const getEntityLink = (notification: Notification) => {
     case "task":
       return metadata.task_id ? `/tasks/${metadata.task_id}` : "/projects";
     case "fleet":
-      return metadata.vehicle_id
-        ? `/fleet/vehicles`
-        : "/fleet";
+      return metadata.vehicle_id ? `/fleet/vehicles` : "/fleet";
     case "inventory":
-      return metadata.product_id
-        ? `/inventory`
-        : "/inventory";
+      return metadata.product_id ? `/inventory` : "/inventory";
     case "hr":
-      return metadata.employee_id
-        ? `/hr/employees`
-        : "/hr";
+      return metadata.employee_id ? `/hr/employees` : "/hr";
     default:
       return metadata.link || null;
   }
