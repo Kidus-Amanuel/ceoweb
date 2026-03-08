@@ -1,6 +1,12 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import logger from "@/lib/utils/logger";
 import {
+  CRM_SEARCH_MATCH_LIMIT,
+  CRM_SELECT_PAGE_SIZE_DEFAULT,
+  CRM_SELECT_PAGE_SIZE_MAX,
+  CRM_TABLE_PAGE_SIZE_MAX,
+} from "@/lib/constants/crm-pagination";
+import {
   CrmCreateRowInput,
   CrmEntityType,
   CrmTable,
@@ -48,6 +54,14 @@ type SelectListParams = {
   pageSize?: number;
 };
 
+type MonthlyTrendPoint = {
+  month: string;
+  key: string;
+  customers: number;
+  deals: number;
+  activities: number;
+};
+
 type CustomFieldPayload = {
   entityType: CrmEntityType;
   fieldName: string;
@@ -59,7 +73,9 @@ type CustomFieldPayload = {
     | "datetime"
     | "select"
     | "boolean"
-    | "currency";
+    | "currency"
+    | "phone"
+    | "email";
   fieldOptions?: string[];
   isRequired?: boolean;
 };
@@ -76,8 +92,6 @@ type ColumnDefinition = {
 };
 
 type CrmMetadata = Partial<Record<CrmEntityType, ColumnDefinition[]>>;
-const MAX_TABLE_PAGE_SIZE = 200;
-const MAX_SELECT_PAGE_SIZE = 500;
 
 const buildPagedRange = (
   page: number,
@@ -136,10 +150,10 @@ const mapActivityStandard = (input: Record<string, unknown>) => ({
   related_type: pickMappedValue(input, "relatedType", "related_type"),
   related_id: pickMappedValue(input, "relatedId", "related_id"),
   activity_type: pickMappedValue(input, "activityType", "activity_type"),
-  status: pickMappedValue(input, "status", "status"),
   subject: input.subject,
   notes: input.notes,
   due_date: pickMappedValue(input, "dueDate", "due_date"),
+  created_by: pickMappedValue(input, "createdBy", "created_by"),
   completed_at: pickMappedValue(input, "completedAt", "completed_at"),
 });
 
@@ -162,6 +176,269 @@ const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const phonePattern = /^\+?[0-9 ()-]{7,}$/;
+const digitsOnly = (value: string) => value.replace(/\D/g, "");
+const isValidEmailAddress = (value: string) => emailPattern.test(value.trim());
+const isValidPhoneNumber = (value: string) => {
+  if (!phonePattern.test(value.trim())) return false;
+  const digits = digitsOnly(value);
+  return digits.length >= 7 && digits.length <= 15;
+};
+
+const isActivitiesStatusColumnError = (table: CrmTable, errorMessage: string) =>
+  table === "activities" &&
+  /could not find the 'status' column/i.test(errorMessage);
+
+const buildContactDisplay = (
+  email: string | null | undefined,
+  phone: string | null | undefined,
+) => {
+  const safeEmail = String(email ?? "").trim();
+  const safePhone = String(phone ?? "").trim();
+  if (safeEmail && safePhone) return `${safeEmail} • ${safePhone}`;
+  return safeEmail || safePhone || "";
+};
+
+const enrichDealsContactDisplay = async ({
+  supabase,
+  companyId,
+  rows,
+}: {
+  supabase: SupabaseClient;
+  companyId: string;
+  rows: Record<string, unknown>[];
+}): Promise<ServiceResult<Record<string, unknown>[]>> => {
+  const contactIds = Array.from(
+    new Set(
+      rows
+        .map((row) => String(row.contact_id ?? ""))
+        .filter((value) => !!value && uuidPattern.test(value)),
+    ),
+  );
+  const customerIds = Array.from(
+    new Set(
+      rows
+        .map((row) => String(row.customer_id ?? ""))
+        .filter((value) => !!value && uuidPattern.test(value)),
+    ),
+  );
+
+  const [contactsRes, customersRes] = await Promise.all([
+    contactIds.length
+      ? supabase
+          .from("customer_contacts")
+          .select("id,email,phone,mobile")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .in("id", contactIds)
+      : Promise.resolve({
+          data: [] as Array<{
+            id: string;
+            email: string | null;
+            phone: string | null;
+            mobile: string | null;
+          }>,
+          error: null,
+        }),
+    customerIds.length
+      ? supabase
+          .from("customers")
+          .select("id,email,phone")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .in("id", customerIds)
+      : Promise.resolve({
+          data: [] as Array<{
+            id: string;
+            email: string | null;
+            phone: string | null;
+          }>,
+          error: null,
+        }),
+  ]);
+
+  if (contactsRes.error) return { error: contactsRes.error.message };
+  if (customersRes.error) return { error: customersRes.error.message };
+
+  const contactMap = new Map(
+    (contactsRes.data ?? []).map((row) => [
+      row.id,
+      buildContactDisplay(row.email, row.mobile || row.phone),
+    ]),
+  );
+  const customerMap = new Map(
+    (customersRes.data ?? []).map((row) => [
+      row.id,
+      buildContactDisplay(row.email, row.phone),
+    ]),
+  );
+
+  return {
+    data: rows.map((row) => {
+      const contactId = String(row.contact_id ?? "");
+      const customerId = String(row.customer_id ?? "");
+      const contactDisplay =
+        (contactId ? contactMap.get(contactId) : "") ||
+        (customerId ? customerMap.get(customerId) : "") ||
+        "";
+      return { ...row, contact_display: contactDisplay };
+    }),
+  };
+};
+
+const enrichActivitiesCreatedByFromRelations = async ({
+  supabase,
+  companyId,
+  rows,
+}: {
+  supabase: SupabaseClient;
+  companyId: string;
+  rows: Record<string, unknown>[];
+}): Promise<ServiceResult<Record<string, unknown>[]>> => {
+  const customerIds = Array.from(
+    new Set(
+      rows
+        .filter((row) => row.related_type === "customer")
+        .map((row) => String(row.related_id ?? ""))
+        .filter(Boolean),
+    ),
+  );
+  const dealIds = Array.from(
+    new Set(
+      rows
+        .filter((row) => row.related_type === "deal")
+        .map((row) => String(row.related_id ?? ""))
+        .filter(Boolean),
+    ),
+  );
+
+  const [customersRes, dealsRes] = await Promise.all([
+    customerIds.length
+      ? supabase
+          .from("customers")
+          .select("id,assigned_to")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .in("id", customerIds)
+      : Promise.resolve({
+          data: [] as Array<{ id: string; assigned_to: string | null }>,
+          error: null,
+        }),
+    dealIds.length
+      ? supabase
+          .from("deals")
+          .select("id,assigned_to")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .in("id", dealIds)
+      : Promise.resolve({
+          data: [] as Array<{ id: string; assigned_to: string | null }>,
+          error: null,
+        }),
+  ]);
+
+  if (customersRes.error) return { error: customersRes.error.message };
+  if (dealsRes.error) return { error: dealsRes.error.message };
+
+  const customerAssignedMap = new Map(
+    (customersRes.data ?? []).map((row) => [row.id, row.assigned_to]),
+  );
+  const dealAssignedMap = new Map(
+    (dealsRes.data ?? []).map((row) => [row.id, row.assigned_to]),
+  );
+
+  return {
+    data: rows.map((row) => {
+      const relatedId = String(row.related_id ?? "");
+      const derivedAssignedTo =
+        row.related_type === "customer"
+          ? customerAssignedMap.get(relatedId)
+          : row.related_type === "deal"
+            ? dealAssignedMap.get(relatedId)
+            : undefined;
+      return derivedAssignedTo
+        ? { ...row, created_by: derivedAssignedTo }
+        : row;
+    }),
+  };
+};
+
+const resolveAndValidateDealContact = async ({
+  supabase,
+  companyId,
+  standardData,
+}: {
+  supabase: SupabaseClient;
+  companyId: string;
+  standardData: Record<string, unknown>;
+}): Promise<ServiceResult<Record<string, unknown>>> => {
+  const rawContact = standardData.contact_id;
+  if (rawContact === undefined || rawContact === null || rawContact === "") {
+    return { data: standardData };
+  }
+
+  let contactId = String(rawContact).trim();
+  if (!uuidPattern.test(contactId)) {
+    if (!isValidEmailAddress(contactId) && !isValidPhoneNumber(contactId)) {
+      return {
+        error: "Contact must be a valid contact id, email, or phone number.",
+      };
+    }
+    const byEmail = isValidEmailAddress(contactId);
+    const contactLookup = byEmail
+      ? await supabase
+          .from("customer_contacts")
+          .select("id")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .ilike("email", contactId)
+          .maybeSingle()
+      : await supabase
+          .from("customer_contacts")
+          .select("id")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .or(`phone.eq.${contactId},mobile.eq.${contactId}`)
+          .maybeSingle();
+    if (contactLookup.error) return { error: contactLookup.error.message };
+    if (!contactLookup.data?.id) {
+      return { error: "No contact found with the provided email or phone." };
+    }
+    contactId = contactLookup.data.id;
+  }
+
+  const { data: contact, error: contactError } = await supabase
+    .from("customer_contacts")
+    .select("id,customer_id,email,phone,mobile")
+    .eq("company_id", companyId)
+    .eq("id", contactId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (contactError) return { error: contactError.message };
+  if (!contact) return { error: "Selected contact was not found." };
+
+  const customerId = String(standardData.customer_id ?? "").trim();
+  if (customerId && String(contact.customer_id) !== customerId) {
+    return {
+      error: "Selected contact does not belong to the selected customer.",
+    };
+  }
+
+  const hasValidEmail =
+    !!contact.email && isValidEmailAddress(String(contact.email));
+  const hasValidPhone =
+    (!!contact.phone && isValidPhoneNumber(String(contact.phone))) ||
+    (!!contact.mobile && isValidPhoneNumber(String(contact.mobile)));
+  if (!hasValidEmail && !hasValidPhone) {
+    return { error: "Contact must have a valid email or phone number." };
+  }
+
+  return { data: { ...standardData, contact_id: contactId } };
+};
 
 const dealStageValues = [
   "lead",
@@ -250,6 +527,9 @@ const titleCase = (value: string) =>
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ");
+
+const shortMonthLabel = (date: Date) =>
+  date.toLocaleDateString("en-US", { month: "short" });
 
 const toColumnDefinition = (
   input: Partial<ColumnDefinition> &
@@ -425,6 +705,95 @@ export const crmService = {
     };
   },
 
+  async getMonthlyTrend({
+    supabase,
+    companyId,
+    months = 6,
+  }: {
+    supabase: SupabaseClient;
+    companyId: string;
+    months?: number;
+  }): Promise<ServiceResult<MonthlyTrendPoint[]>> {
+    const safeMonths = Number.isFinite(months)
+      ? Math.max(1, Math.min(24, Math.trunc(months)))
+      : 6;
+    const now = new Date();
+    const monthBuckets = Array.from({ length: safeMonths }, (_, i) => {
+      const date = new Date(
+        now.getFullYear(),
+        now.getMonth() - (safeMonths - 1 - i),
+        1,
+      );
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      return {
+        month: shortMonthLabel(date),
+        key,
+        customers: 0,
+        deals: 0,
+        activities: 0,
+      };
+    });
+    const start = new Date(
+      now.getFullYear(),
+      now.getMonth() - (safeMonths - 1),
+      1,
+      0,
+      0,
+      0,
+      0,
+    ).toISOString();
+    const seed = new Map(monthBuckets.map((point) => [point.key, point]));
+
+    const [customersRes, dealsRes, activitiesRes] = await Promise.all([
+      supabase
+        .from("customers")
+        .select("created_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("created_at", start),
+      supabase
+        .from("deals")
+        .select("created_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("created_at", start),
+      supabase
+        .from("activities")
+        .select("created_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("created_at", start),
+    ]);
+
+    if (customersRes.error) return { error: customersRes.error.message };
+    if (dealsRes.error) return { error: dealsRes.error.message };
+    if (activitiesRes.error) return { error: activitiesRes.error.message };
+
+    for (const row of customersRes.data ?? []) {
+      const createdAt = new Date(String(row.created_at ?? ""));
+      if (Number.isNaN(createdAt.getTime())) continue;
+      const key = `${createdAt.getFullYear()}-${createdAt.getMonth()}`;
+      const bucket = seed.get(key);
+      if (bucket) bucket.customers += 1;
+    }
+    for (const row of dealsRes.data ?? []) {
+      const createdAt = new Date(String(row.created_at ?? ""));
+      if (Number.isNaN(createdAt.getTime())) continue;
+      const key = `${createdAt.getFullYear()}-${createdAt.getMonth()}`;
+      const bucket = seed.get(key);
+      if (bucket) bucket.deals += 1;
+    }
+    for (const row of activitiesRes.data ?? []) {
+      const createdAt = new Date(String(row.created_at ?? ""));
+      if (Number.isNaN(createdAt.getTime())) continue;
+      const key = `${createdAt.getFullYear()}-${createdAt.getMonth()}`;
+      const bucket = seed.get(key);
+      if (bucket) bucket.activities += 1;
+    }
+
+    return { data: monthBuckets };
+  },
+
   async listRows({
     supabase,
     table,
@@ -435,7 +804,11 @@ export const crmService = {
   }: ListRowsParams): Promise<
     ServiceResult<{ data: Record<string, unknown>[]; count: number }>
   > {
-    const { from, to } = buildPagedRange(page, pageSize, MAX_TABLE_PAGE_SIZE);
+    const { from, to } = buildPagedRange(
+      page,
+      pageSize,
+      CRM_TABLE_PAGE_SIZE_MAX,
+    );
     const searchTerm = search?.trim();
     if (!searchTerm) {
       const { data, error, count } = await supabase
@@ -448,6 +821,24 @@ export const crmService = {
 
       if (error) {
         return { error: error.message };
+      }
+      if (table === "deals") {
+        const enriched = await enrichDealsContactDisplay({
+          supabase,
+          companyId,
+          rows: (data ?? []) as Record<string, unknown>[],
+        });
+        if (enriched.error) return { error: enriched.error };
+        return { data: { data: enriched.data ?? [], count: count ?? 0 } };
+      }
+      if (table === "activities") {
+        const enriched = await enrichActivitiesCreatedByFromRelations({
+          supabase,
+          companyId,
+          rows: (data ?? []) as Record<string, unknown>[],
+        });
+        if (enriched.error) return { error: enriched.error };
+        return { data: { data: enriched.data ?? [], count: count ?? 0 } };
       }
 
       return { data: { data: data ?? [], count: count ?? 0 } };
@@ -478,7 +869,7 @@ export const crmService = {
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .or(`name.ilike.${q},email.ilike.${q},phone.ilike.${q}`)
-        .limit(500);
+        .limit(CRM_SEARCH_MATCH_LIMIT);
 
     if (matchedCustomersError) {
       return { error: matchedCustomersError.message };
@@ -506,8 +897,13 @@ export const crmService = {
       if (error) {
         return { error: error.message };
       }
-
-      return { data: { data: data ?? [], count: count ?? 0 } };
+      const enriched = await enrichDealsContactDisplay({
+        supabase,
+        companyId,
+        rows: (data ?? []) as Record<string, unknown>[],
+      });
+      if (enriched.error) return { error: enriched.error };
+      return { data: { data: enriched.data ?? [], count: count ?? 0 } };
     }
 
     const dealSearchParts = [`title.ilike.${q}`, `description.ilike.${q}`];
@@ -522,7 +918,7 @@ export const crmService = {
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .or(dealSearchParts.join(","))
-      .limit(500);
+      .limit(CRM_SEARCH_MATCH_LIMIT);
 
     if (matchedDealsError) {
       return { error: matchedDealsError.message };
@@ -557,8 +953,13 @@ export const crmService = {
     if (error) {
       return { error: error.message };
     }
-
-    return { data: { data: data ?? [], count: count ?? 0 } };
+    const enriched = await enrichActivitiesCreatedByFromRelations({
+      supabase,
+      companyId,
+      rows: (data ?? []) as Record<string, unknown>[],
+    });
+    if (enriched.error) return { error: enriched.error };
+    return { data: { data: enriched.data ?? [], count: count ?? 0 } };
   },
 
   async createRow({
@@ -569,10 +970,19 @@ export const crmService = {
   }: UpsertRowParams): Promise<ServiceResult<Record<string, unknown>>> {
     void userId;
 
-    const standardData = mapStandardByTable(
+    let standardData: Record<string, unknown> = mapStandardByTable(
       payload.table,
       payload.standardData as Record<string, unknown>,
-    );
+    ) as Record<string, unknown>;
+    if (payload.table === "deals") {
+      const resolved = await resolveAndValidateDealContact({
+        supabase,
+        companyId,
+        standardData: standardData as Record<string, unknown>,
+      });
+      if (resolved.error) return { error: resolved.error };
+      standardData = resolved.data ?? standardData;
+    }
     const sanitizedStandardData = withoutUndefined(standardData);
     const { data, error } = await supabase
       .from(payload.table)
@@ -587,9 +997,43 @@ export const crmService = {
       .single();
 
     if (error) {
+      if (isActivitiesStatusColumnError(payload.table, error.message)) {
+        const retryPayload = { ...sanitizedStandardData };
+        delete retryPayload.status;
+        const retry = await supabase
+          .from(payload.table)
+          .insert({
+            company_id: companyId,
+            ...retryPayload,
+            ...(payload.customData !== undefined
+              ? { custom_fields: payload.customData }
+              : {}),
+          })
+          .select("*")
+          .single();
+        if (retry.error) return { error: retry.error.message };
+        if (payload.table === "deals") {
+          const enriched = await enrichDealsContactDisplay({
+            supabase,
+            companyId,
+            rows: [retry.data as Record<string, unknown>],
+          });
+          if (enriched.error) return { error: enriched.error };
+          return { data: enriched.data?.[0] };
+        }
+        return { data: retry.data };
+      }
       return { error: error.message };
     }
-
+    if (payload.table === "deals") {
+      const enriched = await enrichDealsContactDisplay({
+        supabase,
+        companyId,
+        rows: [data as Record<string, unknown>],
+      });
+      if (enriched.error) return { error: enriched.error };
+      return { data: enriched.data?.[0] };
+    }
     return { data };
   },
 
@@ -605,10 +1049,19 @@ export const crmService = {
       return { error: "Row id is required for updates." };
     }
 
-    const standardData = mapStandardByTable(
+    let standardData: Record<string, unknown> = mapStandardByTable(
       payload.table,
       payload.standardData as Record<string, unknown>,
-    );
+    ) as Record<string, unknown>;
+    if (payload.table === "deals") {
+      const resolved = await resolveAndValidateDealContact({
+        supabase,
+        companyId,
+        standardData: standardData as Record<string, unknown>,
+      });
+      if (resolved.error) return { error: resolved.error };
+      standardData = resolved.data ?? standardData;
+    }
     let mergedCustomFields: Record<string, unknown> | undefined;
     if (payload.customData !== undefined) {
       const { data: existingRow, error: existingRowError } = await supabase
@@ -644,20 +1097,77 @@ export const crmService = {
         updated_at: new Date().toISOString(),
       };
     }
-
-    const { data, error } = await supabase
+    const expectedUpdatedAt =
+      typeof (payload as { expectedUpdatedAt?: unknown }).expectedUpdatedAt ===
+      "string"
+        ? String((payload as { expectedUpdatedAt?: unknown }).expectedUpdatedAt)
+        : undefined;
+    let updateQuery = supabase
       .from(payload.table)
       .update(updatePayload)
       .eq("id", rowId)
-      .eq("company_id", companyId)
-      .select("*")
-      .single();
+      .eq("company_id", companyId);
+    if (expectedUpdatedAt) {
+      updateQuery = updateQuery.eq("updated_at", expectedUpdatedAt);
+    }
+    const { data, error } = await updateQuery.select("*");
 
     if (error) {
+      if (isActivitiesStatusColumnError(payload.table, error.message)) {
+        const retryPayload = { ...updatePayload };
+        delete retryPayload.status;
+        let retryQuery = supabase
+          .from(payload.table)
+          .update(retryPayload)
+          .eq("id", rowId)
+          .eq("company_id", companyId);
+        if (expectedUpdatedAt) {
+          retryQuery = retryQuery.eq("updated_at", expectedUpdatedAt);
+        }
+        const retry = await retryQuery.select("*");
+        if (retry.error) return { error: retry.error.message };
+        if (!retry.data || retry.data.length === 0) {
+          if (expectedUpdatedAt) {
+            return {
+              error:
+                "This row was updated by someone else. Refresh and retry your change.",
+            };
+          }
+          return { error: "Row not found." };
+        }
+        if (payload.table === "deals") {
+          const enriched = await enrichDealsContactDisplay({
+            supabase,
+            companyId,
+            rows: [retry.data[0] as Record<string, unknown>],
+          });
+          if (enriched.error) return { error: enriched.error };
+          return { data: enriched.data?.[0] };
+        }
+        return { data: retry.data[0] as Record<string, unknown> };
+      }
       return { error: error.message };
     }
+    if (!data || data.length === 0) {
+      if (expectedUpdatedAt) {
+        return {
+          error:
+            "This row was updated by someone else. Refresh and retry your change.",
+        };
+      }
+      return { error: "Row not found." };
+    }
 
-    return { data };
+    if (payload.table === "deals") {
+      const enriched = await enrichDealsContactDisplay({
+        supabase,
+        companyId,
+        rows: [data[0] as Record<string, unknown>],
+      });
+      if (enriched.error) return { error: enriched.error };
+      return { data: enriched.data?.[0] };
+    }
+    return { data: data[0] as Record<string, unknown> };
   },
 
   async deleteRow({
@@ -902,12 +1412,16 @@ export const crmService = {
       entity_type: entityType,
       field_name: fieldName,
     });
-    metadata[entityType] = [
-      ...current.filter(
-        (entry) => entry.id !== next.id && entry.field_name !== next.field_name,
-      ),
-      next,
-    ];
+    const existingIndex = current.findIndex(
+      (entry) => entry.id === next.id || entry.field_name === next.field_name,
+    );
+    if (existingIndex >= 0) {
+      const reordered = [...current];
+      reordered[existingIndex] = next;
+      metadata[entityType] = reordered;
+    } else {
+      metadata[entityType] = [...current, next];
+    }
 
     const nextSettings = applyMetadataToSettings(company.settings, metadata);
     const { error: updateError } = await supabase
@@ -965,6 +1479,17 @@ export const crmService = {
     companyId: string;
     payload: CustomFieldPayload;
   }): Promise<ServiceResult<Record<string, unknown>>> {
+    const optionBasedType =
+      payload.fieldType === "select" || payload.fieldType === "currency";
+    const normalizedOptions = optionBasedType
+      ? normalizeOptionValues(payload.fieldType, payload.fieldOptions ?? [])
+      : [];
+    if (optionBasedType && normalizedOptions.length === 0) {
+      return {
+        error: "At least one option is required for select fields.",
+      };
+    }
+
     const response = await this.saveColumnDefinition({
       supabase,
       companyId,
@@ -973,13 +1498,7 @@ export const crmService = {
         field_name: payload.fieldName || toSnakeCase(payload.fieldLabel),
         field_label: payload.fieldLabel,
         field_type: payload.fieldType,
-        field_options:
-          payload.fieldType === "select" || payload.fieldType === "currency"
-            ? normalizeOptionValues(
-                payload.fieldType,
-                payload.fieldOptions ?? [],
-              )
-            : null,
+        field_options: optionBasedType ? normalizedOptions : null,
         is_required: payload.isRequired ?? false,
         is_active: true,
       },
@@ -1024,10 +1543,6 @@ export const crmService = {
     const isTypeChange = existing.field_type !== payload.fieldType;
     const optionBasedType =
       payload.fieldType === "select" || payload.fieldType === "currency";
-    const existingOptions = normalizeOptionValues(
-      payload.fieldType,
-      existing.field_options ?? [],
-    );
     const incomingOptions = optionBasedType
       ? normalizeOptionValues(payload.fieldType, payload.fieldOptions ?? [])
       : [];
@@ -1059,8 +1574,12 @@ export const crmService = {
 
     let nextOptions: string[] | null = null;
     if (optionBasedType) {
-      const requestedOptions =
-        incomingOptions.length > 0 ? incomingOptions : existingOptions;
+      if (incomingOptions.length === 0) {
+        return {
+          error: "At least one option is required for select fields.",
+        };
+      }
+      const requestedOptions = incomingOptions;
       const requestedKeys = new Set(
         requestedOptions.map((value) => value.toLowerCase()),
       );
@@ -1150,11 +1669,15 @@ export const crmService = {
     supabase,
     companyId,
     page = 1,
-    pageSize = MAX_SELECT_PAGE_SIZE,
+    pageSize = CRM_SELECT_PAGE_SIZE_DEFAULT,
   }: SelectListParams): Promise<
     ServiceResult<{ label: string; value: string }[]>
   > {
-    const { from, to } = buildPagedRange(page, pageSize, MAX_SELECT_PAGE_SIZE);
+    const { from, to } = buildPagedRange(
+      page,
+      pageSize,
+      CRM_SELECT_PAGE_SIZE_MAX,
+    );
     const { data, error } = await supabase
       .from("profiles")
       .select("id, full_name, email")
@@ -1190,11 +1713,15 @@ export const crmService = {
     supabase,
     companyId,
     page = 1,
-    pageSize = MAX_SELECT_PAGE_SIZE,
+    pageSize = CRM_SELECT_PAGE_SIZE_DEFAULT,
   }: SelectListParams): Promise<
     ServiceResult<{ label: string; value: string }[]>
   > {
-    const { from, to } = buildPagedRange(page, pageSize, MAX_SELECT_PAGE_SIZE);
+    const { from, to } = buildPagedRange(
+      page,
+      pageSize,
+      CRM_SELECT_PAGE_SIZE_MAX,
+    );
     const { data, error } = await supabase
       .from("customers")
       .select("id, name")
@@ -1220,9 +1747,13 @@ export const crmService = {
     supabase,
     companyId,
     page = 1,
-    pageSize = MAX_SELECT_PAGE_SIZE,
+    pageSize = CRM_SELECT_PAGE_SIZE_DEFAULT,
   }: SelectListParams): Promise<ServiceResult<SelectOption[]>> {
-    const { from, to } = buildPagedRange(page, pageSize, MAX_SELECT_PAGE_SIZE);
+    const { from, to } = buildPagedRange(
+      page,
+      pageSize,
+      CRM_SELECT_PAGE_SIZE_MAX,
+    );
     const { data, error } = await supabase
       .from("deals")
       .select("id, title")

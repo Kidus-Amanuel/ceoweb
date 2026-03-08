@@ -16,26 +16,21 @@ export type DeleteTarget = {
   label: string;
 } | null;
 
-type EditableTableDeleteDialogProps = {
+type DeleteConfirmationDialogProps = {
   deleteTarget: DeleteTarget;
   onClose: () => void;
-  onDeleteRow?: (rowId: string) => void;
-  onDeleteColumn?: (columnId: string) => void;
+  onConfirmRow?: (id: string) => void;
+  onConfirmColumn?: (id: string) => void;
 };
 
-export function EditableTableDeleteDialog({
+export default function DeleteConfirmationDialog({
   deleteTarget,
   onClose,
-  onDeleteRow,
-  onDeleteColumn,
-}: EditableTableDeleteDialogProps) {
+  onConfirmRow,
+  onConfirmColumn,
+}: DeleteConfirmationDialogProps) {
   return (
-    <Dialog
-      open={!!deleteTarget}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
+    <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
@@ -57,8 +52,8 @@ export function EditableTableDeleteDialog({
             onClick={() => {
               if (!deleteTarget) return;
               if (deleteTarget.kind === "column")
-                onDeleteColumn?.(deleteTarget.id);
-              else onDeleteRow?.(deleteTarget.id);
+                onConfirmColumn?.(deleteTarget.id);
+              else onConfirmRow?.(deleteTarget.id);
               onClose();
             }}
           >
