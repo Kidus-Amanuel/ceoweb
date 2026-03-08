@@ -10,7 +10,7 @@ export async function GET(req: Request) {
     const pageSize = parseInt(searchParams.get("pageSize") || "20");
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "all";
-    
+
     const auth = await requireFleetAuth();
     if (auth instanceof NextResponse) return auth;
     const { supabase, companyId } = auth;
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
           license_plate
         )
       `,
-        { count: "exact" }
+        { count: "exact" },
       )
       .eq("company_id", companyId)
       .is("deleted_at", null);
@@ -56,20 +56,22 @@ export async function GET(req: Request) {
     }
 
     if (status === "active") {
-      query = query.or('end_date.is.null,end_date.gte.now()');
+      query = query.or("end_date.is.null,end_date.gte.now()");
     } else if (status === "ended") {
-      query = query.lt('end_date', 'now()');
+      query = query.lt("end_date", "now()");
     }
 
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const { data: assignments, error, count } = await query
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    const {
+      data: assignments,
+      error,
+      count,
+    } = await query.order("created_at", { ascending: false }).range(from, to);
 
     if (error) throw error;
-    
+
     // Shape the data
     const shaped = (assignments || []).map((a: any) => {
       const emp = a.employees;
@@ -100,22 +102,23 @@ export async function GET(req: Request) {
     let textFiltered = shaped;
     if (search) {
       const q = search.toLowerCase();
-      textFiltered = shaped.filter(a => 
-        (a.driver_name && a.driver_name.toLowerCase().includes(q)) ||
-        (a.driver_email && a.driver_email.toLowerCase().includes(q)) ||
-        (a.vehicle_label && a.vehicle_label.toLowerCase().includes(q)) ||
-        (a.vehicle_plate && a.vehicle_plate.toLowerCase().includes(q)) ||
-        (a.notes && a.notes.toLowerCase().includes(q))
+      textFiltered = shaped.filter(
+        (a) =>
+          (a.driver_name && a.driver_name.toLowerCase().includes(q)) ||
+          (a.driver_email && a.driver_email.toLowerCase().includes(q)) ||
+          (a.vehicle_label && a.vehicle_label.toLowerCase().includes(q)) ||
+          (a.vehicle_plate && a.vehicle_plate.toLowerCase().includes(q)) ||
+          (a.notes && a.notes.toLowerCase().includes(q)),
       );
     }
-    
-    // We return total as count from DB, but if textFiltered is smaller due to frontend filter, 
+
+    // We return total as count from DB, but if textFiltered is smaller due to frontend filter,
     // it will just reduce current page. Real full-text cross-table search should be done in DB view.
     return NextResponse.json({
-        data: textFiltered,
-        total: search ? textFiltered.length : (count || 0),
-        page,
-        pageSize
+      data: textFiltered,
+      total: search ? textFiltered.length : count || 0,
+      page,
+      pageSize,
     });
   } catch (error: any) {
     console.error("[Fleet Drivers API] GET Error:", error);

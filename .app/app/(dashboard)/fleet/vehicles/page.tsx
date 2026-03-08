@@ -68,15 +68,20 @@ export default function VehiclesPage() {
   >("all");
 
   // ── Data via React Query ──────────────────────────────────────────────────
-  const { data: vehicleResponse, isLoading: loadingVehicles } =
-    useVehicles(companyId, { 
-      page, 
-      pageSize, 
-      search: searchTerm, 
-      status: statusFilter 
-    });
-  
-  const vehicles = useMemo(() => vehicleResponse?.data || [], [vehicleResponse]);
+  const { data: vehicleResponse, isLoading: loadingVehicles } = useVehicles(
+    companyId,
+    {
+      page,
+      pageSize,
+      search: searchTerm,
+      status: statusFilter,
+    },
+  );
+
+  const vehicles = useMemo(
+    () => vehicleResponse?.data || [],
+    [vehicleResponse],
+  );
   const totalVehicles = vehicleResponse?.total || 0;
 
   const { data: drivers = [] as any[] } = useDrivers(companyId);
@@ -123,9 +128,9 @@ export default function VehiclesPage() {
     const opts: { label: string; value: string }[] = [
       { label: `— ${t("fleet_vehicles.unassigned")} —`, value: "none" },
     ];
-    
+
     const driverList = (drivers as any)?.data || (drivers as any) || [];
-    
+
     for (const d of driverList) {
       if (d.driver_id && !seen.has(d.driver_id)) {
         seen.add(d.driver_id);
@@ -226,7 +231,9 @@ export default function VehiclesPage() {
         cell: ({ row }: any) => {
           const driverId = row.original.assigned_driver_id;
           const driverList = (drivers as any)?.data || (drivers as any) || [];
-          const driverRecord = driverList.find((d: any) => d.driver_id === driverId);
+          const driverRecord = driverList.find(
+            (d: any) => d.driver_id === driverId,
+          );
           if (!driverId || !driverRecord)
             return (
               <span className="text-muted-foreground italic text-xs">

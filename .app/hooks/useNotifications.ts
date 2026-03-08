@@ -145,7 +145,7 @@ export const useNotifications = () => {
         }
       });
 
-    // FALLBACK: Since WebSockets are being blocked in your environment, 
+    // FALLBACK: Since WebSockets are being blocked in your environment,
     // let's add a polling interval to fetch data every 10 seconds automatically.
     const pollInterval = setInterval(() => {
       fetchInitialData();

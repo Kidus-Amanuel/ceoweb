@@ -69,10 +69,13 @@ export default function DriversPage() {
     page,
     pageSize,
     search: searchTerm,
-    status: statusFilter
+    status: statusFilter,
   });
 
-  const rawDrivers = useMemo(() => driverResponse?.data || [], [driverResponse]);
+  const rawDrivers = useMemo(
+    () => driverResponse?.data || [],
+    [driverResponse],
+  );
   const totalDrivers = driverResponse?.total || 0;
   const { data: rawVehicles = [] as any[] } = useVehicles(companyId);
   const { data: employees = [] } = useEmployees(companyId);

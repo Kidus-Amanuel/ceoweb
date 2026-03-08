@@ -62,7 +62,13 @@ export function useVehicles(companyId?: string, params: VehicleParams = {}) {
 
   // 1. Fetching
   const query = useQuery({
-    queryKey: [...fleetKeys.vehicles(companyId), page, pageSize, search, status],
+    queryKey: [
+      ...fleetKeys.vehicles(companyId),
+      page,
+      pageSize,
+      search,
+      status,
+    ],
     queryFn: () =>
       apiFetch<{
         data: any[];
@@ -208,7 +214,9 @@ export function useDrivers(companyId?: string, params: DriverParams = {}) {
         total: number;
         page: number;
         pageSize: number;
-      }>(`/api/fleet/drivers?company_id=${companyId}&page=${page}&pageSize=${pageSize}&search=${search}&status=${status}`),
+      }>(
+        `/api/fleet/drivers?company_id=${companyId}&page=${page}&pageSize=${pageSize}&search=${search}&status=${status}`,
+      ),
     staleTime: 60_000,
     enabled: !!companyId,
   });
@@ -331,19 +339,30 @@ export type MaintenanceParams = {
   type?: string;
 };
 
-export function useMaintenance(companyId?: string, params: MaintenanceParams = {}) {
+export function useMaintenance(
+  companyId?: string,
+  params: MaintenanceParams = {},
+) {
   const qc = useQueryClient();
   const { page = 1, pageSize = 20, search = "", type = "all" } = params;
 
   const query = useQuery({
-    queryKey: [...fleetKeys.maintenance(companyId), page, pageSize, search, type],
+    queryKey: [
+      ...fleetKeys.maintenance(companyId),
+      page,
+      pageSize,
+      search,
+      type,
+    ],
     queryFn: () =>
       apiFetch<{
         data: any[];
         total: number;
         page: number;
         pageSize: number;
-      }>(`/api/fleet/maintenance?company_id=${companyId}&page=${page}&pageSize=${pageSize}&search=${search}&type=${type}`),
+      }>(
+        `/api/fleet/maintenance?company_id=${companyId}&page=${page}&pageSize=${pageSize}&search=${search}&type=${type}`,
+      ),
     staleTime: 60_000,
     enabled: !!companyId,
   });

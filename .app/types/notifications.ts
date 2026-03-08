@@ -1,15 +1,15 @@
-export type NotificationCategory = 
-  | 'task' 
-  | 'fleet' 
-  | 'inventory' 
-  | 'system' 
-  | 'mention' 
-  | 'approval'
-  | 'hr'
-  | 'crm'
-  | 'finance';
+export type NotificationCategory =
+  | "task"
+  | "fleet"
+  | "inventory"
+  | "system"
+  | "mention"
+  | "approval"
+  | "hr"
+  | "crm"
+  | "finance";
 
-export type NotificationScope = 'user' | 'role' | 'company';
+export type NotificationScope = "user" | "role" | "company";
 
 export interface Notification {
   id: string;

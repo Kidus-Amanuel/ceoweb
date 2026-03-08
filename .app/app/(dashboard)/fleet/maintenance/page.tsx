@@ -187,15 +187,20 @@ export default function MaintenancePage() {
   const [typeFilter, setTypeFilter] = useState<"all" | MaintenanceType>("all");
 
   // ── Data via React Query ──────────────────────────────────────────────────
-  const { data: maintenanceResponse, isLoading: loading } =
-    useMaintenance(companyId, {
+  const { data: maintenanceResponse, isLoading: loading } = useMaintenance(
+    companyId,
+    {
       page,
       pageSize,
       search: searchTerm,
-      type: typeFilter
-    });
-    
-  const rawMaintenance = useMemo(() => maintenanceResponse?.data || [], [maintenanceResponse]);
+      type: typeFilter,
+    },
+  );
+
+  const rawMaintenance = useMemo(
+    () => maintenanceResponse?.data || [],
+    [maintenanceResponse],
+  );
   const totalMaintenance = maintenanceResponse?.total || 0;
   const { data: rawVehicles = [] } = useVehicles(companyId);
   const { data: columnDefs = [] } = useFleetColumnDefs(

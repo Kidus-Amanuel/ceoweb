@@ -14,7 +14,7 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const vehicleId = searchParams.get("vehicle_id");
-    
+
     // Pagination and Filtering params
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "20");
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
           license_plate
         )
       `,
-        { count: "exact" }
+        { count: "exact" },
       )
       .eq("company_id", companyId)
       .is("deleted_at", null);
@@ -54,15 +54,20 @@ export async function GET(req: Request) {
     if (vehicleId) {
       query = query.eq("vehicle_id", vehicleId);
     }
-    
+
     if (search) {
-      query = query.or(`description.ilike.%${search}%,notes.ilike.%${search}%,performed_by.ilike.%${search}%`);
+      query = query.or(
+        `description.ilike.%${search}%,notes.ilike.%${search}%,performed_by.ilike.%${search}%`,
+      );
     }
 
-    if (type !== "all" && ["routine", "repair", "inspection", "emergency"].includes(type)) {
+    if (
+      type !== "all" &&
+      ["routine", "repair", "inspection", "emergency"].includes(type)
+    ) {
       query = query.eq("type", type);
     }
-    
+
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
@@ -94,25 +99,26 @@ export async function GET(req: Request) {
       created_at: r.created_at,
       updated_at: r.updated_at,
     }));
-    
+
     // Fallback frontend search for the joined vehicles fields
     let textFiltered = shaped;
     if (search) {
       const q = search.toLowerCase();
-      textFiltered = shaped.filter(a => 
-         (a.description && a.description.toLowerCase().includes(q)) ||
-         (a.notes && a.notes.toLowerCase().includes(q)) ||
-         (a.performed_by && a.performed_by.toLowerCase().includes(q)) ||
-         (a.vehicle_label && a.vehicle_label.toLowerCase().includes(q)) ||
-         (a.vehicle_plate && a.vehicle_plate.toLowerCase().includes(q))
+      textFiltered = shaped.filter(
+        (a) =>
+          (a.description && a.description.toLowerCase().includes(q)) ||
+          (a.notes && a.notes.toLowerCase().includes(q)) ||
+          (a.performed_by && a.performed_by.toLowerCase().includes(q)) ||
+          (a.vehicle_label && a.vehicle_label.toLowerCase().includes(q)) ||
+          (a.vehicle_plate && a.vehicle_plate.toLowerCase().includes(q)),
       );
     }
 
     return NextResponse.json({
-        data: textFiltered,
-        total: search ? textFiltered.length : (count || 0),
-        page,
-        pageSize
+      data: textFiltered,
+      total: search ? textFiltered.length : count || 0,
+      page,
+      pageSize,
     });
   } catch (error: any) {
     console.error("[Fleet Maintenance API] GET Error:", error);

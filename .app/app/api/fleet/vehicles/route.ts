@@ -30,7 +30,7 @@ export async function GET(req: Request) {
       );
     }
 
-    // Note: status filter is primarily Traccar-based (online/offline), 
+    // Note: status filter is primarily Traccar-based (online/offline),
     // but we can filter by DB status if it's 'active'/'inactive'.
     if (status !== "all" && ["active", "inactive"].includes(status)) {
       query = query.eq("status", status);
@@ -40,9 +40,11 @@ export async function GET(req: Request) {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const { data: dbVehicles, error, count } = await query
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    const {
+      data: dbVehicles,
+      error,
+      count,
+    } = await query.order("created_at", { ascending: false }).range(from, to);
 
     if (error) throw error;
 
@@ -73,17 +75,32 @@ export async function GET(req: Request) {
             (p: any) => p.deviceId === traccarDevice.id,
           );
 
-          const lat = position?.latitude ?? traccarDevice.latitude ?? vehicle.last_known_lat;
-          const lng = position?.longitude ?? traccarDevice.longitude ?? vehicle.last_known_lng;
+          const lat =
+            position?.latitude ??
+            traccarDevice.latitude ??
+            vehicle.last_known_lat;
+          const lng =
+            position?.longitude ??
+            traccarDevice.longitude ??
+            vehicle.last_known_lng;
 
           return {
             ...vehicle,
             last_known_lat: lat,
             last_known_lng: lng,
-            last_location_at: position?.deviceTime || traccarDevice.lastUpdate || vehicle.last_location_at,
+            last_location_at:
+              position?.deviceTime ||
+              traccarDevice.lastUpdate ||
+              vehicle.last_location_at,
             traccar_status: traccarDevice.status?.trim(),
-            ignition_status: position?.attributes?.ignition ?? vehicle.ignition_status,
-            is_active: traccarDevice.status?.trim() === "online" || (traccarDevice.lastUpdate && (new Date().getTime() - new Date(traccarDevice.lastUpdate).getTime() < 30 * 60 * 1000)),
+            ignition_status:
+              position?.attributes?.ignition ?? vehicle.ignition_status,
+            is_active:
+              traccarDevice.status?.trim() === "online" ||
+              (traccarDevice.lastUpdate &&
+                new Date().getTime() -
+                  new Date(traccarDevice.lastUpdate).getTime() <
+                  30 * 60 * 1000),
           };
         }
         return vehicle;
@@ -92,9 +109,13 @@ export async function GET(req: Request) {
       // Filter by Traccar status if requested
       let filteredData = mergedData;
       if (status === "online") {
-        filteredData = mergedData.filter(v => v.traccar_status === "online" || v.is_active);
+        filteredData = mergedData.filter(
+          (v) => v.traccar_status === "online" || v.is_active,
+        );
       } else if (status === "offline") {
-        filteredData = mergedData.filter(v => v.traccar_status !== "online" && !v.is_active);
+        filteredData = mergedData.filter(
+          (v) => v.traccar_status !== "online" && !v.is_active,
+        );
       }
 
       return NextResponse.json({
