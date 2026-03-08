@@ -53,15 +53,15 @@ const getEntityLink = (notification: Notification) => {
       return metadata.task_id ? `/tasks/${metadata.task_id}` : "/projects";
     case "fleet":
       return metadata.vehicle_id
-        ? `/fleet/vehicles/${metadata.vehicle_id}`
+        ? `/fleet/vehicles`
         : "/fleet";
     case "inventory":
       return metadata.product_id
-        ? `/inventory/${metadata.product_id}`
+        ? `/inventory`
         : "/inventory";
     case "hr":
       return metadata.employee_id
-        ? `/hr/employees/${metadata.employee_id}`
+        ? `/hr/employees`
         : "/hr";
     default:
       return metadata.link || null;
