@@ -89,12 +89,12 @@ export default async function middleware(request: NextRequest) {
     }
     return response;
   }
- 
+
   // ── 2. Build response object that carries refreshed session cookies ────────
   let response = NextResponse.next({
     request: { headers: request.headers },
   });
- 
+
   // Handle i18n locale cookie if missing for authenticated routes
   if (!request.cookies.has("NEXT_LOCALE")) {
     const acceptLanguage = request.headers.get("accept-language");
@@ -312,7 +312,7 @@ export const config = {
     "/",
     "/login",
     "/signup",
- 
+
     // ── Shared authenticated routes (both user types) ──
     // NOTE: "/dashboard" has a page; "/settings" does NOT have a root page.tsx —
     // only sub-routes exist (/settings/billing, /settings/company, etc.).
@@ -323,10 +323,10 @@ export const config = {
     "/profile/:path*",
     "/settings/:path+", // ← :path+ not :path* — /settings itself has no page
     "/onboarding/:path*",
- 
+
     // ── Super admin routes ──
     "/admin/:path*",
- 
+
     // ── Company user module routes ──
     // NOTE: App directory uses /hr not /hrm — must match actual folder name.
     "/hr/:path*",
@@ -337,7 +337,7 @@ export const config = {
     "/internationaltrade/:path*",
     "/ai-agent/:path*",
     "/chat/:path*",
- 
+
     // ── Protected API routes (exclude /api/auth which is public) ──
     "/api/((?!auth).*)",
   ],

@@ -8,22 +8,22 @@ importers:
   .:
     devDependencies:
       "@commitlint/cli":
-        specifier: ^19.0.3
+        specifier: ^19.8.1
         version: 19.8.1(@types/node@20.19.32)(typescript@5.9.3)
       "@commitlint/config-conventional":
-        specifier: ^19.0.3
+        specifier: ^19.8.1
         version: 19.8.1
       husky:
-        specifier: ^9.0.11
+        specifier: ^9.1.7
         version: 9.1.7
       lint-staged:
-        specifier: ^15.2.2
+        specifier: ^15.5.0
         version: 15.5.2
       prettier:
-        specifier: ^3.2.5
+        specifier: ^3.5.0
         version: 3.8.1
       typescript:
-        specifier: ^5.3.3
+        specifier: ^5.8.0
         version: 5.9.3
 
   .app:
@@ -130,9 +130,6 @@ importers:
       i18next:
         specifier: ^25.8.13
         version: 25.8.13(typescript@5.9.3)
-      i18next-browser-languagedetector:
-        specifier: ^8.2.1
-        version: 8.2.1
       i18next-resources-to-backend:
         specifier: ^1.2.1
         version: 1.2.1
@@ -234,7 +231,7 @@ importers:
         specifier: ^3.4.1
         version: 3.4.19(yaml@2.8.2)
       typescript:
-        specifier: ^5.4.0
+        specifier: ^5.8.0
         version: 5.9.3
       vitest:
         specifier: ^1.2.2
@@ -4392,6 +4389,7 @@ packages:
         integrity: sha512-ICsMM1Wk8xSGMowkOmPrzo2Fgmfo4bMHLNX6ytHjajRJUqvHOw/TFapQ+QG75c3X/tTDDhOSRPGC52dDbNM8FQ==,
       }
     engines: { node: ">=16" }
+    deprecated: This package is no longer maintained. For the JavaScript API, please use @conventional-changelog/git-client instead.
     hasBin: true
 
   glob-parent@5.1.2:
@@ -4550,12 +4548,6 @@ packages:
       }
     engines: { node: ">=18" }
     hasBin: true
-
-  i18next-browser-languagedetector@8.2.1:
-    resolution:
-      {
-        integrity: sha512-bZg8+4bdmaOiApD7N7BPT9W8MLZG+nPTOFlLiJiT8uzKXFjhxw4v2ierCXOwB5sFDMtuA5G4kgYZ0AznZxQ/cw==,
-      }
 
   i18next-resources-to-backend@1.2.1:
     resolution:
@@ -10064,10 +10056,6 @@ snapshots:
   human-signals@5.0.0: {}
 
   husky@9.1.7: {}
-
-  i18next-browser-languagedetector@8.2.1:
-    dependencies:
-      "@babel/runtime": 7.28.6
 
   i18next-resources-to-backend@1.2.1:
     dependencies:

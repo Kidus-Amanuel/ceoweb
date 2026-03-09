@@ -33,15 +33,19 @@ export async function getFleetAuthContext(): Promise<FleetAuthContext | null> {
   // ── 1. Determine user type for routing logic ───────────────────────────────
   const userType =
     user.user_metadata?.userType || user.user_metadata?.user_type;
-  
-  console.log(`[getFleetAuthContext] userId: ${user.id}, userType: ${userType}`);
+
+  console.log(
+    `[getFleetAuthContext] userId: ${user.id}, userType: ${userType}`,
+  );
 
   // ── 2. Fast path: company_users have a single fixed company in JWT ──────────
   if (userType === "company_user") {
     const metaCompanyId =
       user.user_metadata?.companyId || user.user_metadata?.company_id;
-    
-    console.log(`[getFleetAuthContext] company_user metaCompanyId: ${metaCompanyId}`);
+
+    console.log(
+      `[getFleetAuthContext] company_user metaCompanyId: ${metaCompanyId}`,
+    );
 
     if (metaCompanyId) {
       return { supabase, companyId: metaCompanyId as string, userId: user.id };
@@ -54,8 +58,10 @@ export async function getFleetAuthContext(): Promise<FleetAuthContext | null> {
     .select("company_id")
     .eq("id", user.id)
     .single();
-  
-  console.log(`[getFleetAuthContext] profile company_id: ${profile?.company_id}`);
+
+  console.log(
+    `[getFleetAuthContext] profile company_id: ${profile?.company_id}`,
+  );
 
   if (!profile?.company_id) return null;
 
