@@ -22,6 +22,8 @@ export const PUBLIC_ROUTES = [
   "/forgot-password",
   "/reset-password",
   "/api/auth",
+  "/api/ai/agent",
+];
   "/api/webhooks",
   "/coming-soon",
 ] as const;

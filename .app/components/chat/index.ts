@@ -1,6 +1,6 @@
 // Layout components
 export { ChatLayout } from "./layout/ChatLayout";
-export { ChatSidebar } from "./layout/ChatSidebar";
+// export { ChatSidebar } from "./layout/ChatSidebar";
 export { ChatHeader } from "./layout/ChatHeader";
 
 // View components
