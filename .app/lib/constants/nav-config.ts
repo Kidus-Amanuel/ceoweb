@@ -84,13 +84,6 @@ export const NAV_CONFIG: NavItem[] = [
         iconClassName: "text-cyan-500",
       },
       {
-        id: "fleet-shipments",
-        label: "Shipments",
-        href: "/fleet/shipments",
-        icon: Ship,
-        iconClassName: "text-blue-500",
-      },
-      {
         id: "fleet-vehicles",
         label: "Vehicles",
         href: "/fleet/vehicles",
@@ -118,10 +111,17 @@ export const NAV_CONFIG: NavItem[] = [
     label: "CRM",
     icon: Users,
     iconClassName: "text-blue-500",
-    href: "/crm",
+    href: "/crm/overviews",
     module: "CRM",
     roles: ["super_admin", "company_user"],
     subItems: [
+      {
+        id: "reports",
+        label: "Overviews",
+        href: "/crm/overviews",
+        icon: BarChart3,
+        iconClassName: "text-purple-500",
+      },
       {
         id: "customers",
         label: "Customers",
@@ -142,13 +142,6 @@ export const NAV_CONFIG: NavItem[] = [
         href: "/crm/activities",
         icon: Clock,
         iconClassName: "text-amber-500",
-      },
-      {
-        id: "reports",
-        label: "Reports",
-        href: "/crm/reports",
-        icon: BarChart3,
-        iconClassName: "text-purple-500",
       },
     ],
   },
@@ -299,7 +292,7 @@ export const NAV_CONFIG: NavItem[] = [
     label: "Settings",
     icon: Settings,
     iconClassName: "text-slate-500",
-    href: "/settings",
+    href: "/coming-soon",
     roles: ["super_admin", "company_user"],
   },
 ];

@@ -8,8 +8,10 @@ out/
 build/
 dist/
 
-# TypeScript
+# TypeScript build info
+**/*.tsbuildinfo
 *.tsbuildinfo
+.app/tsconfig.tsbuildinfo
 
 # Environments
 .env

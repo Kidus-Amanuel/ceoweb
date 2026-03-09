@@ -10,6 +10,7 @@ import {
   ChevronRight,
   LogOut,
   Plus,
+  Lock,
 } from "lucide-react";
 import { useLayoutStore } from "@/store/layout-store";
 import { useNavigation } from "@/hooks/use-navigation";
@@ -21,9 +22,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GlobalSearchInput } from "@/components/layout/global-search-input";
 import { UpgradeModal } from "@/components/shared/feedback/upgrade-modal";
-import { Lock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export function SidebarNav() {
+  const { t } = useTranslation();
   const {
     leftSidebarOpen,
     leftSidebarWidth,
@@ -61,6 +63,33 @@ export function SidebarNav() {
     setExpandedItems((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
     );
+  };
+
+  const getNavLabel = (item: NavItem | NavSubItem) => {
+    const keyMap: Record<string, string> = {
+      "fleet-overview": "overview",
+      "fleet-shipments": "shipments",
+      "fleet-vehicles": "vehicles",
+      "fleet-drivers": "drivers",
+      "fleet-maintenance": "maintenance",
+      "inv-stock": "stock_level",
+      "inv-warehouses": "warehouses",
+      "inv-suppliers": "suppliers",
+      "hr-employees": "employees",
+      "hr-payroll": "payroll",
+      "hr-attendance": "attendance",
+      "fin-invoices": "invoices",
+      "fin-expenses": "expenses",
+      "fin-reports": "fin_reports",
+      "trade-shipments": "shipments",
+      "trade-containers": "containers",
+      "trade-ports": "ports",
+      "trade-vessels": "vessels",
+      "trade-clearance": "customs",
+    };
+
+    const key = keyMap[item.id] || item.id;
+    return t(`navigation.items.${key}`, item.label);
   };
 
   const handleResizeStart = (e: React.MouseEvent) => {
@@ -122,7 +151,7 @@ export function SidebarNav() {
                 exit={{ opacity: 0, x: -10 }}
                 className="font-bold text-sm truncate tracking-tight"
               >
-                CEO PORTAL
+                {t("navigation.portal_name")}
               </motion.span>
             )}
           </AnimatePresence>
@@ -156,10 +185,10 @@ export function SidebarNav() {
                   <span className="text-xs font-semibold truncate w-full text-left">
                     {selectedCompany?.name ||
                       roleInfo?.company_name ||
-                      "Select Company"}
+                      t("navigation.select_company")}
                   </span>
                   <span className="text-[10px] text-muted-foreground truncate">
-                    {selectedCompany?.type || "Enterprise"}
+                    {selectedCompany?.type || t("navigation.enterprise")}
                   </span>
                 </div>
                 {availableCompanies.length > 0 && (
@@ -238,7 +267,7 @@ export function SidebarNav() {
                     value={sidebarSearchQuery}
                     onChange={setSidebarSearchQuery}
                     companyId={selectedCompany?.id}
-                    placeholder="Search Intelligent..."
+                    placeholder={t("common.search_placeholder")}
                     className="w-full"
                     inputClassName="h-6 text-sm"
                     iconClassName="hidden"
@@ -253,7 +282,7 @@ export function SidebarNav() {
             <Link
               href="/onboarding"
               className="p-2.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity shadow-lg shadow-primary/20 flex items-center justify-center shrink-0 border border-primary/50"
-              title="Add New Company"
+              title={t("navigation.add_company")}
             >
               <Plus className="w-4 h-4 text-emerald-100" />
             </Link>
@@ -287,7 +316,10 @@ export function SidebarNav() {
                 onClick={(e) => {
                   if (isLocked) {
                     e.preventDefault();
-                    setUpgradeModal({ isOpen: true, moduleName: item.label });
+                    setUpgradeModal({
+                      isOpen: true,
+                      moduleName: getNavLabel(item),
+                    });
                     return;
                   }
                   if (hasSubItems && leftSidebarOpen) {
@@ -296,10 +328,13 @@ export function SidebarNav() {
                 }}
               >
                 <Link
-                  href={hasSubItems || isLocked ? "#" : item.href}
+                  href={isLocked ? "#" : item.href}
                   className="flex items-center gap-3 flex-1 min-w-0"
                   onClick={(e) => {
-                    if (isLocked) e.preventDefault();
+                    if (isLocked) {
+                      e.preventDefault();
+                      setUpgradeModal({ isOpen: true, moduleName: item.label });
+                    }
                   }}
                 >
                   <Icon
@@ -317,7 +352,7 @@ export function SidebarNav() {
                         exit={{ opacity: 0, x: -10 }}
                         className="truncate"
                       >
-                        {item.label}
+                        {getNavLabel(item)}
                       </motion.span>
                     )}
                   </AnimatePresence>
@@ -328,12 +363,23 @@ export function SidebarNav() {
                 )}
 
                 {leftSidebarOpen && hasSubItems && !isLocked && (
-                  <ChevronDown
-                    className={cn(
-                      "w-3 h-3 transition-transform duration-200",
-                      isExpanded && "rotate-180",
-                    )}
-                  />
+                  <button
+                    type="button"
+                    aria-label={`${isExpanded ? "Collapse" : "Expand"} ${item.label}`}
+                    className="inline-flex items-center justify-center"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleExpand(item.id);
+                    }}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        "w-3 h-3 transition-transform duration-200",
+                        isExpanded && "rotate-180",
+                      )}
+                    />
+                  </button>
                 )}
 
                 {isActive && leftSidebarOpen && (
@@ -345,39 +391,50 @@ export function SidebarNav() {
               </div>
 
               {/* Sub Items */}
-              <AnimatePresence>
-                {leftSidebarOpen && hasSubItems && isExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden pl-9 space-y-1"
-                  >
-                    {item.subItems?.map((sub: NavSubItem) => (
-                      <Link
-                        key={sub.id}
-                        href={sub.href}
-                        className={cn(
-                          "flex items-center gap-2 py-2 px-3 text-xs rounded-lg transition-colors",
-                          pathname === sub.href
-                            ? "text-primary font-semibold bg-primary/5"
-                            : "text-muted-foreground hover:text-foreground hover:bg-background/50",
-                        )}
-                      >
-                        {sub.icon ? (
-                          <sub.icon
-                            className={cn(
-                              "w-3.5 h-3.5 shrink-0",
-                              sub.iconClassName ?? "text-muted-foreground",
-                            )}
-                          />
-                        ) : null}
-                        {sub.label}
-                      </Link>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {leftSidebarOpen && hasSubItems && isExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden pl-9 space-y-1"
+                >
+                  {item.subItems?.map((sub: NavSubItem) => (
+                    <Link
+                      key={sub.id}
+                      href={isLocked ? "#" : sub.href}
+                      onClick={(e) => {
+                        if (isLocked) {
+                          e.preventDefault();
+                          setUpgradeModal({
+                            isOpen: true,
+                            moduleName: getNavLabel(item),
+                          });
+                        }
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 py-2 px-3 text-xs rounded-lg transition-colors",
+                        pathname === sub.href
+                          ? "text-primary font-semibold bg-primary/5"
+                          : "text-muted-foreground hover:text-foreground hover:bg-background/50",
+                        isLocked && "opacity-50 cursor-not-allowed",
+                      )}
+                    >
+                      {sub.icon ? (
+                        <sub.icon
+                          className={cn(
+                            "w-3.5 h-3.5 shrink-0",
+                            sub.iconClassName ?? "text-muted-foreground",
+                          )}
+                        />
+                      ) : null}
+                      {getNavLabel(sub)}
+                      {isLocked && (
+                        <Lock className="w-2.5 h-2.5 ml-auto opacity-50" />
+                      )}
+                    </Link>
+                  ))}
+                </motion.div>
+              )}
             </div>
           );
         })}
@@ -411,8 +468,8 @@ export function SidebarNav() {
                 </p>
                 <p className="text-[10px] text-muted-foreground truncate uppercase tracking-widest font-medium">
                   {roleInfo?.user_type === "super_admin"
-                    ? "Super Admin"
-                    : roleInfo?.role_name || "Company User"}
+                    ? t("common.super_admin")
+                    : roleInfo?.role_name || t("common.company_user")}
                 </p>
               </motion.div>
             )}
@@ -421,7 +478,7 @@ export function SidebarNav() {
             <button
               onClick={() => logout()}
               className="p-1.5 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors border border-transparent hover:border-red-100"
-              title="Logout"
+              title={t("common.logout")}
             >
               <LogOut className="w-4 h-4" />
             </button>

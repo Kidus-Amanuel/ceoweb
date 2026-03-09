@@ -15,6 +15,10 @@ import {
   crmUpdateRowInputSchema,
 } from "@/validators/crm";
 import { NAV_CONFIG } from "@/lib/constants/nav-config";
+import {
+  CRM_SELECT_PAGE_SIZE_DEFAULT,
+  CRM_TABLE_PAGE_SIZE_DEFAULT,
+} from "@/lib/constants/crm-pagination";
 
 type ActionResult<T> = {
   success: boolean;
@@ -128,6 +132,162 @@ export async function getCrmTablesAction(
   return { success: true, data: response.data };
 }
 
+export async function getCrmTrendAction(input: unknown): Promise<
+  ActionResult<
+    {
+      month: string;
+      key: string;
+      customers: number;
+      deals: number;
+      activities: number;
+    }[]
+  >
+> {
+  const parsed = crmCompanyScopeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: zodErrorToText(parsed.error) };
+  }
+
+  const auth = await getAuthContext(parsed.data.companyId);
+  if (!auth.success || !auth.data) {
+    return { success: false, error: auth.error };
+  }
+
+  const response = await crmService.getMonthlyTrend({
+    supabase: auth.data.supabase,
+    companyId: auth.data.companyId,
+    months: 6,
+  });
+
+  if (response.error || !response.data) {
+    return {
+      success: false,
+      error: response.error || "Failed to load CRM trend",
+    };
+  }
+
+  return { success: true, data: response.data };
+}
+
+export async function getCrmRowsAction(input: unknown): Promise<
+  ActionResult<{
+    rows: Record<string, unknown>[];
+    totalRows: number;
+  }>
+> {
+  const parsed = crmTableViewInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: zodErrorToText(parsed.error) };
+  }
+
+  const auth = await getAuthContext(parsed.data.companyId);
+  if (!auth.success || !auth.data) {
+    return { success: false, error: auth.error };
+  }
+
+  const rowsResult = await crmService.listRows({
+    supabase: auth.data.supabase,
+    table: parsed.data.table,
+    companyId: auth.data.companyId,
+    page: parsed.data.page,
+    pageSize: parsed.data.pageSize,
+    search: parsed.data.search,
+  });
+
+  if (rowsResult.error) {
+    return { success: false, error: rowsResult.error };
+  }
+
+  return {
+    success: true,
+    data: {
+      rows: rowsResult.data?.data ?? [],
+      totalRows: rowsResult.data?.count ?? 0,
+    },
+  };
+}
+
+export async function getCrmUsersOptionsAction(
+  input: unknown,
+): Promise<ActionResult<{ label: string; value: string }[]>> {
+  const parsed = crmCompanyScopeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: zodErrorToText(parsed.error) };
+  }
+
+  const auth = await getAuthContext(parsed.data.companyId);
+  if (!auth.success || !auth.data) {
+    return { success: false, error: auth.error };
+  }
+
+  const response = await crmService.listUsersForSelect({
+    supabase: auth.data.supabase,
+    companyId: auth.data.companyId,
+    page: 1,
+    pageSize: CRM_SELECT_PAGE_SIZE_DEFAULT,
+  });
+
+  if (response.error) {
+    return { success: false, error: response.error };
+  }
+
+  return { success: true, data: response.data ?? [] };
+}
+
+export async function getCrmCustomersOptionsAction(
+  input: unknown,
+): Promise<ActionResult<{ label: string; value: string }[]>> {
+  const parsed = crmCompanyScopeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: zodErrorToText(parsed.error) };
+  }
+
+  const auth = await getAuthContext(parsed.data.companyId);
+  if (!auth.success || !auth.data) {
+    return { success: false, error: auth.error };
+  }
+
+  const response = await crmService.listCustomersForSelect({
+    supabase: auth.data.supabase,
+    companyId: auth.data.companyId,
+    page: 1,
+    pageSize: CRM_SELECT_PAGE_SIZE_DEFAULT,
+  });
+
+  if (response.error) {
+    return { success: false, error: response.error };
+  }
+
+  return { success: true, data: response.data ?? [] };
+}
+
+export async function getCrmDealsOptionsAction(
+  input: unknown,
+): Promise<ActionResult<{ label: string; value: string }[]>> {
+  const parsed = crmCompanyScopeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: zodErrorToText(parsed.error) };
+  }
+
+  const auth = await getAuthContext(parsed.data.companyId);
+  if (!auth.success || !auth.data) {
+    return { success: false, error: auth.error };
+  }
+
+  const response = await crmService.listDealsForSelect({
+    supabase: auth.data.supabase,
+    companyId: auth.data.companyId,
+    page: 1,
+    pageSize: CRM_SELECT_PAGE_SIZE_DEFAULT,
+  });
+
+  if (response.error) {
+    return { success: false, error: response.error };
+  }
+
+  return { success: true, data: response.data ?? [] };
+}
+
 export async function getCrmTableViewAction(input: unknown): Promise<
   ActionResult<{
     rows: Record<string, unknown>[];
@@ -159,6 +319,7 @@ export async function getCrmTableViewAction(input: unknown): Promise<
   const needsCustomers =
     parsed.data.table === "deals" || parsed.data.table === "activities";
   const needsDeals = parsed.data.table === "activities";
+  const effectivePageSize = CRM_TABLE_PAGE_SIZE_DEFAULT;
   const emptySelectResult = {
     data: [] as { label: string; value: string }[],
     error: undefined as string | undefined,
@@ -170,7 +331,7 @@ export async function getCrmTableViewAction(input: unknown): Promise<
         table: parsed.data.table,
         companyId: auth.data.companyId,
         page: parsed.data.page,
-        pageSize: parsed.data.pageSize,
+        pageSize: effectivePageSize,
         search: parsed.data.search,
       }),
       crmService.getColumnDefinitions({
@@ -183,7 +344,7 @@ export async function getCrmTableViewAction(input: unknown): Promise<
             supabase: auth.data.supabase,
             companyId: auth.data.companyId,
             page: 1,
-            pageSize: 500,
+            pageSize: CRM_SELECT_PAGE_SIZE_DEFAULT,
           })
         : Promise.resolve(emptySelectResult),
       needsCustomers
@@ -191,7 +352,7 @@ export async function getCrmTableViewAction(input: unknown): Promise<
             supabase: auth.data.supabase,
             companyId: auth.data.companyId,
             page: 1,
-            pageSize: 500,
+            pageSize: CRM_SELECT_PAGE_SIZE_DEFAULT,
           })
         : Promise.resolve(emptySelectResult),
       needsDeals
@@ -199,7 +360,7 @@ export async function getCrmTableViewAction(input: unknown): Promise<
             supabase: auth.data.supabase,
             companyId: auth.data.companyId,
             page: 1,
-            pageSize: 500,
+            pageSize: CRM_SELECT_PAGE_SIZE_DEFAULT,
           })
         : Promise.resolve(emptySelectResult),
     ]);
@@ -537,7 +698,7 @@ export async function getGlobalSearchResultsAction(input: unknown): Promise<
     await Promise.all([
       supabase
         .from("activities")
-        .select("id,subject,activity_type,status,related_type,related_id")
+        .select("id,subject,activity_type,completed_at,related_type,related_id")
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .or(`subject.ilike.${q},notes.ilike.${q},activity_type.ilike.${q}`)
@@ -545,7 +706,9 @@ export async function getGlobalSearchResultsAction(input: unknown): Promise<
       matchedCustomerIds.length
         ? supabase
             .from("activities")
-            .select("id,subject,activity_type,status,related_type,related_id")
+            .select(
+              "id,subject,activity_type,completed_at,related_type,related_id",
+            )
             .eq("company_id", companyId)
             .is("deleted_at", null)
             .eq("related_type", "customer")
@@ -555,7 +718,9 @@ export async function getGlobalSearchResultsAction(input: unknown): Promise<
       matchedDealIds.length
         ? supabase
             .from("activities")
-            .select("id,subject,activity_type,status,related_type,related_id")
+            .select(
+              "id,subject,activity_type,completed_at,related_type,related_id",
+            )
             .eq("company_id", companyId)
             .is("deleted_at", null)
             .eq("related_type", "deal")
@@ -603,17 +768,17 @@ export async function getGlobalSearchResultsAction(input: unknown): Promise<
       return {
         id: `activity:${row.id}`,
         title: row.subject || relatedLabel || "Untitled Activity",
-        subtitle: `${row.activity_type || "activity"} • ${row.status || "pending"}`,
+        subtitle: `${row.activity_type || "activity"} • ${row.completed_at ? "completed" : "pending"}`,
         href: `/crm/activities?q=${encodedQuery}&rowId=${row.id}`,
         category: "Activities",
       };
     }),
     {
-      id: "report:crm",
-      title: "CRM Reports",
+      id: "overview:crm",
+      title: "CRM Overviews",
       subtitle: "Summary and analytics",
-      href: "/crm/reports",
-      category: "Reports",
+      href: "/crm/overviews",
+      category: "Overviews",
     },
   ];
 

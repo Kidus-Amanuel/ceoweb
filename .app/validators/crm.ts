@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  CRM_TABLE_PAGE_SIZE_DEFAULT,
+  CRM_TABLE_PAGE_SIZE_MAX,
+} from "@/lib/constants/crm-pagination";
 
 const crmActivityTypeSchema = z.enum([
   "call",
@@ -14,7 +18,33 @@ const crmDateTimeSchema = z
 const emptyToUndefined = (value: unknown) =>
   value === "" || value === null ? undefined : value;
 const optionalInput = <T extends z.ZodTypeAny>(schema: T) =>
-  z.preprocess(emptyToUndefined, schema.optional().catch(undefined));
+  z.preprocess(emptyToUndefined, schema.optional());
+
+const internationalPhoneSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => {
+      if (!/^\+?[0-9 ()-]+$/.test(value)) return false;
+      const digits = value.replace(/\D/g, "");
+      return digits.length >= 7 && digits.length <= 15;
+    },
+    {
+      message: "Please enter a valid international phone number.",
+    },
+  );
+const dealContactInputSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) =>
+      z.string().uuid().safeParse(value).success ||
+      z.string().email().safeParse(value).success ||
+      internationalPhoneSchema.safeParse(value).success,
+    {
+      message: "Contact must be a valid UUID, email, or phone number.",
+    },
+  );
 const optionalNullableDateTimeInput = z.preprocess(
   (value) => (value === "" ? undefined : value),
   z.union([crmDateTimeSchema, z.null()]).optional(),
@@ -30,6 +60,8 @@ export const crmCustomFieldTypeSchema = z.enum([
   "select",
   "boolean",
   "currency",
+  "phone",
+  "email",
 ]);
 
 export const crmCompanyScopeSchema = z.object({
@@ -58,7 +90,7 @@ export const crmCustomDataSchema = z
 export const crmCustomerStandardSchema = z.object({
   name: optionalInput(z.string().min(1).max(255)),
   email: optionalInput(z.string().email()),
-  phone: optionalInput(z.string().max(120)),
+  phone: optionalInput(internationalPhoneSchema.max(120)),
   type: optionalInput(z.enum(["person", "company"])),
   status: optionalInput(z.string().max(120)),
   assignedTo: optionalInput(z.string().uuid()),
@@ -68,8 +100,8 @@ export const crmCustomerStandardSchema = z.object({
 export const crmDealStandardSchema = z.object({
   customerId: optionalInput(z.string().uuid()),
   customer_id: optionalInput(z.string().uuid()),
-  contactId: optionalInput(z.string().uuid()),
-  contact_id: optionalInput(z.string().uuid()),
+  contactId: optionalInput(dealContactInputSchema),
+  contact_id: optionalInput(dealContactInputSchema),
   title: optionalInput(z.string().min(1).max(255)),
   description: optionalInput(z.string().max(5000)),
   value: optionalInput(z.coerce.number().nonnegative()),
@@ -91,18 +123,15 @@ export const crmDealStandardSchema = z.object({
 });
 
 export const crmActivityStandardSchema = z.object({
-  related_type: optionalInput(z.string().max(120)),
+  related_type: optionalInput(z.enum(["customer", "deal"])),
   related_id: optionalInput(z.string().uuid()),
-  activity_type: z.preprocess(
-    emptyToUndefined,
-    crmActivityTypeSchema.optional().default("task"),
-  ),
+  activity_type: optionalInput(crmActivityTypeSchema),
   status: optionalInput(z.string().max(120)),
   subject: optionalInput(z.string().max(255)),
   notes: optionalInput(z.string().max(5000)),
   due_date: optionalNullableDateTimeInput,
   completed_at: optionalNullableDateTimeInput,
-  relatedType: optionalInput(z.string().max(120)),
+  relatedType: optionalInput(z.enum(["customer", "deal"])),
   relatedId: optionalInput(z.string().uuid()),
   activityType: optionalInput(crmActivityTypeSchema),
   dueDate: optionalNullableDateTimeInput,
@@ -112,7 +141,13 @@ export const crmActivityStandardSchema = z.object({
 export const crmTableViewInputSchema = crmCompanyScopeSchema.extend({
   table: crmTableSchema,
   page: z.coerce.number().int().positive().optional().default(1),
-  pageSize: z.coerce.number().int().positive().max(200).optional().default(50),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(CRM_TABLE_PAGE_SIZE_MAX)
+    .optional()
+    .default(CRM_TABLE_PAGE_SIZE_DEFAULT),
   search: optionalInput(z.string().max(120)),
 });
 
@@ -161,18 +196,21 @@ export const crmUpdateRowInputSchema = z.discriminatedUnion("table", [
   crmCompanyScopeSchema.extend({
     table: z.literal("customers"),
     rowId: z.string().uuid("Invalid row id"),
+    expectedUpdatedAt: optionalInput(crmDateTimeSchema),
     standardData: crmCustomerStandardSchema,
     customData: crmCustomDataSchema.optional(),
   }),
   crmCompanyScopeSchema.extend({
     table: z.literal("deals"),
     rowId: z.string().uuid("Invalid row id"),
+    expectedUpdatedAt: optionalInput(crmDateTimeSchema),
     standardData: crmDealStandardSchema,
     customData: crmCustomDataSchema.optional(),
   }),
   crmCompanyScopeSchema.extend({
     table: z.literal("activities"),
     rowId: z.string().uuid("Invalid row id"),
+    expectedUpdatedAt: optionalInput(crmDateTimeSchema),
     standardData: crmActivityStandardSchema,
     customData: crmCustomDataSchema.optional(),
   }),

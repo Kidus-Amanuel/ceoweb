@@ -17,12 +17,15 @@ interface AuthGuardProps {
     module: string;
     action: string;
   };
+  /** Module code to check against the user's plan (e.g. "fleet", "crm") */
+  requiredModule?: string;
   fallback?: React.ReactNode;
 }
 
 export function AuthGuard({
   children,
   requiredPermission,
+  requiredModule,
   fallback,
 }: AuthGuardProps) {
   const router = useRouter();
@@ -55,6 +58,23 @@ export function AuthGuard({
       !isSuperAdmin &&
       requirements.userTypes.length > 0 &&
       !requirements.userTypes.includes(roleInfo.user_type)
+    ) {
+      currentAuthState = "loading";
+      redirectTarget = "/dashboard";
+    } else if (
+      // ── Module Plan Check ──────────────────────────────────────────────
+      // roleInfo.plan_modules comes from the DB (get_user_role_info RPC) so
+      // it is always accurate. We only enforce the check when plan_modules is
+      // non-empty — an empty/null plan means "no restriction configured yet",
+      // which prevents accidental lockouts for fresh accounts.
+      // This applies to ALL user types (including super_admin): the sidebar
+      // shows locked modules as an upgrade upsell, but direct URL access must
+      // also be blocked.
+      requiredModule &&
+      (roleInfo.plan_modules?.length ?? 0) > 0 &&
+      !roleInfo.plan_modules.some(
+        (m: string) => m.toLowerCase() === requiredModule.toLowerCase(),
+      )
     ) {
       currentAuthState = "loading";
       redirectTarget = "/dashboard";

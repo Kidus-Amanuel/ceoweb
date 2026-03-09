@@ -12,7 +12,10 @@ import { useLayoutStore } from "@/store/layout-store";
 import { PhoneCall, Video } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
+import { useTranslation } from "react-i18next";
+
 export function ChatLayout() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"chat" | "ai" | "calls">("chat");
   const [inputValue, setInputValue] = useState("");
   const {
@@ -140,14 +143,14 @@ export function ChatLayout() {
                     <div className="absolute inset-x-[-40%] inset-y-[-40%] bg-primary/5 rounded-full animate-ping opacity-10 pointer-events-none" />
                   </div>
                   <h3 className="text-xl font-black tracking-tight mb-2">
-                    Comms Hub
+                    {t("chat.comms_hub")}
                   </h3>
                   <p className="text-[10px] text-muted-foreground/60 max-w-[180px] mx-auto leading-normal mb-8 uppercase tracking-widest font-bold">
-                    Secure Strategy sessions only
+                    {t("chat.secure_strategy")}
                   </p>
                   <button className="bg-primary text-white px-6 py-3 rounded-2xl font-black text-[9px] uppercase tracking-[0.2em] shadow-2xl shadow-primary/30 hover:shadow-primary/40 active:scale-95 transition-all flex items-center gap-2">
                     <Video className="w-4 h-4" />
-                    Start Session
+                    {t("chat.start_session")}
                   </button>
                 </div>
               ) : (
@@ -162,10 +165,14 @@ export function ChatLayout() {
                     onSend={handleSend}
                     placeholder={
                       activeTab === "ai"
-                        ? "Ask the Strategic AI..."
-                        : `Message ${activeConv?.name || "Chat"}...`
+                        ? t("chat.ask_ai")
+                        : t("chat.message_placeholder", {
+                            name: activeConv?.name || t("chat.chat_fallback"),
+                          })
                     }
-                    actionLabel={activeTab === "ai" ? "Analyze" : "Send"}
+                    actionLabel={
+                      activeTab === "ai" ? t("chat.analyze") : t("chat.send")
+                    }
                   />
                 </div>
               )}
