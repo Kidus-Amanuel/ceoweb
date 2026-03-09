@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  useMemo,
-  useState,
-} from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   EditableTable,
@@ -183,10 +180,33 @@ export default function MaintenancePage() {
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
+  // ── UI state for Pagination ─────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | MaintenanceType>("all");
+
   // ── Data via React Query ──────────────────────────────────────────────────
-  const { data: rawMaintenance = [], isLoading: loading } = useMaintenance(companyId);
+  const { data: maintenanceResponse, isLoading: loading } = useMaintenance(
+    companyId,
+    {
+      page,
+      pageSize,
+      search: searchTerm,
+      type: typeFilter,
+    },
+  );
+
+  const rawMaintenance = useMemo(
+    () => maintenanceResponse?.data || [],
+    [maintenanceResponse],
+  );
+  const totalMaintenance = maintenanceResponse?.total || 0;
   const { data: rawVehicles = [] } = useVehicles(companyId);
-  const { data: columnDefs = [] } = useFleetColumnDefs("maintenance", companyId);
+  const { data: columnDefs = [] } = useFleetColumnDefs(
+    "maintenance",
+    companyId,
+  );
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const addMaintenance = useAddMaintenance(companyId, {
@@ -202,35 +222,39 @@ export default function MaintenancePage() {
     onError: () => toast.error(t("fleet_maintenance.toast_delete_error")),
   });
   const addColumn = useAddFleetColumn("maintenance", companyId, {
-    onSuccess: () => toast.success(t("fleet_maintenance.toast_column_add_success")),
+    onSuccess: () =>
+      toast.success(t("fleet_maintenance.toast_column_add_success")),
   });
   const updateColumn = useUpdateFleetColumn("maintenance", companyId, {
-    onSuccess: () => toast.success(t("fleet_maintenance.toast_column_update_success")),
+    onSuccess: () =>
+      toast.success(t("fleet_maintenance.toast_column_update_success")),
   });
   const deleteColumn = useDeleteFleetColumn("maintenance", companyId, {
-    onSuccess: () => toast.success(t("fleet_maintenance.toast_column_delete_success")),
+    onSuccess: () =>
+      toast.success(t("fleet_maintenance.toast_column_delete_success")),
   });
 
   // ── Derived State ─────────────────────────────────────────────────────────
   const data: MaintenanceRecord[] = useMemo(
-    () => rawMaintenance.map((r: any) => ({ ...r, customValues: r.custom_fields || {} })),
-    [rawMaintenance]
-  );
-
-  const vehicleOptions = useMemo(
     () =>
-      (rawVehicles as any[]).map((v: any) => ({
-        label: `${v.make ?? ""} ${v.model ?? ""} ${
-          v.license_plate ? "· " + v.license_plate : ""
-        }`.trim(),
-        value: v.id,
+      rawMaintenance.map((r: any) => ({
+        ...r,
+        customValues: r.custom_fields || {},
       })),
-    [rawVehicles],
+    [rawMaintenance],
   );
 
-  // ── UI state ─────────────────────────────────────────────────────────────
-  const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | MaintenanceType>("all");
+  const vehicleOptions = useMemo(() => {
+    const list = (rawVehicles as any)?.data || (rawVehicles as any) || [];
+    return list.map((v: any) => ({
+      label: `${v.make ?? ""} ${v.model ?? ""} ${
+        v.license_plate ? "· " + v.license_plate : ""
+      }`.trim(),
+      value: v.id,
+    }));
+  }, [rawVehicles]);
+
+  const isActive = true; // For any unused items without errors
 
   // ── Stats ──────────────────────────────────────────────────────────────────
 
@@ -252,25 +276,10 @@ export default function MaintenancePage() {
 
   // ── Filtered data ──────────────────────────────────────────────────────────
 
-  const filteredData = useMemo(() => {
-    return data.filter((r) => {
-      const q = searchTerm.toLowerCase();
-      const haystack = [
-        r.description,
-        r.vehicle_label,
-        r.vehicle_plate,
-        r.performed_by,
-        r.notes,
-        r.type,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      const matchesSearch = !q || haystack.includes(q);
-      const matchesType = typeFilter === "all" || r.type === typeFilter;
-      return matchesSearch && matchesType;
-    });
-  }, [data, searchTerm, typeFilter]);
+  // With server-side filtering, filteredData is basically data from API
+  const displayData = useMemo(() => {
+    return data;
+  }, [data]);
 
   // ── Virtual Columns ────────────────────────────────────────────────────────
 
@@ -460,7 +469,8 @@ export default function MaintenancePage() {
     try {
       await addMaintenance.mutateAsync({
         vehicle_id: newItem.vehicle_id || null,
-        maintenance_date: newItem.maintenance_date || new Date().toISOString().split("T")[0],
+        maintenance_date:
+          newItem.maintenance_date || new Date().toISOString().split("T")[0],
         type: newItem.type || "routine",
         description: newItem.description || null,
         cost: newItem.cost || null,
@@ -478,8 +488,15 @@ export default function MaintenancePage() {
   const handleUpdate = async (id: string, updatedFields: any) => {
     try {
       const standardKeys = [
-        "vehicle_id", "maintenance_date", "type", "description",
-        "cost", "odometer_reading", "performed_by", "next_due_date", "notes",
+        "vehicle_id",
+        "maintenance_date",
+        "type",
+        "description",
+        "cost",
+        "odometer_reading",
+        "performed_by",
+        "next_due_date",
+        "notes",
       ];
       const updatePayload: any = { id };
       const customData: any = updatedFields.customValues || {};
@@ -493,7 +510,10 @@ export default function MaintenancePage() {
       });
 
       const existing = data.find((r) => r.id === id);
-      const mergedCustom = { ...(existing?.custom_fields || {}), ...customData };
+      const mergedCustom = {
+        ...(existing?.custom_fields || {}),
+        ...customData,
+      };
       if (Object.keys(mergedCustom).length > 0) {
         updatePayload.custom_fields = mergedCustom;
       }
@@ -519,7 +539,9 @@ export default function MaintenancePage() {
       fieldLabel: payload.label,
       fieldName: payload.key,
       fieldType: payload.type === "status" ? "select" : payload.type,
-      fieldOptions: (payload.options ?? []).map((o: any) => String(o.value ?? o.label)),
+      fieldOptions: (payload.options ?? []).map((o: any) =>
+        String(o.value ?? o.label),
+      ),
     });
   };
 
@@ -530,7 +552,9 @@ export default function MaintenancePage() {
       fieldLabel: payload.label,
       fieldName: payload.key,
       fieldType: payload.type === "status" ? "select" : payload.type,
-      fieldOptions: (payload.options ?? []).map((o: any) => String(o.value ?? o.label)),
+      fieldOptions: (payload.options ?? []).map((o: any) =>
+        String(o.value ?? o.label),
+      ),
     });
   };
 
@@ -594,8 +618,9 @@ export default function MaintenancePage() {
           <Button
             variant={typeFilter === "all" ? "secondary" : "ghost"}
             size="sm"
-            className={`h-7 px-3 text-[9px] font-black uppercase rounded-lg ${typeFilter === "all" ? "bg-white shadow-sm" : ""
-              }`}
+            className={`h-7 px-3 text-[9px] font-black uppercase rounded-lg ${
+              typeFilter === "all" ? "bg-white shadow-sm" : ""
+            }`}
             onClick={() => setTypeFilter("all")}
           >
             {t("fleet_maintenance.filter_all")}
@@ -608,8 +633,9 @@ export default function MaintenancePage() {
                   key={typeKey}
                   variant={typeFilter === typeKey ? "secondary" : "ghost"}
                   size="sm"
-                  className={`h-7 px-2.5 text-[9px] font-black uppercase rounded-lg gap-1 ${typeFilter === typeKey ? "bg-white shadow-sm" : ""
-                    }`}
+                  className={`h-7 px-2.5 text-[9px] font-black uppercase rounded-lg gap-1 ${
+                    typeFilter === typeKey ? "bg-white shadow-sm" : ""
+                  }`}
                   onClick={() => setTypeFilter(typeKey)}
                 >
                   {cfg.icon}
@@ -622,7 +648,10 @@ export default function MaintenancePage() {
 
         {/* Record count */}
         <span className="ml-auto text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">
-          {t("fleet_maintenance.record_count", { filtered: filteredData.length, total: data.length })}
+          {t("fleet_maintenance.record_count", {
+            filtered: displayData.length,
+            total: totalMaintenance,
+          })}
         </span>
       </div>
 
@@ -634,7 +663,7 @@ export default function MaintenancePage() {
           <EditableTable
             title={t("fleet_maintenance.table_title")}
             description={t("fleet_maintenance.table_description")}
-            data={filteredData}
+            data={displayData}
             columns={columns}
             virtualColumns={virtualColumns}
             onAdd={handleAdd}
@@ -644,6 +673,11 @@ export default function MaintenancePage() {
             onColumnAdd={handleColumnAdd}
             onColumnUpdate={handleColumnUpdate}
             onColumnDelete={handleColumnDelete}
+            pagination={true}
+            currentPage={page}
+            totalRows={totalMaintenance}
+            pageSize={pageSize}
+            onPageChange={(p) => setPage(p)}
           />
         )}
       </div>
@@ -657,7 +691,9 @@ export default function MaintenancePage() {
               count: stats.overdue,
               plural: stats.overdue > 1 ? "s have" : " has",
             })}{" "}
-            <span className="underline">{t("fleet_maintenance.banner_next_due")}</span>
+            <span className="underline">
+              {t("fleet_maintenance.banner_next_due")}
+            </span>
           </p>
         </div>
       )}

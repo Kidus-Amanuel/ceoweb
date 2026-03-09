@@ -7,36 +7,56 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const qv_company_id = searchParams.get("company_id"); // Cache buster
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "20");
+    const search = searchParams.get("search") || "";
+    const status = searchParams.get("status") || "all";
+
     const auth = await requireFleetAuth();
     if (auth instanceof NextResponse) return auth;
     const { supabase, companyId } = auth;
 
-    // 1. Fetch from CEO Database
-    const { data: dbVehicles, error } = await supabase
+    // 1. Build Query
+    let query = supabase
       .from("vehicles")
-      .select("*, vehicle_types(name)")
+      .select("*, vehicle_types(name)", { count: "exact" })
       .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+      .is("deleted_at", null);
+
+    // 2. Apply Filters
+    if (search) {
+      query = query.or(
+        `vehicle_number.ilike.%${search}%,license_plate.ilike.%${search}%,make.ilike.%${search}%,model.ilike.%${search}%`,
+      );
+    }
+
+    // Note: status filter is primarily Traccar-based (online/offline),
+    // but we can filter by DB status if it's 'active'/'inactive'.
+    if (status !== "all" && ["active", "inactive"].includes(status)) {
+      query = query.eq("status", status);
+    }
+
+    // 3. Apply Pagination
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const {
+      data: dbVehicles,
+      error,
+      count,
+    } = await query.order("created_at", { ascending: false }).range(from, to);
 
     if (error) throw error;
-    console.log(`[Fleet API] DB Vehicles for company ${companyId}:`, dbVehicles?.length || 0);
 
-    // 2. Fetch live data from Traccar
+    // 4. Fetch live data from Traccar for CURRENT PAGE only
     try {
-      // Fetch both devices (for status) and positions (for coordinates)
       const [traccarDevices, traccarPositions] = (await Promise.all([
         FleetService.getDevices(),
         FleetService.getPositions(),
       ])) as [any[], any[]];
 
-      console.log(
-        `[Fleet API] Live Data: ${traccarDevices?.length || 0} devices, ${traccarPositions?.length || 0} positions.`,
-      );
-
-      // Merge live data from Traccar into CEO database records
-      const mergedData = dbVehicles.map((vehicle: any) => {
+      // Merge live data
+      const mergedData = (dbVehicles || []).map((vehicle: any) => {
         const vehicleGpsId = vehicle.custom_fields?.gps_id
           ? String(vehicle.custom_fields.gps_id).trim()
           : null;
@@ -44,23 +64,17 @@ export async function GET(req: Request) {
           ? String(vehicle.license_plate).trim()
           : null;
 
-        // Match by GPS ID first (correct identifier).
-        // Fall back to plate for backward-compatibility with devices that were
-        // registered before the GPS-ID-as-identifier policy was enforced.
         const traccarDevice =
           (vehicleGpsId &&
             traccarDevices?.find((d: any) => d.uniqueId === vehicleGpsId)) ||
           (vehiclePlate &&
-            traccarDevices?.find((d: any) => d.uniqueId === vehiclePlate)) ||
-          undefined;
+            traccarDevices?.find((d: any) => d.uniqueId === vehiclePlate));
 
         if (traccarDevice) {
-          // 2. Find the Position (for coordinates)
           const position = traccarPositions?.find(
             (p: any) => p.deviceId === traccarDevice.id,
           );
 
-          // Preference: 1. Live Position, 2. Device fields, 3. DB Cache
           const lat =
             position?.latitude ??
             traccarDevice.latitude ??
@@ -92,13 +106,32 @@ export async function GET(req: Request) {
         return vehicle;
       });
 
-      // Cache Traccar live data for 30 s — reduces external HTTP calls
-      const res = NextResponse.json(mergedData);
-      res.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=60");
-      return res;
+      // Filter by Traccar status if requested
+      let filteredData = mergedData;
+      if (status === "online") {
+        filteredData = mergedData.filter(
+          (v) => v.traccar_status === "online" || v.is_active,
+        );
+      } else if (status === "offline") {
+        filteredData = mergedData.filter(
+          (v) => v.traccar_status !== "online" && !v.is_active,
+        );
+      }
+
+      return NextResponse.json({
+        data: filteredData,
+        total: count || 0,
+        page,
+        pageSize,
+      });
     } catch (traccarError) {
       console.warn("[Fleet API] Traccar Live Fetch Failed:", traccarError);
-      return NextResponse.json(dbVehicles);
+      return NextResponse.json({
+        data: dbVehicles,
+        total: count || 0,
+        page,
+        pageSize,
+      });
     }
   } catch (error: any) {
     console.error("[Fleet API] GET Vehicles Error:", error);

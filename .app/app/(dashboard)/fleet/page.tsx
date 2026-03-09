@@ -203,23 +203,23 @@ export default function FleetOverviewPage() {
       else setLoading(true);
       try {
         const [vRes, dRes, mRes, fRes] = await Promise.all([
-          fetch("/api/fleet/vehicles"),
-          fetch("/api/fleet/drivers"),
-          fetch("/api/fleet/maintenance"),
+          fetch("/api/fleet/vehicles?pageSize=10000"),
+          fetch("/api/fleet/drivers?pageSize=10000"),
+          fetch("/api/fleet/maintenance?pageSize=10000"),
           fetch("/api/fleet/fuel-logs").catch(() => ({ ok: false })),
         ]);
 
-        const [vData, dData, mData, fData] = await Promise.all([
+        const [vJson, dJson, mJson, fJson] = await Promise.all([
           vRes.ok ? (vRes as Response).json() : [],
           dRes.ok ? (dRes as Response).json() : [],
           mRes.ok ? (mRes as Response).json() : [],
           (fRes as any).ok ? (fRes as Response).json() : [],
         ]);
 
-        setVehicles(vData || []);
-        setDrivers(dData || []);
-        setMaintenance(mData || []);
-        setFuelLogs(fData || []);
+        setVehicles(vJson?.data || vJson || []);
+        setDrivers(dJson?.data || dJson || []);
+        setMaintenance(mJson?.data || mJson || []);
+        setFuelLogs(fJson?.data || fJson || []);
         setLastRefresh(new Date());
       } catch (err) {
         console.error("[Fleet Overview] load failed:", err);
@@ -362,7 +362,9 @@ export default function FleetOverviewPage() {
       <div className="flex items-center justify-between px-0.5">
         <div>
           <p className="text-[10px] text-slate-400 font-medium">
-            {t("fleet_overview.last_updated", { time: lastRefresh.toLocaleTimeString() })}
+            {t("fleet_overview.last_updated", {
+              time: lastRefresh.toLocaleTimeString(),
+            })}
           </p>
         </div>
         <button
@@ -373,7 +375,9 @@ export default function FleetOverviewPage() {
           <RefreshCw
             className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`}
           />
-          {refreshing ? t("fleet_overview.refreshing") : t("fleet_overview.refresh")}
+          {refreshing
+            ? t("fleet_overview.refreshing")
+            : t("fleet_overview.refresh")}
         </button>
       </div>
 
@@ -382,14 +386,19 @@ export default function FleetOverviewPage() {
         <StatCard
           label={t("fleet_overview.stat_total_vehicles")}
           value={stats.vehicles.total}
-          sub={t("fleet_overview.stat_total_vehicles_sub", { active: stats.vehicles.active, maintenance: stats.vehicles.maintenance })}
+          sub={t("fleet_overview.stat_total_vehicles_sub", {
+            active: stats.vehicles.active,
+            maintenance: stats.vehicles.maintenance,
+          })}
           icon={Truck}
           accent="bg-blue-50 text-blue-600"
         />
         <StatCard
           label={t("fleet_overview.stat_gps_online")}
           value={stats.vehicles.online}
-          sub={t("fleet_overview.stat_gps_online_sub", { total: stats.vehicles.total })}
+          sub={t("fleet_overview.stat_gps_online_sub", {
+            total: stats.vehicles.total,
+          })}
           icon={Wifi}
           accent="bg-emerald-50 text-emerald-600"
           trend={stats.vehicles.online > 0 ? "up" : "neutral"}
@@ -397,7 +406,9 @@ export default function FleetOverviewPage() {
         <StatCard
           label={t("fleet_overview.stat_active_drivers")}
           value={stats.drivers.active}
-          sub={t("fleet_overview.stat_active_drivers_sub", { without: stats.drivers.without_vehicle })}
+          sub={t("fleet_overview.stat_active_drivers_sub", {
+            without: stats.drivers.without_vehicle,
+          })}
           icon={Users}
           accent="bg-violet-50 text-violet-600"
         />
@@ -415,7 +426,9 @@ export default function FleetOverviewPage() {
         <StatCard
           label={t("fleet_overview.stat_overdue_maintenance")}
           value={stats.maintenance.overdue}
-          sub={t("fleet_overview.stat_overdue_maintenance_sub", { due_soon: stats.maintenance.due_soon })}
+          sub={t("fleet_overview.stat_overdue_maintenance_sub", {
+            due_soon: stats.maintenance.due_soon,
+          })}
           icon={AlertTriangle}
           accent={
             stats.maintenance.overdue > 0
@@ -427,14 +440,19 @@ export default function FleetOverviewPage() {
         <StatCard
           label={t("fleet_overview.stat_fuel_spend")}
           value={fmtCurrency(stats.fuel.total_cost_30d)}
-          sub={t("fleet_overview.stat_fuel_spend_sub", { litres: stats.fuel.total_litres_30d.toFixed(0), logs: stats.fuel.logs_30d })}
+          sub={t("fleet_overview.stat_fuel_spend_sub", {
+            litres: stats.fuel.total_litres_30d.toFixed(0),
+            logs: stats.fuel.logs_30d,
+          })}
           icon={Fuel}
           accent="bg-sky-50 text-sky-600"
         />
         <StatCard
           label={t("fleet_overview.stat_vehicles_assigned")}
           value={stats.vehicles.assigned}
-          sub={t("fleet_overview.stat_vehicles_assigned_sub", { unassigned: stats.vehicles.total - stats.vehicles.assigned })}
+          sub={t("fleet_overview.stat_vehicles_assigned_sub", {
+            unassigned: stats.vehicles.total - stats.vehicles.assigned,
+          })}
           icon={Car}
           accent="bg-indigo-50 text-indigo-600"
         />
@@ -470,7 +488,8 @@ export default function FleetOverviewPage() {
             </span>
             <span className="flex items-center gap-1.5 text-amber-600">
               <span className="w-2 h-2 rounded-full bg-amber-500" />
-              {stats.vehicles.maintenance} {t("fleet_overview.health_in_service")}
+              {stats.vehicles.maintenance}{" "}
+              {t("fleet_overview.health_in_service")}
             </span>
             <span className="flex items-center gap-1.5 text-slate-400">
               <span className="w-2 h-2 rounded-full bg-slate-300" />
@@ -521,7 +540,10 @@ export default function FleetOverviewPage() {
                   {t("fleet_overview.live_gps_title")}
                 </p>
                 <p className="text-[10px] text-slate-400">
-                  {t("fleet_overview.live_gps_sub", { online: onlineVehicles.length, total: vehicles.length })}
+                  {t("fleet_overview.live_gps_sub", {
+                    online: onlineVehicles.length,
+                    total: vehicles.length,
+                  })}
                 </p>
               </div>
             </div>
@@ -534,7 +556,9 @@ export default function FleetOverviewPage() {
             {vehicles.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-300">
                 <WifiOff className="w-8 h-8 mb-2" />
-                <p className="text-[11px] font-bold">{t("fleet_overview.no_vehicles")}</p>
+                <p className="text-[11px] font-bold">
+                  {t("fleet_overview.no_vehicles")}
+                </p>
               </div>
             ) : (
               vehicles.map((v) => {
@@ -603,7 +627,9 @@ export default function FleetOverviewPage() {
                         variant={online ? "success" : "default"}
                         className="text-[8px] px-1.5 py-0"
                       >
-                        {online ? t("fleet_overview.online") : t("fleet_overview.offline")}
+                        {online
+                          ? t("fleet_overview.online")
+                          : t("fleet_overview.offline")}
                       </Badge>
                       {v.ignition_status && (
                         <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
@@ -636,7 +662,9 @@ export default function FleetOverviewPage() {
             </div>
             {stats.maintenance.overdue > 0 && (
               <span className="text-[9px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-1 rounded-full">
-                {t("fleet_overview.overdue_count", { count: stats.maintenance.overdue })}
+                {t("fleet_overview.overdue_count", {
+                  count: stats.maintenance.overdue,
+                })}
               </span>
             )}
           </div>
@@ -689,8 +717,12 @@ export default function FleetOverviewPage() {
                           )}
                         >
                           {overdue
-                            ? t("fleet_overview.days_overdue", { days: a.days_overdue })
-                            : t("fleet_overview.due_date", { date: fmtDate(a.next_due_date) })}
+                            ? t("fleet_overview.days_overdue", {
+                                days: a.days_overdue,
+                              })
+                            : t("fleet_overview.due_date", {
+                                date: fmtDate(a.next_due_date),
+                              })}
                         </span>
                         <span className="text-[9px] text-slate-400 capitalize">
                           {a.type}
@@ -728,7 +760,9 @@ export default function FleetOverviewPage() {
             {recentMaintenance.length === 0 ? (
               <div className="py-12 text-center text-slate-300">
                 <Wrench className="w-7 h-7 mx-auto mb-2" />
-                <p className="text-[11px] font-bold">{t("fleet_overview.no_maintenance")}</p>
+                <p className="text-[11px] font-bold">
+                  {t("fleet_overview.no_maintenance")}
+                </p>
               </div>
             ) : (
               recentMaintenance.map((m) => {
@@ -791,7 +825,9 @@ export default function FleetOverviewPage() {
                   {t("fleet_overview.drivers_title")}
                 </p>
                 <p className="text-[10px] text-slate-400">
-                  {t("fleet_overview.drivers_sub", { active: stats.drivers.active })}
+                  {t("fleet_overview.drivers_sub", {
+                    active: stats.drivers.active,
+                  })}
                 </p>
               </div>
             </div>
@@ -800,7 +836,9 @@ export default function FleetOverviewPage() {
             {drivers.length === 0 ? (
               <div className="py-12 text-center text-slate-300">
                 <Users className="w-7 h-7 mx-auto mb-2" />
-                <p className="text-[11px] font-bold">{t("fleet_overview.no_drivers")}</p>
+                <p className="text-[11px] font-bold">
+                  {t("fleet_overview.no_drivers")}
+                </p>
               </div>
             ) : (
               drivers
@@ -843,7 +881,9 @@ export default function FleetOverviewPage() {
                           </span>
                         )}
                         <span className="text-[8px] text-slate-400">
-                          {t("fleet_overview.since", { date: fmtDate(d.start_date) })}
+                          {t("fleet_overview.since", {
+                            date: fmtDate(d.start_date),
+                          })}
                         </span>
                       </div>
                     </div>
@@ -866,7 +906,9 @@ export default function FleetOverviewPage() {
                 {t("fleet_overview.fuel_title")}
               </p>
               <p className="text-[10px] text-slate-400">
-                {t("fleet_overview.fuel_sub", { total: fmtCurrency(stats.fuel.total_cost_30d) })}
+                {t("fleet_overview.fuel_sub", {
+                  total: fmtCurrency(stats.fuel.total_cost_30d),
+                })}
               </p>
             </div>
           </div>
