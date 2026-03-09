@@ -178,7 +178,11 @@ interface ChatActions {
   deleteConversation: (conversationId: string) => void;
   setSearchQuery: (query: string) => void;
   setTyping: (conversationId: string, isTyping: boolean) => void;
-  appendToMessage: (conversationId: string, messageId: string, text: string) => void;
+  appendToMessage: (
+    conversationId: string,
+    messageId: string,
+    text: string,
+  ) => void;
   addMessage: (conversationId: string, message: Message) => void;
 }
 
@@ -237,7 +241,6 @@ export const useChatStore = create<ChatState & ChatActions>()(
               conversations: updatedConversations,
             };
           });
-
         },
 
         markAsRead: (conversationId) => {
@@ -258,11 +261,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
           }));
         },
 
-        appendToMessage: (
-          conversationId,
-          messageId,
-          text,
-        ) => {
+        appendToMessage: (conversationId, messageId, text) => {
           set((state) => {
             const msgs = state.messages[conversationId] || [];
             return {

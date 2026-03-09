@@ -85,33 +85,40 @@ export async function POST(req: NextRequest) {
   // Create cache key from last message (user query)
   const cacheKey = `ai-agent:${messages[messages.length - 1]?.content}`;
   console.log("Cache key generated:", cacheKey);
-  
+
   // Check cache first
   console.log("Checking cache for existing response...");
   const cachedResponse = cache.get(cacheKey);
   if (cachedResponse) {
     console.log("Returning cached response");
-    return new Response(JSON.stringify({ 
-      content: cachedResponse 
-    }), { 
-      headers: { "Content-Type": "application/json" } 
-    });
+    return new Response(
+      JSON.stringify({
+        content: cachedResponse,
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 
   const apiKey = process.env.VERCEL_AI_KEY;
   if (!apiKey) {
     console.error("VERCEL_AI_KEY not configured");
-    return new Response(JSON.stringify({ 
-      content: "I'm sorry, I'm not available right now. Please try again later." 
-    }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        content:
+          "I'm sorry, I'm not available right now. Please try again later.",
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 
   console.log("Google Generative AI API key found");
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ 
+  const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
     tools: [
       {
@@ -124,19 +131,19 @@ export async function POST(req: NextRequest) {
               properties: {
                 module: {
                   type: "string",
-                  description: "Module name (crm, fleet, or inventory)"
+                  description: "Module name (crm, fleet, or inventory)",
                 },
                 filters: {
                   type: "object",
-                  description: "Filters to apply to the data"
-                }
+                  description: "Filters to apply to the data",
+                },
               },
-              required: ["module"]
-            }
-          }
-        ]
-      }
-    ] as any
+              required: ["module"],
+            },
+          },
+        ],
+      },
+    ] as any,
   });
 
   // wrap the tool to add tracing
@@ -150,7 +157,9 @@ export async function POST(req: NextRequest) {
     try {
       const res = await readModuleData(module, filters, traceId);
       console.log(`Tool call #${toolCalls} completed in ${Date.now() - t0}ms`);
-      console.log(`Tool call #${toolCalls} returned ${Array.isArray(res) ? res.length : 'N/A'} records`);
+      console.log(
+        `Tool call #${toolCalls} returned ${Array.isArray(res) ? res.length : "N/A"} records`,
+      );
       return res;
     } catch (err) {
       console.error(`Tool call #${toolCalls} failed:`, err);
@@ -160,36 +169,50 @@ export async function POST(req: NextRequest) {
 
   // limit history size
   const history = messages.slice(-4);
-  console.log("Truncated conversation history to last", history.length, "messages");
+  console.log(
+    "Truncated conversation history to last",
+    history.length,
+    "messages",
+  );
 
   try {
     console.log("Preparing conversation for AI model...");
-    
+
     // Prepare conversation history - convert roles to valid Google Generative AI roles
-    let validHistory = history.filter((msg: { role: string }) => 
-      msg.role === "user" || msg.role === "assistant"
-    ).map((msg: { role: string; content: string }) => ({
-      role: msg.role === "assistant" ? "model" : msg.role,
-      parts: [{ text: msg.content }]
-    }));
-    
+    let validHistory = history
+      .filter(
+        (msg: { role: string }) =>
+          msg.role === "user" || msg.role === "assistant",
+      )
+      .map((msg: { role: string; content: string }) => ({
+        role: msg.role === "assistant" ? "model" : msg.role,
+        parts: [{ text: msg.content }],
+      }));
+
     // If history starts with model, remove it
     if (validHistory.length > 0 && validHistory[0].role === "model") {
       validHistory = validHistory.slice(1);
     }
 
     // Ensure we have at least one user message to start with
-    if (validHistory.length === 0 || validHistory[validHistory.length - 1].role !== "user") {
+    if (
+      validHistory.length === 0 ||
+      validHistory[validHistory.length - 1].role !== "user"
+    ) {
       console.error("Conversation history must end with user message");
-      return new Response(JSON.stringify({ 
-        content: "Please ask a question about CRM, Fleet, or Inventory. Try one of these options:" +
-        "<button action=\"suggest\" label=\"Show active customers\" input=\"Show active customers\" />" +
-        "<button action=\"suggest\" label=\"Show all vehicles\" input=\"Show all vehicles\" />" +
-        "<button action=\"suggest\" label=\"View inventory\" input=\"Show inventory status\" />"
-      }), { 
-        status: 200,
-        headers: { "Content-Type": "application/json" } 
-      });
+      return new Response(
+        JSON.stringify({
+          content:
+            "Please ask a question about CRM, Fleet, or Inventory. Try one of these options:" +
+            '<button action="suggest" label="Show active customers" input="Show active customers" />' +
+            '<button action="suggest" label="Show all vehicles" input="Show all vehicles" />' +
+            '<button action="suggest" label="View inventory" input="Show inventory status" />',
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     console.log("Conversation history prepared, sending to AI model...");
@@ -200,72 +223,86 @@ export async function POST(req: NextRequest) {
 
     // Send user query (last message) with system prompt
     const response = await conversation.sendMessage(
-      SYSTEM_PROMPT + "\n\n" + validHistory[validHistory.length - 1].content
+      SYSTEM_PROMPT + "\n\n" + validHistory[validHistory.length - 1].content,
     );
 
     console.log("AI model response received in", Date.now() - start, "ms");
 
     // Process the response to handle tool calls
     let content = "";
-    
-    if (response.response.candidates && response.response.candidates.length > 0) {
+
+    if (
+      response.response.candidates &&
+      response.response.candidates.length > 0
+    ) {
       const candidate = response.response.candidates[0];
-      
-      if (candidate.content.parts.some(part => (part as any).functionCall)) {
+
+      if (candidate.content.parts.some((part) => (part as any).functionCall)) {
         console.log("=== Function Call Detected ===");
-        
+
         // Find the function call part
-        const functionCallPart = candidate.content.parts.find(part => (part as any).functionCall);
+        const functionCallPart = candidate.content.parts.find(
+          (part) => (part as any).functionCall,
+        );
         const functionCall = (functionCallPart as any).functionCall;
-        
+
         // Execute the function
         let functionResult;
-        if (functionCall && functionCall.name === 'read_module_data') {
+        if (functionCall && functionCall.name === "read_module_data") {
           console.log("Calling read_module_data with args:", functionCall.args);
-          functionResult = await wrappedReadModuleData(functionCall.args.module, functionCall.args.filters);
+          functionResult = await wrappedReadModuleData(
+            functionCall.args.module,
+            functionCall.args.filters,
+          );
         }
-        
+
         // Log tool response size
         const functionResultSize = JSON.stringify(functionResult).length;
         console.log("Function response size (characters):", functionResultSize);
-        
+
         // Send the function response back to the model
         console.log("Sending function response to AI model...");
         const followupResponse = await conversation.sendMessage([
-          { functionResponse: {
+          {
+            functionResponse: {
               name: functionCall.name,
               response: {
-                  name: functionCall.name,
-                  content: JSON.stringify(functionResult)
-              }
-            }
-          }
+                name: functionCall.name,
+                content: JSON.stringify(functionResult),
+              },
+            },
+          },
         ]);
-        
-        if (followupResponse.response.candidates && followupResponse.response.candidates.length > 0) {
+
+        if (
+          followupResponse.response.candidates &&
+          followupResponse.response.candidates.length > 0
+        ) {
           const followupCandidate = followupResponse.response.candidates[0];
-          if (followupCandidate.content.parts.some(part => part.text)) {
-            const textPart = followupCandidate.content.parts.find(part => part.text);
+          if (followupCandidate.content.parts.some((part) => part.text)) {
+            const textPart = followupCandidate.content.parts.find(
+              (part) => part.text,
+            );
             if (textPart) {
               content = textPart.text || "";
               console.log("Final response received from AI model");
             }
           }
         }
-        
-      } else if (candidate.content.parts.some(part => part.text)) {
-        const textPart = candidate.content.parts.find(part => part.text);
+      } else if (candidate.content.parts.some((part) => part.text)) {
+        const textPart = candidate.content.parts.find((part) => part.text);
         if (textPart) {
           content = textPart.text || "";
         }
       }
     }
-    
+
     if (!content) {
-      content = "I couldn't understand your query. Try one of these options:" +
-        "<button action=\"suggest\" label=\"Show active customers\" input=\"Show active customers\" />" +
-        "<button action=\"suggest\" label=\"Show all vehicles\" input=\"Show all vehicles\" />" +
-        "<button action=\"suggest\" label=\"View inventory\" input=\"Show inventory status\" />";
+      content =
+        "I couldn't understand your query. Try one of these options:" +
+        '<button action="suggest" label="Show active customers" input="Show active customers" />' +
+        '<button action="suggest" label="Show all vehicles" input="Show all vehicles" />' +
+        '<button action="suggest" label="View inventory" input="Show inventory status" />';
     }
 
     // Log token usage (approximation by counting characters)
@@ -276,42 +313,52 @@ export async function POST(req: NextRequest) {
     console.log("Caching the response...");
     cache.set(cacheKey, content, 60 * 1000); // 1 minute TTL
 
-    console.log(`=== AI Agent Interaction Completed in ${Date.now() - start}ms ===`);
-    return new Response(JSON.stringify({ 
-      content: content 
-    }), { 
-      headers: { "Content-Type": "application/json" } 
-    });
-
+    console.log(
+      `=== AI Agent Interaction Completed in ${Date.now() - start}ms ===`,
+    );
+    return new Response(
+      JSON.stringify({
+        content: content,
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   } catch (err: any) {
     console.error("=== AI Agent Interaction Failed ===");
     console.error("Error message:", err?.message);
     console.error("Error stack:", err?.stack);
-    
+
     // Return user-friendly error with suggestions
-    let errorContent = "I encountered an issue processing your request. Try one of these options:" +
-      "<button action=\"suggest\" label=\"Show active customers\" input=\"Show active customers\" />" +
-      "<button action=\"suggest\" label=\"Show all vehicles\" input=\"Show all vehicles\" />" +
-      "<button action=\"suggest\" label=\"View inventory\" input=\"Show inventory status\" />";
+    let errorContent =
+      "I encountered an issue processing your request. Try one of these options:" +
+      '<button action="suggest" label="Show active customers" input="Show active customers" />' +
+      '<button action="suggest" label="Show all vehicles" input="Show all vehicles" />' +
+      '<button action="suggest" label="View inventory" input="Show inventory status" />';
 
     // Customize error message based on error type
     if (err?.message?.includes("permission")) {
-      errorContent = "You don't have permission to perform that action. Try one of these options:" +
-        "<button action=\"suggest\" label=\"Show active customers\" input=\"Show active customers\" />" +
-        "<button action=\"suggest\" label=\"Show all vehicles\" input=\"Show all vehicles\" />" +
-        "<button action=\"suggest\" label=\"View inventory\" input=\"Show inventory status\" />";
+      errorContent =
+        "You don't have permission to perform that action. Try one of these options:" +
+        '<button action="suggest" label="Show active customers" input="Show active customers" />' +
+        '<button action="suggest" label="Show all vehicles" input="Show all vehicles" />' +
+        '<button action="suggest" label="View inventory" input="Show inventory status" />';
     } else if (err?.message?.includes("Unknown module")) {
-      errorContent = "I couldn't find that module. Here are available options:" +
-        "<button action=\"suggest\" label=\"Show CRM data\" input=\"Show CRM data\" />" +
-        "<button action=\"suggest\" label=\"Show Fleet data\" input=\"Show Fleet data\" />" +
-        "<button action=\"suggest\" label=\"Show Inventory data\" input=\"Show Inventory data\" />";
+      errorContent =
+        "I couldn't find that module. Here are available options:" +
+        '<button action="suggest" label="Show CRM data" input="Show CRM data" />' +
+        '<button action="suggest" label="Show Fleet data" input="Show Fleet data" />' +
+        '<button action="suggest" label="Show Inventory data" input="Show Inventory data" />';
     }
 
-    return new Response(JSON.stringify({ 
-      content: errorContent
-    }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        content: errorContent,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 }

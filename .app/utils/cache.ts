@@ -6,7 +6,7 @@ interface CacheEntry {
 
 class Cache {
   private cache: Map<string, CacheEntry> = new Map();
-  
+
   // Default TTL: 5 minutes
   private defaultTTL = 5 * 60 * 1000;
 
@@ -20,11 +20,11 @@ class Cache {
     const entry: CacheEntry = {
       data,
       timestamp: Date.now(),
-      ttl
+      ttl,
     };
     this.cache.set(key, entry);
     console.log(`[Cache] Set entry: ${key}, TTL: ${Math.round(ttl / 1000)}s`);
-    
+
     // Cleanup expired entries periodically
     this.cleanup();
   }
@@ -36,7 +36,7 @@ class Cache {
    */
   get(key: string): any {
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       console.log(`[Cache] Cache miss: ${key}`);
       return null;
@@ -76,7 +76,7 @@ class Cache {
   private cleanup(): void {
     const now = Date.now();
     let deleted = 0;
-    
+
     // Get all keys first to avoid collection modification during iteration
     const keys = Array.from(this.cache.keys());
     for (const key of keys) {
@@ -98,7 +98,7 @@ class Cache {
   stats(): { size: number; keys: string[] } {
     return {
       size: this.cache.size,
-      keys: Array.from(this.cache.keys())
+      keys: Array.from(this.cache.keys()),
     };
   }
 }

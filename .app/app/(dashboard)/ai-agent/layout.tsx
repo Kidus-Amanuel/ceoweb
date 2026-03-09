@@ -5,7 +5,11 @@ export const metadata = {
   title: "AI Agent",
 };
 
-export default function AIAgentLayout({ children }: { children: React.ReactNode }) {
+export default function AIAgentLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex h-full">
       <aside className="w-64 border-r p-4">

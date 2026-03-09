@@ -12,8 +12,10 @@ export default function ChatSidebar() {
       <ul className="space-y-1">
         {conversations.map((c) => (
           <li key={c.id}>
-            <Link href={`/dashboard/ai-agent/${c.id}`}
-              className="block px-2 py-1 rounded hover:bg-gray-100">
+            <Link
+              href={`/dashboard/ai-agent/${c.id}`}
+              className="block px-2 py-1 rounded hover:bg-gray-100"
+            >
               {c.name || c.participants.map((p) => p.name).join(", ")}
             </Link>
           </li>

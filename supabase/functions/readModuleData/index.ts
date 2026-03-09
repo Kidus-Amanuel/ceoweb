@@ -10,7 +10,11 @@ const bodySchema = z.object({
 serve(async (req: Request, ctx) => {
   try {
     const json = await req.json();
-    const traceHeader = req.headers.get("x-trace-id") || json.traceId || json.traceID || json.trace;
+    const traceHeader =
+      req.headers.get("x-trace-id") ||
+      json.traceId ||
+      json.traceID ||
+      json.trace;
     console.log("[readModuleData] incoming body:", JSON.stringify(json));
     if (traceHeader) console.log("[readModuleData] traceId:", traceHeader);
     const data = bodySchema.parse(json);
@@ -21,9 +25,11 @@ serve(async (req: Request, ctx) => {
       fleet: "vehicles",
       inventory: "products",
     }[data.module];
-    console.log(`[readModuleData] module=${data.module} table=${table} filters=${JSON.stringify(
-      data.filters || {},
-    )} trace=${traceHeader}`);
+    console.log(
+      `[readModuleData] module=${data.module} table=${table} filters=${JSON.stringify(
+        data.filters || {},
+      )} trace=${traceHeader}`,
+    );
 
     // only select minimal fields to keep response small
     const selectCols = "*"; // or a comma list depending on module

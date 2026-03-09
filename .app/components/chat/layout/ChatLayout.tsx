@@ -15,13 +15,13 @@ import { AnimatePresence, motion } from "framer-motion";
 export function ChatLayout() {
   const [activeTab, setActiveTab] = useState<"chat" | "ai" | "calls">("chat");
   const [inputValue, setInputValue] = useState("");
-  const { 
-    activeConversationId, 
-    conversations, 
-    messages, 
+  const {
+    activeConversationId,
+    conversations,
+    messages,
     sendMessage,
     addMessage,
-    appendToMessage
+    appendToMessage,
   } = useChatStore();
   const { rightSidebarWidth, toggleRightSidebar } = useLayoutStore();
 
@@ -32,7 +32,7 @@ export function ChatLayout() {
 
   const handleSend = async () => {
     if (!inputValue.trim() || !activeConv) return;
-    
+
     // For AI conversations, we need to call the AI agent API
     if (activeTab === "ai" || activeConv.type === "ai") {
       // Add user message to chat store
@@ -51,7 +51,7 @@ export function ChatLayout() {
         createdAt: new Date().toISOString(),
         type: "text",
       };
-      
+
       // Add placeholder message to chat
       addMessage(activeConv.id, aiMessage);
 
@@ -68,17 +68,30 @@ export function ChatLayout() {
           },
         ];
 
-        console.debug("[ChatLayout] invoking /api/ai/agent with history length", history.length, "traceId", traceId);
+        console.debug(
+          "[ChatLayout] invoking /api/ai/agent with history length",
+          history.length,
+          "traceId",
+          traceId,
+        );
         const res = await fetch("/api/ai/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages: history, traceId }),
         });
-        
+
         if (!res.ok) {
           const text = await res.text().catch(() => "");
-          console.error("[ChatLayout] /api/ai/agent returned non-ok", res.status, text);
-          appendToMessage(activeConv.id, aiId, ` [error: ${res.status}] ${text}`);
+          console.error(
+            "[ChatLayout] /api/ai/agent returned non-ok",
+            res.status,
+            text,
+          );
+          appendToMessage(
+            activeConv.id,
+            aiId,
+            ` [error: ${res.status}] ${text}`,
+          );
           return;
         }
 
@@ -88,7 +101,6 @@ export function ChatLayout() {
         } else {
           appendToMessage(activeConv.id, aiId, "No response received");
         }
-        
       } catch (err) {
         appendToMessage(activeConv.id, aiId, " [error fetching response]");
         console.error("AI stream error", err);

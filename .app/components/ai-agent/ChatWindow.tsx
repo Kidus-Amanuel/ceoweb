@@ -62,17 +62,30 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
     }));
 
     try {
-      console.debug("[ChatWindow] invoking /api/ai/agent with history length", history.length, "traceId", traceId);
+      console.debug(
+        "[ChatWindow] invoking /api/ai/agent with history length",
+        history.length,
+        "traceId",
+        traceId,
+      );
       const res = await fetch("/api/ai/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history, traceId }),
       });
-      
+
       if (!res.ok) {
         const text = await res.text().catch(() => "");
-        console.error("[ChatWindow] /api/ai/agent returned non-ok", res.status, text);
-        appendToMessage(conversationId, aiId, ` [error: ${res.status}] ${text}`);
+        console.error(
+          "[ChatWindow] /api/ai/agent returned non-ok",
+          res.status,
+          text,
+        );
+        appendToMessage(
+          conversationId,
+          aiId,
+          ` [error: ${res.status}] ${text}`,
+        );
         setStreamingIds((s) => {
           const copy = { ...s };
           delete copy[aiId];
@@ -87,7 +100,7 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
       } else {
         appendToMessage(conversationId, aiId, "No response received");
       }
-      
+
       setStreamingIds((s) => {
         const copy = { ...s };
         delete copy[aiId];
@@ -111,9 +124,13 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
           <div key={m.id} className="mb-4">
             <div className="flex items-start">
               <div className="flex-shrink-0">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  m.senderId === "ai" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"
-                }`}>
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    m.senderId === "ai"
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-gray-100 text-gray-700"
+                  }`}
+                >
                   {m.senderId === "ai" ? "AI" : "ME"}
                 </div>
               </div>
@@ -128,8 +145,8 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
                 </div>
                 <div className="mt-1 text-sm text-gray-700">
                   {m.senderId === "ai" ? (
-                    <AIMarkupRenderer 
-                      content={m.content} 
+                    <AIMarkupRenderer
+                      content={m.content}
                       onAutofill={handleAutofill}
                     />
                   ) : (
@@ -138,9 +155,18 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
                   {m.senderId === "ai" && streamingIds[m.id] ? (
                     <div className="inline-flex items-center ml-2 mt-2">
                       <span className="text-gray-500 mr-1">Thinking</span>
-                      <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce mr-1" style={{ animationDelay: '0ms' }} />
-                      <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce mr-1" style={{ animationDelay: '150ms' }} />
-                      <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <span
+                        className="w-2 h-2 rounded-full bg-gray-400 animate-bounce mr-1"
+                        style={{ animationDelay: "0ms" }}
+                      />
+                      <span
+                        className="w-2 h-2 rounded-full bg-gray-400 animate-bounce mr-1"
+                        style={{ animationDelay: "150ms" }}
+                      />
+                      <span
+                        className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                        style={{ animationDelay: "300ms" }}
+                      />
                     </div>
                   ) : null}
                 </div>
@@ -156,8 +182,8 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type your question..."
         />
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           className="bg-blue-500 text-white px-6 py-2 rounded-r-lg hover:bg-blue-600 transition-colors font-medium"
         >
           Send
