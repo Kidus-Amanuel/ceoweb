@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Message } from "@/types/chat";
-import { ChatSidebar } from "./ChatSidebar";
+// import { ChatSidebar } from "./ChatSidebar";
 import { ChatHeader } from "./ChatHeader";
 import { ChatMessages } from "../view/ChatMessages";
 import { ChatInput } from "../input/ChatInput";
@@ -114,7 +114,7 @@ export function ChatLayout() {
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-background">
-      <ChatSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      {/* <ChatSidebar activeTab={activeTab} setActiveTab={setActiveTab} /> */}
 
       <div className="flex-1 flex flex-col min-w-0 bg-background/50">
         <AnimatePresence mode="wait">
