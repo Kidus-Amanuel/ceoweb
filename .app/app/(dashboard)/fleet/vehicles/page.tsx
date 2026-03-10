@@ -59,9 +59,32 @@ export default function VehiclesPage() {
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
+  // ── UI state for Pagination ─────────────────────────────────────────────
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "online" | "offline"
+  >("all");
+
   // ── Data via React Query ──────────────────────────────────────────────────
-  const { data: vehicles = [], isLoading: loadingVehicles } = useVehicles(companyId);
-  const { data: drivers = [] } = useDrivers(companyId);
+  const { data: vehicleResponse, isLoading: loadingVehicles } = useVehicles(
+    companyId,
+    {
+      page,
+      pageSize,
+      search: searchTerm,
+      status: statusFilter,
+    },
+  );
+
+  const vehicles = useMemo(
+    () => vehicleResponse?.data || [],
+    [vehicleResponse],
+  );
+  const totalVehicles = vehicleResponse?.total || 0;
+
+  const { data: drivers = [] as any[] } = useDrivers(companyId);
   const { data: vehicleTypes = [] } = useVehicleTypes();
   const { data: columnDefs = [] } = useFleetColumnDefs("vehicles", companyId);
 
@@ -78,27 +101,24 @@ export default function VehiclesPage() {
     onSuccess: () => toast.success(t("fleet_vehicles.toast_delete_success")),
     onError: () => toast.error(t("fleet_vehicles.toast_delete_error")),
   });
-  
+
   const addColumn = useAddFleetColumn("vehicles", companyId, {
-    onSuccess: () => toast.success(t("fleet_vehicles.toast_column_add_success")),
+    onSuccess: () =>
+      toast.success(t("fleet_vehicles.toast_column_add_success")),
   });
   const updateColumn = useUpdateFleetColumn("vehicles", companyId, {
-    onSuccess: () => toast.success(t("fleet_vehicles.toast_column_update_success")),
+    onSuccess: () =>
+      toast.success(t("fleet_vehicles.toast_column_update_success")),
   });
   const deleteColumn = useDeleteFleetColumn("vehicles", companyId, {
-    onSuccess: () => toast.success(t("fleet_vehicles.toast_column_delete_success")),
+    onSuccess: () =>
+      toast.success(t("fleet_vehicles.toast_column_delete_success")),
   });
 
   const loading = loadingVehicles;
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<
-    "all" | "online" | "offline"
-  >("all");
-
-  const data = vehicles;
 
   // Build unique driver options from driver_assignments.
   // driver_id is the UUID of the employee; driver_name is the display label.
@@ -108,7 +128,10 @@ export default function VehiclesPage() {
     const opts: { label: string; value: string }[] = [
       { label: `— ${t("fleet_vehicles.unassigned")} —`, value: "none" },
     ];
-    for (const d of drivers) {
+
+    const driverList = (drivers as any)?.data || (drivers as any) || [];
+
+    for (const d of driverList) {
       if (d.driver_id && !seen.has(d.driver_id)) {
         seen.add(d.driver_id);
         opts.push({ label: d.driver_name || d.driver_id, value: d.driver_id });
@@ -207,8 +230,10 @@ export default function VehiclesPage() {
         },
         cell: ({ row }: any) => {
           const driverId = row.original.assigned_driver_id;
-          // Find the driver record from driver_assignments that matches this vehicle's assigned driver
-          const driverRecord = drivers.find((d) => d.driver_id === driverId);
+          const driverList = (drivers as any)?.data || (drivers as any) || [];
+          const driverRecord = driverList.find(
+            (d: any) => d.driver_id === driverId,
+          );
           if (!driverId || !driverRecord)
             return (
               <span className="text-muted-foreground italic text-xs">
@@ -250,7 +275,9 @@ export default function VehiclesPage() {
               variant={isOnline ? "success" : "default"}
               className="capitalize text-[10px]"
             >
-              {isOnline ? t("fleet_vehicles.online") : t("fleet_vehicles.offline")}
+              {isOnline
+                ? t("fleet_vehicles.online")
+                : t("fleet_vehicles.offline")}
             </Badge>
           );
         },
@@ -302,24 +329,10 @@ export default function VehiclesPage() {
     [driverOptions, drivers, t, vehicleTypes],
   );
 
-  const filteredData = useMemo(() => {
-    return data.filter((v) => {
-      const driverRecord = drivers.find(
-        (d) => d.driver_id === v.assigned_driver_id,
-      );
-      const searchStr =
-        `${v.make} ${v.model} ${v.license_plate} ${driverRecord?.driver_name || ""} ${v.custom_fields?.gps_id || ""}`.toLowerCase();
-      const matchesSearch = searchStr.includes(searchTerm.toLowerCase());
-
-      const isActive = v.is_active || v.traccar_status?.trim() === "online";
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "online" && isActive) ||
-        (statusFilter === "offline" && !isActive);
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [data, searchTerm, statusFilter, drivers]);
+  // With server-side filtering, filteredData is basically data from API
+  const displayData = useMemo(() => {
+    return vehicles;
+  }, [vehicles]);
 
   const handleUpdate = async (id: string, updatedFields: any) => {
     try {
@@ -350,8 +363,11 @@ export default function VehiclesPage() {
         }
       });
 
-      const existing = data.find((v) => v.id === id);
-      const mergedCustom = { ...(existing?.custom_fields || {}), ...customData };
+      const existing = vehicles.find((v) => v.id === id);
+      const mergedCustom = {
+        ...(existing?.custom_fields || {}),
+        ...customData,
+      };
       if (Object.keys(mergedCustom).length > 0) {
         updatePayload.custom_fields = mergedCustom;
       }
@@ -370,8 +386,15 @@ export default function VehiclesPage() {
   const handleAdd = async (newItem: any) => {
     try {
       const standardKeys = [
-        "vehicle_number", "make", "model", "year", "vin",
-        "license_plate", "assigned_driver_id", "status", "vehicle_type_id",
+        "vehicle_number",
+        "make",
+        "model",
+        "year",
+        "vin",
+        "license_plate",
+        "assigned_driver_id",
+        "status",
+        "vehicle_type_id",
       ];
       const customFields: any = { ...(newItem.customValues || {}) };
       if (newItem.gps_id !== undefined && newItem.gps_id !== "") {
@@ -409,7 +432,7 @@ export default function VehiclesPage() {
       entityType: "vehicles",
       fieldLabel: column.label,
       fieldName: column.key,
-      fieldType: column.type === "json" ? "text" : column.type as any,
+      fieldType: column.type === "json" ? "text" : (column.type as any),
       fieldOptions:
         column.type === "select" || column.type === "currency"
           ? column.options?.map((o) => String(o.value))
@@ -417,13 +440,16 @@ export default function VehiclesPage() {
     });
   };
 
-  const handleColumnUpdate = async (id: string, column: Omit<VirtualColumn, "id">) => {
+  const handleColumnUpdate = async (
+    id: string,
+    column: Omit<VirtualColumn, "id">,
+  ) => {
     if (!companyId) return;
     await updateColumn.mutateAsync({
       fieldId: id,
       fieldLabel: column.label,
       fieldName: column.key,
-      fieldType: column.type === "json" ? "text" : column.type as any,
+      fieldType: column.type === "json" ? "text" : (column.type as any),
       fieldOptions:
         column.type === "select" || column.type === "currency"
           ? column.options?.map((o) => String(o.value))
@@ -445,7 +471,9 @@ export default function VehiclesPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4 text-slate-400">
           <RefreshCw className="w-8 h-8 animate-spin" />
-          <p className="text-sm font-medium">{t("fleet_vehicles.identifying_context")}</p>
+          <p className="text-sm font-medium">
+            {t("fleet_vehicles.identifying_context")}
+          </p>
         </div>
       </div>
     );
@@ -508,7 +536,9 @@ export default function VehiclesPage() {
               <List className="w-4 h-4 text-blue-500" />
             )}
             <span className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-700">
-              {viewMode === "list" ? t("fleet_vehicles.view_map") : t("fleet_vehicles.view_list")}
+              {viewMode === "list"
+                ? t("fleet_vehicles.view_map")
+                : t("fleet_vehicles.view_list")}
             </span>
           </Button>
         </div>
@@ -517,7 +547,7 @@ export default function VehiclesPage() {
       <div className="bg-white rounded-3xl border border-border overflow-hidden shadow-sm min-h-[600px] flex flex-col">
         {viewMode === "list" ? (
           <EditableTable
-            data={filteredData.map((v) => ({
+            data={displayData.map((v) => ({
               ...v,
               gps_id: v.custom_fields?.gps_id || "",
               gps_status: v.custom_fields?.gps_status || "inactive",
@@ -535,10 +565,15 @@ export default function VehiclesPage() {
             onColumnAdd={handleColumnAdd}
             onColumnUpdate={handleColumnUpdate}
             onColumnDelete={handleColumnDelete}
+            pagination={true}
+            currentPage={page}
+            totalRows={totalVehicles}
+            pageSize={pageSize}
+            onPageChange={(p) => setPage(p)}
           />
         ) : (
           <div className="flex-1 w-full relative">
-            <VehicleMap vehicles={filteredData} />
+            <VehicleMap vehicles={displayData} />
           </div>
         )}
       </div>

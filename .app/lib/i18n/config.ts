@@ -17,7 +17,7 @@ const resources = {
 // However, in Next.js, it's better to do it once in the Providers component.
 export const initI18n = (lng: string = "en") => {
   if (i18n.isInitialized) return i18n;
- 
+
   i18n.use(initReactI18next).init({
     resources,
     lng,

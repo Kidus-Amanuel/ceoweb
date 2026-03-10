@@ -41,7 +41,7 @@ export function FleetTableSkeleton({
               className={cn(
                 "h-4",
                 i === 0 ? "w-48" : "flex-1",
-                i >= cols - 1 ? "hidden sm:block" : ""
+                i >= cols - 1 ? "hidden sm:block" : "",
               )}
             />
           ))}
@@ -58,7 +58,7 @@ export function FleetTableSkeleton({
                 key={colIndex}
                 className={cn(
                   colIndex === 0 ? "w-48" : "flex-1",
-                  colIndex >= cols - 1 ? "hidden sm:block" : ""
+                  colIndex >= cols - 1 ? "hidden sm:block" : "",
                 )}
               >
                 {colIndex === 0 ? (
@@ -73,7 +73,7 @@ export function FleetTableSkeleton({
                   <Skeleton
                     className={cn(
                       "h-3 w-3/4 rounded-md",
-                      colIndex % 2 === 0 ? "w-1/2" : "w-2/3"
+                      colIndex % 2 === 0 ? "w-1/2" : "w-2/3",
                     )}
                   />
                 )}

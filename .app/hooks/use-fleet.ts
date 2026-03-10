@@ -8,8 +8,9 @@
  * - Optimistic deletes for instant UI feedback
  */
 
-// @ts-ignore
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   getFleetTableViewAction,
   createFleetCustomFieldAction,
@@ -21,11 +22,15 @@ import {
 
 export const fleetKeys = {
   all: ["fleet"] as const,
-  vehicles: (companyId?: string) => ["fleet", "vehicles", companyId || "global"] as const,
-  drivers: (companyId?: string) => ["fleet", "drivers", companyId || "global"] as const,
-  maintenance: (companyId?: string) => ["fleet", "maintenance", companyId || "global"] as const,
+  vehicles: (companyId?: string) =>
+    ["fleet", "vehicles", companyId || "global"] as const,
+  drivers: (companyId?: string) =>
+    ["fleet", "drivers", companyId || "global"] as const,
+  maintenance: (companyId?: string) =>
+    ["fleet", "maintenance", companyId || "global"] as const,
   vehicleTypes: () => ["fleet", "vehicle-types"] as const,
-  employees: (companyId?: string) => ["fleet", "employees", companyId || "global"] as const,
+  employees: (companyId?: string) =>
+    ["fleet", "employees", companyId || "global"] as const,
   columnDefs: (entity: string, companyId: string) =>
     ["fleet", "column-defs", entity, companyId] as const,
 };
@@ -44,15 +49,67 @@ async function apiFetch<T>(url: string): Promise<T> {
 }
 
 // ─── VEHICLES ──────────────────────────────────────────────────────────────────
+export type VehicleParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: string;
+};
 
-export function useVehicles(companyId?: string) {
-  return useQuery({
-    queryKey: fleetKeys.vehicles(companyId),
-    queryFn: () => apiFetch<any[]>(`/api/fleet/vehicles?company_id=${companyId}`),
+export function useVehicles(companyId?: string, params: VehicleParams = {}) {
+  const qc = useQueryClient();
+  const { page = 1, pageSize = 20, search = "", status = "all" } = params;
+
+  // 1. Fetching
+  const query = useQuery({
+    queryKey: [
+      ...fleetKeys.vehicles(companyId),
+      page,
+      pageSize,
+      search,
+      status,
+    ],
+    queryFn: () =>
+      apiFetch<{
+        data: any[];
+        total: number;
+        page: number;
+        pageSize: number;
+      }>(
+        `/api/fleet/vehicles?company_id=${companyId}&page=${page}&pageSize=${pageSize}&search=${search}&status=${status}`,
+      ),
     staleTime: 30_000,
     refetchInterval: 60_000,
-    enabled: !!companyId, // Prevents fetching if no company is selected
+    enabled: !!companyId,
   });
+
+  // 2. Real-time Subscription
+  useEffect(() => {
+    if (!companyId) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`fleet_vehicles_${companyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "vehicles",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: fleetKeys.vehicles(companyId) });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [companyId, qc]);
+
+  return query;
 }
 
 export function useAddVehicle(companyId?: string, options?: any) {
@@ -105,7 +162,9 @@ export function useDeleteVehicle(companyId?: string, options?: any) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/fleet/vehicles?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/fleet/vehicles?id=${id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
         const e = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(e.error || "Failed to delete vehicle");
@@ -130,19 +189,64 @@ export function useDeleteVehicle(companyId?: string, options?: any) {
     },
     onSuccess: (...args: any[]) => {
       options?.onSuccess?.(...args);
-    }
+    },
   });
 }
 
 // ─── DRIVERS ───────────────────────────────────────────────────────────────────
 
-export function useDrivers(companyId?: string) {
-  return useQuery({
-    queryKey: fleetKeys.drivers(companyId),
-    queryFn: () => apiFetch<any[]>(`/api/fleet/drivers?company_id=${companyId}`),
+export type DriverParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: string;
+};
+
+export function useDrivers(companyId?: string, params: DriverParams = {}) {
+  const qc = useQueryClient();
+  const { page = 1, pageSize = 20, search = "", status = "all" } = params;
+
+  const query = useQuery({
+    queryKey: [...fleetKeys.drivers(companyId), page, pageSize, search, status],
+    queryFn: () =>
+      apiFetch<{
+        data: any[];
+        total: number;
+        page: number;
+        pageSize: number;
+      }>(
+        `/api/fleet/drivers?company_id=${companyId}&page=${page}&pageSize=${pageSize}&search=${search}&status=${status}`,
+      ),
     staleTime: 60_000,
     enabled: !!companyId,
   });
+
+  useEffect(() => {
+    if (!companyId) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`fleet_drivers_${companyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "driver_assignments",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: fleetKeys.drivers(companyId) });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [companyId, qc]);
+
+  return query;
 }
 
 export function useAddDriver(companyId?: string, options?: any) {
@@ -195,7 +299,9 @@ export function useDeleteDriver(companyId?: string, options?: any) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/fleet/drivers?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/fleet/drivers?id=${id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
         const e = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(e.error || "Failed to delete driver assignment");
@@ -220,19 +326,73 @@ export function useDeleteDriver(companyId?: string, options?: any) {
     },
     onSuccess: (...args: any[]) => {
       options?.onSuccess?.(...args);
-    }
+    },
   });
 }
 
 // ─── MAINTENANCE ───────────────────────────────────────────────────────────────
 
-export function useMaintenance(companyId?: string) {
-  return useQuery({
-    queryKey: fleetKeys.maintenance(companyId),
-    queryFn: () => apiFetch<any[]>(`/api/fleet/maintenance?company_id=${companyId}`),
+export type MaintenanceParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  type?: string;
+};
+
+export function useMaintenance(
+  companyId?: string,
+  params: MaintenanceParams = {},
+) {
+  const qc = useQueryClient();
+  const { page = 1, pageSize = 20, search = "", type = "all" } = params;
+
+  const query = useQuery({
+    queryKey: [
+      ...fleetKeys.maintenance(companyId),
+      page,
+      pageSize,
+      search,
+      type,
+    ],
+    queryFn: () =>
+      apiFetch<{
+        data: any[];
+        total: number;
+        page: number;
+        pageSize: number;
+      }>(
+        `/api/fleet/maintenance?company_id=${companyId}&page=${page}&pageSize=${pageSize}&search=${search}&type=${type}`,
+      ),
     staleTime: 60_000,
     enabled: !!companyId,
   });
+
+  useEffect(() => {
+    if (!companyId) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`fleet_maintenance_${companyId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "vehicle_maintenance",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: fleetKeys.maintenance(companyId) });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [companyId, qc]);
+
+  return query;
 }
 
 export function useAddMaintenance(companyId?: string, options?: any) {
@@ -287,7 +447,9 @@ export function useDeleteMaintenance(companyId?: string, options?: any) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/fleet/maintenance?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/fleet/maintenance?id=${id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
         const e = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(e.error || "Failed to delete maintenance record");
@@ -312,7 +474,7 @@ export function useDeleteMaintenance(companyId?: string, options?: any) {
     },
     onSuccess: (...args: any[]) => {
       options?.onSuccess?.(...args);
-    }
+    },
   });
 }
 
@@ -329,7 +491,10 @@ export function useVehicleTypes() {
 export function useEmployees(companyId?: string) {
   return useQuery({
     queryKey: fleetKeys.employees(companyId),
-    queryFn: () => apiFetch<any[]>(`/api/hr/employees?company_id=${companyId}`).catch(() => []),
+    queryFn: () =>
+      apiFetch<any[]>(`/api/hr/employees?company_id=${companyId}`).catch(
+        () => [],
+      ),
     staleTime: 5 * 60_000,
     enabled: !!companyId,
   });
@@ -361,7 +526,7 @@ export function useFleetColumnDefs(
 export function useAddFleetColumn(
   entity: "vehicles" | "drivers" | "maintenance",
   companyId: string | undefined,
-  options?: any
+  options?: any,
 ) {
   const qc = useQueryClient();
   return useMutation({
@@ -380,12 +545,16 @@ export function useAddFleetColumn(
 export function useUpdateFleetColumn(
   entity: "vehicles" | "drivers" | "maintenance",
   companyId: string | undefined,
-  options?: any
+  options?: any,
 ) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: any) =>
-      updateFleetCustomFieldAction({ companyId: companyId!, entityType: entity, ...payload }),
+      updateFleetCustomFieldAction({
+        companyId: companyId!,
+        entityType: entity,
+        ...payload,
+      }),
     ...options,
     onSuccess: (...args: any[]) => {
       qc.invalidateQueries({
@@ -399,7 +568,7 @@ export function useUpdateFleetColumn(
 export function useDeleteFleetColumn(
   entity: "vehicles" | "drivers" | "maintenance",
   companyId: string | undefined,
-  options?: any
+  options?: any,
 ) {
   const qc = useQueryClient();
   return useMutation({

@@ -794,6 +794,104 @@ export const crmService = {
     return { data: monthBuckets };
   },
 
+  async getOverviewDashboard({
+    supabase,
+    companyId,
+  }: {
+    supabase: SupabaseClient;
+    companyId: string;
+  }): Promise<
+    ServiceResult<{
+      counts: { customers: number; deals: number; activities: number };
+      trend: MonthlyTrendPoint[];
+      topActivities: Record<string, unknown>[];
+      recentDeals: Record<string, unknown>[];
+      customerMix: { company: number; person: number };
+    }>
+  > {
+    const now = new Date().toISOString();
+
+    // Aggregate all required data in parallel
+    const [countsResult, trendResult, activitiesResult, dealsResult, customersResult] =
+      await Promise.all([
+        // 1. Table counts
+        this.getTableCounts({ supabase, companyId }),
+
+        // 2. Monthly trend (6 months)
+        this.getMonthlyTrend({ supabase, companyId, months: 6 }),
+
+        // 3. Top 8 activities (overdue + upcoming)
+        supabase
+          .from("activities")
+          .select("*")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .is("completed_at", null)
+          .not("due_date", "is", null)
+          .order("due_date", { ascending: true })
+          .limit(8),
+
+        // 4. Top 6 recently closed deals
+        supabase
+          .from("deals")
+          .select("*")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .in("stage", ["closed_won", "closed_lost"])
+          .order("updated_at", { ascending: false })
+          .limit(6),
+
+        // 5. All customers for type breakdown
+        supabase
+          .from("customers")
+          .select("type")
+          .eq("company_id", companyId)
+          .is("deleted_at", null),
+      ]);
+
+    // Check for errors
+    if (countsResult.error) {
+      return { error: countsResult.error };
+    }
+    if (trendResult.error) {
+      return { error: trendResult.error };
+    }
+    if (activitiesResult.error) {
+      return { error: activitiesResult.error.message };
+    }
+    if (dealsResult.error) {
+      return { error: dealsResult.error.message };
+    }
+    if (customersResult.error) {
+      return { error: customersResult.error.message };
+    }
+
+    // Calculate customer mix
+    let companyCount = 0;
+    let personCount = 0;
+    for (const row of customersResult.data ?? []) {
+      const type = String(row.type ?? "").toLowerCase();
+      if (type === "company") {
+        companyCount += 1;
+      } else {
+        personCount += 1;
+      }
+    }
+
+    return {
+      data: {
+        counts: countsResult.data!,
+        trend: trendResult.data ?? [],
+        topActivities: activitiesResult.data ?? [],
+        recentDeals: dealsResult.data ?? [],
+        customerMix: {
+          company: companyCount,
+          person: personCount,
+        },
+      },
+    };
+  },
+
   async listRows({
     supabase,
     table,

@@ -73,7 +73,7 @@ export function AuthGuard({
       requiredModule &&
       (roleInfo.plan_modules?.length ?? 0) > 0 &&
       !roleInfo.plan_modules.some(
-        (m: string) => m.toLowerCase() === requiredModule.toLowerCase()
+        (m: string) => m.toLowerCase() === requiredModule.toLowerCase(),
       )
     ) {
       currentAuthState = "loading";

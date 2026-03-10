@@ -14,7 +14,12 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const vehicleId = searchParams.get("vehicle_id");
-    const qv_company_id = searchParams.get("company_id"); // Cache buster
+
+    // Pagination and Filtering params
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "20");
+    const search = searchParams.get("search") || "";
+    const type = searchParams.get("type") || "all";
 
     let query = supabase
       .from("vehicle_maintenance")
@@ -41,18 +46,36 @@ export async function GET(req: Request) {
           license_plate
         )
       `,
+        { count: "exact" },
       )
       .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .order("maintenance_date", { ascending: false });
+      .is("deleted_at", null);
 
     if (vehicleId) {
       query = query.eq("vehicle_id", vehicleId);
     }
 
-    const { data, error } = await query;
+    if (search) {
+      query = query.or(
+        `description.ilike.%${search}%,notes.ilike.%${search}%,performed_by.ilike.%${search}%`,
+      );
+    }
+
+    if (
+      type !== "all" &&
+      ["routine", "repair", "inspection", "emergency"].includes(type)
+    ) {
+      query = query.eq("type", type);
+    }
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error, count } = await query
+      .order("maintenance_date", { ascending: false })
+      .range(from, to);
+
     if (error) throw error;
-    console.log(`[Fleet API] DB Maintenance Records for company ${companyId}:`, data?.length || 0);
 
     // Shape the response to include flat vehicle fields for the table
     const shaped = (data || []).map((r: any) => ({
@@ -77,7 +100,26 @@ export async function GET(req: Request) {
       updated_at: r.updated_at,
     }));
 
-    return NextResponse.json(shaped);
+    // Fallback frontend search for the joined vehicles fields
+    let textFiltered = shaped;
+    if (search) {
+      const q = search.toLowerCase();
+      textFiltered = shaped.filter(
+        (a) =>
+          (a.description && a.description.toLowerCase().includes(q)) ||
+          (a.notes && a.notes.toLowerCase().includes(q)) ||
+          (a.performed_by && a.performed_by.toLowerCase().includes(q)) ||
+          (a.vehicle_label && a.vehicle_label.toLowerCase().includes(q)) ||
+          (a.vehicle_plate && a.vehicle_plate.toLowerCase().includes(q)),
+      );
+    }
+
+    return NextResponse.json({
+      data: textFiltered,
+      total: search ? textFiltered.length : count || 0,
+      page,
+      pageSize,
+    });
   } catch (error: any) {
     console.error("[Fleet Maintenance API] GET Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

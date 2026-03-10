@@ -8,26 +8,29 @@ importers:
   .:
     devDependencies:
       "@commitlint/cli":
-        specifier: ^19.0.3
+        specifier: ^19.8.1
         version: 19.8.1(@types/node@20.19.32)(typescript@5.9.3)
       "@commitlint/config-conventional":
-        specifier: ^19.0.3
+        specifier: ^19.8.1
         version: 19.8.1
       husky:
-        specifier: ^9.0.11
+        specifier: ^9.1.7
         version: 9.1.7
       lint-staged:
-        specifier: ^15.2.2
+        specifier: ^15.5.0
         version: 15.5.2
       prettier:
-        specifier: ^3.2.5
+        specifier: ^3.5.0
         version: 3.8.1
       typescript:
-        specifier: ^5.3.3
+        specifier: ^5.8.0
         version: 5.9.3
 
   .app:
     dependencies:
+      "@google/generative-ai":
+        specifier: ^0.24.1
+        version: 0.24.1
       "@radix-ui/react-accordion":
         specifier: ^1.2.12
         version: 1.2.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -124,15 +127,15 @@ importers:
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
+      dotenv:
+        specifier: ^17.3.1
+        version: 17.3.1
       framer-motion:
         specifier: ^12.34.0
         version: 12.34.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       i18next:
         specifier: ^25.8.13
         version: 25.8.13(typescript@5.9.3)
-      i18next-browser-languagedetector:
-        specifier: ^8.2.1
-        version: 8.2.1
       i18next-resources-to-backend:
         specifier: ^1.2.1
         version: 1.2.1
@@ -145,6 +148,9 @@ importers:
       next:
         specifier: 16.0.0
         version: 16.0.0(@babel/core@7.29.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      node-fetch:
+        specifier: ^3.3.2
+        version: 3.3.2
       pino:
         specifier: ^10.3.0
         version: 10.3.0
@@ -234,7 +240,7 @@ importers:
         specifier: ^3.4.1
         version: 3.4.19(yaml@2.8.2)
       typescript:
-        specifier: ^5.4.0
+        specifier: ^5.8.0
         version: 5.9.3
       vitest:
         specifier: ^1.2.2
@@ -893,6 +899,13 @@ packages:
         integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==,
       }
 
+  "@google/generative-ai@0.24.1":
+    resolution:
+      {
+        integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==,
+      }
+    engines: { node: ">=18.0.0" }
+
   "@humanfs/core@0.19.1":
     resolution:
       {
@@ -969,6 +982,7 @@ packages:
       }
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   "@img/sharp-libvips-linux-arm@1.2.4":
     resolution:
@@ -977,6 +991,7 @@ packages:
       }
     cpu: [arm]
     os: [linux]
+    libc: [glibc]
 
   "@img/sharp-libvips-linux-ppc64@1.2.4":
     resolution:
@@ -985,6 +1000,7 @@ packages:
       }
     cpu: [ppc64]
     os: [linux]
+    libc: [glibc]
 
   "@img/sharp-libvips-linux-riscv64@1.2.4":
     resolution:
@@ -993,6 +1009,7 @@ packages:
       }
     cpu: [riscv64]
     os: [linux]
+    libc: [glibc]
 
   "@img/sharp-libvips-linux-s390x@1.2.4":
     resolution:
@@ -1001,6 +1018,7 @@ packages:
       }
     cpu: [s390x]
     os: [linux]
+    libc: [glibc]
 
   "@img/sharp-libvips-linux-x64@1.2.4":
     resolution:
@@ -1009,6 +1027,7 @@ packages:
       }
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   "@img/sharp-libvips-linuxmusl-arm64@1.2.4":
     resolution:
@@ -1017,6 +1036,7 @@ packages:
       }
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   "@img/sharp-libvips-linuxmusl-x64@1.2.4":
     resolution:
@@ -1025,6 +1045,7 @@ packages:
       }
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   "@img/sharp-linux-arm64@0.34.5":
     resolution:
@@ -1034,6 +1055,7 @@ packages:
     engines: { node: ^18.17.0 || ^20.3.0 || >=21.0.0 }
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   "@img/sharp-linux-arm@0.34.5":
     resolution:
@@ -1043,6 +1065,7 @@ packages:
     engines: { node: ^18.17.0 || ^20.3.0 || >=21.0.0 }
     cpu: [arm]
     os: [linux]
+    libc: [glibc]
 
   "@img/sharp-linux-ppc64@0.34.5":
     resolution:
@@ -1052,6 +1075,7 @@ packages:
     engines: { node: ^18.17.0 || ^20.3.0 || >=21.0.0 }
     cpu: [ppc64]
     os: [linux]
+    libc: [glibc]
 
   "@img/sharp-linux-riscv64@0.34.5":
     resolution:
@@ -1061,6 +1085,7 @@ packages:
     engines: { node: ^18.17.0 || ^20.3.0 || >=21.0.0 }
     cpu: [riscv64]
     os: [linux]
+    libc: [glibc]
 
   "@img/sharp-linux-s390x@0.34.5":
     resolution:
@@ -1070,6 +1095,7 @@ packages:
     engines: { node: ^18.17.0 || ^20.3.0 || >=21.0.0 }
     cpu: [s390x]
     os: [linux]
+    libc: [glibc]
 
   "@img/sharp-linux-x64@0.34.5":
     resolution:
@@ -1079,6 +1105,7 @@ packages:
     engines: { node: ^18.17.0 || ^20.3.0 || >=21.0.0 }
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   "@img/sharp-linuxmusl-arm64@0.34.5":
     resolution:
@@ -1088,6 +1115,7 @@ packages:
     engines: { node: ^18.17.0 || ^20.3.0 || >=21.0.0 }
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   "@img/sharp-linuxmusl-x64@0.34.5":
     resolution:
@@ -1097,6 +1125,7 @@ packages:
     engines: { node: ^18.17.0 || ^20.3.0 || >=21.0.0 }
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   "@img/sharp-wasm32@0.34.5":
     resolution:
@@ -1228,6 +1257,7 @@ packages:
     engines: { node: ">= 10" }
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   "@next/swc-linux-arm64-musl@16.0.0":
     resolution:
@@ -1237,6 +1267,7 @@ packages:
     engines: { node: ">= 10" }
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   "@next/swc-linux-x64-gnu@16.0.0":
     resolution:
@@ -1246,6 +1277,7 @@ packages:
     engines: { node: ">= 10" }
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   "@next/swc-linux-x64-musl@16.0.0":
     resolution:
@@ -1255,6 +1287,7 @@ packages:
     engines: { node: ">= 10" }
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   "@next/swc-win32-arm64-msvc@16.0.0":
     resolution:
@@ -2159,6 +2192,7 @@ packages:
       }
     cpu: [arm]
     os: [linux]
+    libc: [glibc]
 
   "@rollup/rollup-linux-arm-musleabihf@4.57.1":
     resolution:
@@ -2167,6 +2201,7 @@ packages:
       }
     cpu: [arm]
     os: [linux]
+    libc: [musl]
 
   "@rollup/rollup-linux-arm64-gnu@4.57.1":
     resolution:
@@ -2175,6 +2210,7 @@ packages:
       }
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   "@rollup/rollup-linux-arm64-musl@4.57.1":
     resolution:
@@ -2183,6 +2219,7 @@ packages:
       }
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   "@rollup/rollup-linux-loong64-gnu@4.57.1":
     resolution:
@@ -2191,6 +2228,7 @@ packages:
       }
     cpu: [loong64]
     os: [linux]
+    libc: [glibc]
 
   "@rollup/rollup-linux-loong64-musl@4.57.1":
     resolution:
@@ -2199,6 +2237,7 @@ packages:
       }
     cpu: [loong64]
     os: [linux]
+    libc: [musl]
 
   "@rollup/rollup-linux-ppc64-gnu@4.57.1":
     resolution:
@@ -2207,6 +2246,7 @@ packages:
       }
     cpu: [ppc64]
     os: [linux]
+    libc: [glibc]
 
   "@rollup/rollup-linux-ppc64-musl@4.57.1":
     resolution:
@@ -2215,6 +2255,7 @@ packages:
       }
     cpu: [ppc64]
     os: [linux]
+    libc: [musl]
 
   "@rollup/rollup-linux-riscv64-gnu@4.57.1":
     resolution:
@@ -2223,6 +2264,7 @@ packages:
       }
     cpu: [riscv64]
     os: [linux]
+    libc: [glibc]
 
   "@rollup/rollup-linux-riscv64-musl@4.57.1":
     resolution:
@@ -2231,6 +2273,7 @@ packages:
       }
     cpu: [riscv64]
     os: [linux]
+    libc: [musl]
 
   "@rollup/rollup-linux-s390x-gnu@4.57.1":
     resolution:
@@ -2239,6 +2282,7 @@ packages:
       }
     cpu: [s390x]
     os: [linux]
+    libc: [glibc]
 
   "@rollup/rollup-linux-x64-gnu@4.57.1":
     resolution:
@@ -2247,6 +2291,7 @@ packages:
       }
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   "@rollup/rollup-linux-x64-musl@4.57.1":
     resolution:
@@ -2255,6 +2300,7 @@ packages:
       }
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   "@rollup/rollup-openbsd-x64@4.57.1":
     resolution:
@@ -2772,6 +2818,7 @@ packages:
       }
     cpu: [arm64]
     os: [linux]
+    libc: [glibc]
 
   "@unrs/resolver-binding-linux-arm64-musl@1.11.1":
     resolution:
@@ -2780,6 +2827,7 @@ packages:
       }
     cpu: [arm64]
     os: [linux]
+    libc: [musl]
 
   "@unrs/resolver-binding-linux-ppc64-gnu@1.11.1":
     resolution:
@@ -2788,6 +2836,7 @@ packages:
       }
     cpu: [ppc64]
     os: [linux]
+    libc: [glibc]
 
   "@unrs/resolver-binding-linux-riscv64-gnu@1.11.1":
     resolution:
@@ -2796,6 +2845,7 @@ packages:
       }
     cpu: [riscv64]
     os: [linux]
+    libc: [glibc]
 
   "@unrs/resolver-binding-linux-riscv64-musl@1.11.1":
     resolution:
@@ -2804,6 +2854,7 @@ packages:
       }
     cpu: [riscv64]
     os: [linux]
+    libc: [musl]
 
   "@unrs/resolver-binding-linux-s390x-gnu@1.11.1":
     resolution:
@@ -2812,6 +2863,7 @@ packages:
       }
     cpu: [s390x]
     os: [linux]
+    libc: [glibc]
 
   "@unrs/resolver-binding-linux-x64-gnu@1.11.1":
     resolution:
@@ -2820,6 +2872,7 @@ packages:
       }
     cpu: [x64]
     os: [linux]
+    libc: [glibc]
 
   "@unrs/resolver-binding-linux-x64-musl@1.11.1":
     resolution:
@@ -2828,6 +2881,7 @@ packages:
       }
     cpu: [x64]
     os: [linux]
+    libc: [musl]
 
   "@unrs/resolver-binding-wasm32-wasi@1.11.1":
     resolution:
@@ -3778,6 +3832,13 @@ packages:
       }
     engines: { node: ">=8" }
 
+  dotenv@17.3.1:
+    resolution:
+      {
+        integrity: sha512-IO8C/dzEb6O3F9/twg6ZLXz164a2fhTnEWb95H23Dm4OuN+92NmEAlTrupP9VW6Jm3sO26tQlqyvyi4CsnY9GA==,
+      }
+    engines: { node: ">=12" }
+
   dunder-proto@1.0.1:
     resolution:
       {
@@ -4392,6 +4453,7 @@ packages:
         integrity: sha512-ICsMM1Wk8xSGMowkOmPrzo2Fgmfo4bMHLNX6ytHjajRJUqvHOw/TFapQ+QG75c3X/tTDDhOSRPGC52dDbNM8FQ==,
       }
     engines: { node: ">=16" }
+    deprecated: This package is no longer maintained. For the JavaScript API, please use @conventional-changelog/git-client instead.
     hasBin: true
 
   glob-parent@5.1.2:
@@ -4550,12 +4612,6 @@ packages:
       }
     engines: { node: ">=18" }
     hasBin: true
-
-  i18next-browser-languagedetector@8.2.1:
-    resolution:
-      {
-        integrity: sha512-bZg8+4bdmaOiApD7N7BPT9W8MLZG+nPTOFlLiJiT8uzKXFjhxw4v2ierCXOwB5sFDMtuA5G4kgYZ0AznZxQ/cw==,
-      }
 
   i18next-resources-to-backend@1.2.1:
     resolution:
@@ -7645,6 +7701,8 @@ snapshots:
 
   "@floating-ui/utils@0.2.10": {}
 
+  "@google/generative-ai@0.24.1": {}
+
   "@humanfs/core@0.19.1": {}
 
   "@humanfs/node@0.16.7":
@@ -9444,6 +9502,8 @@ snapshots:
     dependencies:
       is-obj: 2.0.0
 
+  dotenv@17.3.1: {}
+
   dunder-proto@1.0.1:
     dependencies:
       call-bind-apply-helpers: 1.0.2
@@ -10064,10 +10124,6 @@ snapshots:
   human-signals@5.0.0: {}
 
   husky@9.1.7: {}
-
-  i18next-browser-languagedetector@8.2.1:
-    dependencies:
-      "@babel/runtime": 7.28.6
 
   i18next-resources-to-backend@1.2.1:
     dependencies:

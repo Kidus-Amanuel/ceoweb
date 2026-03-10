@@ -13,6 +13,7 @@ import {
   getCrmCustomersOptionsAction,
   getCrmDealsOptionsAction,
   getCrmMonthlyTrendAction,
+  getCrmOverviewAction,
   getCrmRowsAction,
   getCrmUsersOptionsAction,
 } from "./crm-workspace.query-actions";
@@ -129,6 +130,8 @@ export const crmKeys = {
     ["crm", "counts", params.companyId] as const,
   trend: (params: { companyId: string }) =>
     ["crm", "trend", params.companyId] as const,
+  overview: (params: { companyId: string }) =>
+    ["crm", "overview", params.companyId] as const,
   search: (params: { companyId: string; query: string; filtersHash: string }) =>
     [
       "crm",
@@ -437,5 +440,48 @@ export const useCrmTrendQuery = (companyId: string | null, enabled = true) =>
       if (!companyId) return [];
       const response = await getCrmMonthlyTrendAction({ companyId });
       return throwIfError<CrmMonthlyTrendPoint[]>(response) ?? [];
+    },
+  });
+
+export type CrmOverviewData = {
+  counts: TableCounts;
+  trend: CrmMonthlyTrendPoint[];
+  topActivities: Record<string, unknown>[];
+  recentDeals: Record<string, unknown>[];
+  customerMix: { company: number; person: number };
+};
+
+export const useCrmOverviewQuery = (
+  companyId: string | null,
+  enabled = true,
+) =>
+  useQuery<CrmOverviewData>({
+    queryKey: companyId
+      ? crmKeys.overview({ companyId })
+      : ["crm", "overview", "disabled"],
+    enabled: !!companyId && enabled,
+    staleTime: 30 * 1000, // Cache for 30 seconds
+    refetchInterval: 60 * 1000, // Refetch every minute
+    queryFn: async () => {
+      if (!companyId) {
+        return {
+          counts: DEFAULT_COUNTS,
+          trend: [],
+          topActivities: [],
+          recentDeals: [],
+          customerMix: { company: 0, person: 0 },
+        };
+      }
+      const response = await getCrmOverviewAction({ companyId });
+      const data = throwIfError<CrmOverviewData>(response);
+      return (
+        data ?? {
+          counts: DEFAULT_COUNTS,
+          trend: [],
+          topActivities: [],
+          recentDeals: [],
+          customerMix: { company: 0, person: 0 },
+        }
+      );
     },
   });

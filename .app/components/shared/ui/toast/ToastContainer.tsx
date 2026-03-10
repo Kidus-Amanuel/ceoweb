@@ -70,7 +70,10 @@ function ToastItem({
       <motion.div
         initial={{ x: "-100%" }}
         animate={{ x: "0%" }}
-        transition={{ duration: (toast.duration || 5000) / 1000, ease: "linear" }}
+        transition={{
+          duration: (toast.duration || 5000) / 1000,
+          ease: "linear",
+        }}
         className="absolute bottom-0 left-0 h-0.5 w-full bg-slate-900/5"
       />
     </motion.div>
