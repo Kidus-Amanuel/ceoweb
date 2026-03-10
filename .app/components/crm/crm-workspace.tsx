@@ -38,7 +38,11 @@ export function CrmWorkspace({
           const key = query.queryKey as readonly unknown[];
           if (!Array.isArray(key) || key.length < 3) return false;
           if (key[0] !== "crm") return false;
-          if (key[1] !== "rows" && key[1] !== "rows-infinite" && key[1] !== "search")
+          if (
+            key[1] !== "rows" &&
+            key[1] !== "rows-infinite" &&
+            key[1] !== "search"
+          )
             return false;
           return key[2] === selectedCompany.id;
         },
