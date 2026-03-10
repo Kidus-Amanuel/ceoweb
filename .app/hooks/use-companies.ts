@@ -1,98 +1,107 @@
 import { useUser } from "@/app/context/UserContext";
 import { Company } from "@/lib/constants/nav-config";
 import { useLayoutStore } from "@/store/layout-store";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+type FetchCompaniesParams = {
+  userId: string;
+  userType: string;
+  companyId?: string;
+};
+
+/**
+ * Fetches companies for the authenticated user
+ * - Super Admin: All companies they own
+ * - Regular User: Only their assigned company
+ */
+async function fetchUserCompanies(
+  params: FetchCompaniesParams,
+): Promise<Company[]> {
+  const supabase = createClient();
+  let companies: any[] = [];
+
+  if (params.userType === "super_admin") {
+    // Super Admin: Fetch all companies where they are the owner
+    const { data, error } = await supabase
+      .from("companies")
+      .select("id, name, plan_id, plans(name)")
+      .eq("owner_id", params.userId);
+
+    if (error) throw error;
+    companies = data || [];
+  } else {
+    // Regular User: Fetch only their assigned company from metadata
+    if (params.companyId) {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("id, name, plan_id, plans(name)")
+        .eq("id", params.companyId);
+
+      if (error) throw error;
+      companies = data || [];
+    }
+  }
+
+  return companies.map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    type: (c.plans as any)?.name || "Starter",
+  }));
+}
 
 export function useCompanies() {
   const { user, roleInfo, refreshUser } = useUser();
   const { selectedCompanyId, setSelectedCompanyId } = useLayoutStore();
-  const [availableCompanies, setAvailableCompanies] = useState<Company[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSwitching, setIsSwitching] = useState(false);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    async function fetchCompanies() {
-      if (!user) {
-        setAvailableCompanies([]);
-        return;
-      }
+  // Extract user metadata
+  const meta = user?.user_metadata || {};
+  const userType = meta.user_type || meta.userType || "company_user";
+  const metaCompanyId = meta.company_id || meta.companyId;
 
-      const meta = user.user_metadata || {};
-      const userType = meta.user_type || meta.userType || "company_user";
+  // Fetch companies with React Query
+  const companiesQuery = useQuery<Company[]>({
+    queryKey: ["companies", user?.id, userType, metaCompanyId],
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    queryFn: () =>
+      fetchUserCompanies({
+        userId: user!.id,
+        userType,
+        companyId: metaCompanyId,
+      }),
+  });
 
-      setIsLoading(true);
-      const supabase = createClient();
+  const availableCompanies = companiesQuery.data ?? [];
 
-      try {
-        let companies: any[] = [];
+  // Determine selected company
+  const selectedCompany = useMemo(
+    () =>
+      availableCompanies.find((c) => c.id === selectedCompanyId) ||
+      availableCompanies.find((c) => c.id === roleInfo?.company_id) ||
+      availableCompanies[0] ||
+      null,
+    [availableCompanies, selectedCompanyId, roleInfo?.company_id],
+  );
 
-        if (userType === "super_admin") {
-          // Super Admin: Fetch all companies where they are the owner
-          const { data, error } = await supabase
-            .from("companies")
-            .select("id, name, plan_id, plans(name)")
-            .eq("owner_id", user.id);
-
-          if (error) throw error;
-          companies = data || [];
-        } else {
-          // Regular User: Fetch only their assigned company from metadata
-          const companyId = meta.company_id || meta.companyId;
-
-          if (companyId) {
-            const { data, error } = await supabase
-              .from("companies")
-              .select("id, name, plan_id, plans(name)")
-              .eq("id", companyId);
-
-            if (error) throw error;
-            companies = data || [];
-          }
-        }
-
-        if (companies.length > 0) {
-          const mapped: Company[] = companies.map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            type: (c.plans as any)?.name || "Starter",
-          }));
-          setAvailableCompanies(mapped);
-        } else {
-          setAvailableCompanies([]);
-        }
-      } catch (err) {
-        console.error("Error in useCompanies:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchCompanies();
-  }, [user]);
-
-  const selectedCompany =
-    availableCompanies.find((c) => c.id === selectedCompanyId) ||
-    availableCompanies.find((c) => c.id === roleInfo?.company_id) ||
-    availableCompanies[0] ||
-    null;
-
-  // Sync selectedCompanyId if not set or mismatched with roleInfo (if not super_admin, we follow roleInfo)
+  // Sync selectedCompanyId if not set
   useEffect(() => {
     if (!selectedCompanyId && selectedCompany) {
       setSelectedCompanyId(selectedCompany.id);
     }
   }, [selectedCompany, selectedCompanyId, setSelectedCompanyId]);
 
-  const switchCompany = async (companyId: string) => {
-    if (!user || isSwitching) return;
+  // Company switching mutation
+  const switchCompanyMutation = useMutation({
+    mutationFn: async (companyId: string) => {
+      if (!user) throw new Error("User not authenticated");
 
-    console.log(`[useCompanies] Switching to company: ${companyId}`);
-    setIsSwitching(true);
-    const supabase = createClient();
+      console.log(`[useCompanies] Switching to company: ${companyId}`);
+      const supabase = createClient();
 
-    try {
-      // For Super Admin, we update the organization context in the profiles table
+      // Update profile with new company context
       const { error } = await supabase
         .from("profiles")
         .update({ company_id: companyId })
@@ -106,26 +115,38 @@ export function useCompanies() {
       console.log(
         `[useCompanies] Profile updated successfully to ${companyId}`,
       );
-
-      // Update local store
+      return companyId;
+    },
+    onMutate: async (companyId) => {
+      // Optimistic update: immediately update local store
       setSelectedCompanyId(companyId);
-
-      // Refresh UserContext to get new roleInfo (plans, permissions, etc.)
+    },
+    onSuccess: async (companyId) => {
+      // Refresh user context to get new roleInfo (plans, permissions, etc.)
       console.log("[useCompanies] Refreshing user context...");
       await refreshUser();
+
+      // Invalidate companies query to refetch fresh data
+      await queryClient.invalidateQueries({ queryKey: ["companies"] });
+
       console.log("[useCompanies] User context refreshed.");
-    } catch (err) {
+    },
+    onError: (err, companyId, context) => {
       console.error("Error switching company:", err);
-    } finally {
-      setIsSwitching(false);
-    }
+      // Note: Could rollback optimistic update here if needed
+    },
+  });
+
+  const switchCompany = async (companyId: string) => {
+    if (!user || switchCompanyMutation.isPending) return;
+    await switchCompanyMutation.mutateAsync(companyId);
   };
 
   return {
     availableCompanies,
     selectedCompany,
     setSelectedCompany: switchCompany,
-    isLoading: isLoading || isSwitching,
-    isSwitching,
+    isLoading: companiesQuery.isLoading || switchCompanyMutation.isPending,
+    isSwitching: switchCompanyMutation.isPending,
   };
 }

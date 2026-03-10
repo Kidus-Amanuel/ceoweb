@@ -14,12 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { useCompanies } from "@/hooks/use-companies";
-import {
-  useCrmCountsQuery,
-  useCrmTrendQuery,
-  getCrmFiltersHash,
-  useCrmRowsQuery,
-} from "../workspace/queries/crm-workspace.queries";
+import { useCrmOverviewQuery } from "../workspace/queries/crm-workspace.queries";
 
 type OverviewsTabProps = {
   refreshNonce?: number;
@@ -47,95 +42,26 @@ export function OverviewsTab({
 }: OverviewsTabProps) {
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id ?? null;
-  const filtersHash = useMemo(() => getCrmFiltersHash({ search: "" }), []);
 
-  const countsQuery = useCrmCountsQuery(companyId, true);
-  const trendQuery = useCrmTrendQuery(companyId, true);
-  const customersQuery = useCrmRowsQuery(
-    companyId
-      ? {
-          companyId,
-          table: "customers",
-          page: 1,
-          pageSize: 50,
-          search: "",
-          filtersHash,
-        }
-      : null,
-  );
-  const dealsQuery = useCrmRowsQuery(
-    companyId
-      ? {
-          companyId,
-          table: "deals",
-          page: 1,
-          pageSize: 50,
-          search: "",
-          filtersHash,
-        }
-      : null,
-  );
-  const activitiesQuery = useCrmRowsQuery(
-    companyId
-      ? {
-          companyId,
-          table: "activities",
-          page: 1,
-          pageSize: 50,
-          search: "",
-          filtersHash,
-        }
-      : null,
-  );
+  // Single aggregated query replaces 5 separate queries
+  const overviewQuery = useCrmOverviewQuery(companyId, true);
 
-  const isPending =
-    countsQuery.isPending ||
-    trendQuery.isPending ||
-    customersQuery.isPending ||
-    dealsQuery.isPending ||
-    activitiesQuery.isPending;
-
+  const isPending = overviewQuery.isPending;
   const error =
-    (countsQuery.error instanceof Error && countsQuery.error.message) ||
-    (trendQuery.error instanceof Error && trendQuery.error.message) ||
-    (customersQuery.error instanceof Error && customersQuery.error.message) ||
-    (dealsQuery.error instanceof Error && dealsQuery.error.message) ||
-    (activitiesQuery.error instanceof Error && activitiesQuery.error.message) ||
+    (overviewQuery.error instanceof Error && overviewQuery.error.message) ||
     null;
 
+  // Refresh handler - simplified to single query
   useEffect(() => {
     if (!refreshNonce) return;
     onRefreshStateChange?.(true);
-    void Promise.all([
-      countsQuery.refetch(),
-      trendQuery.refetch(),
-      customersQuery.refetch(),
-      dealsQuery.refetch(),
-      activitiesQuery.refetch(),
-    ]).finally(() => onRefreshStateChange?.(false));
-  }, [
-    activitiesQuery,
-    countsQuery,
-    trendQuery,
-    customersQuery,
-    dealsQuery,
-    onRefreshStateChange,
-    refreshNonce,
-  ]);
+    void overviewQuery.refetch().finally(() => onRefreshStateChange?.(false));
+  }, [overviewQuery, onRefreshStateChange, refreshNonce]);
 
-  const customers = useMemo(
-    () => customersQuery.data?.rows ?? [],
-    [customersQuery.data?.rows],
-  );
-  const deals = useMemo(
-    () => dealsQuery.data?.rows ?? [],
-    [dealsQuery.data?.rows],
-  );
-  const activities = useMemo(
-    () => activitiesQuery.data?.rows ?? [],
-    [activitiesQuery.data?.rows],
-  );
-  const tableCounts = countsQuery.data;
+  // Extract data from aggregated response
+  const tableCounts = overviewQuery.data?.counts;
+  const activities = overviewQuery.data?.topActivities ?? [];
+  const deals = overviewQuery.data?.recentDeals ?? [];
   const chartCardRef = useRef<HTMLDivElement | null>(null);
   const [selectedSeries, setSelectedSeries] = useState<
     "customers" | "deals" | "activities" | null
@@ -154,71 +80,42 @@ export function OverviewsTab({
   }, [selectedSeries]);
 
   const now = useMemo(() => new Date(), []);
-  const pipelineSeries = useMemo(
-    () => trendQuery.data ?? [],
-    [trendQuery.data],
-  );
+  const pipelineSeries = overviewQuery.data?.trend ?? [];
 
+  // Customer mix comes pre-calculated from server
   const customerTypeSeries = useMemo(() => {
-    let company = 0;
-    let person = 0;
-    for (const row of customers) {
-      const type = String(row.type ?? "").toLowerCase();
-      if (type === "company") company += 1;
-      else person += 1;
-    }
+    const mix = overviewQuery.data?.customerMix ?? { company: 0, person: 0 };
     return [
-      { name: "Company", value: company },
-      { name: "Person", value: person },
+      { name: "Company", value: mix.company },
+      { name: "Person", value: mix.person },
     ];
-  }, [customers]);
+  }, [overviewQuery.data?.customerMix]);
 
+  // Activities are already sorted by due_date from server (top 8)
+  // Split into overdue vs upcoming based on current time
   const overdueActivities = useMemo(
     () =>
-      activities
-        .filter((row) => {
-          if (row.completed_at) return false;
-          const due = new Date(String(row.due_date ?? ""));
-          return !Number.isNaN(due.getTime()) && due.getTime() < now.getTime();
-        })
-        .slice(0, 6),
+      activities.filter((row) => {
+        const due = new Date(String(row.due_date ?? ""));
+        return !Number.isNaN(due.getTime()) && due.getTime() < now.getTime();
+      }),
     [activities, now],
   );
 
   const upcomingActivities = useMemo(
     () =>
-      activities
-        .filter((row) => {
-          if (row.completed_at) return false;
-          const due = new Date(String(row.due_date ?? ""));
-          return !Number.isNaN(due.getTime()) && due.getTime() >= now.getTime();
-        })
-        .sort(
-          (a, b) =>
-            new Date(String(a.due_date ?? "")).getTime() -
-            new Date(String(b.due_date ?? "")).getTime(),
-        )
-        .slice(0, 6),
+      activities.filter((row) => {
+        const due = new Date(String(row.due_date ?? ""));
+        return !Number.isNaN(due.getTime()) && due.getTime() >= now.getTime();
+      }),
     [activities, now],
   );
 
-  const recentlyClosedDeals = useMemo(
-    () =>
-      deals
-        .filter((row) => {
-          const stage = String(row.stage ?? "").toLowerCase();
-          return stage === "closed_won" || stage === "closed_lost";
-        })
-        .sort(
-          (a, b) =>
-            new Date(String(b.updated_at ?? b.created_at ?? "")).getTime() -
-            new Date(String(a.updated_at ?? a.created_at ?? "")).getTime(),
-        )
-        .slice(0, 6),
-    [deals],
-  );
+  // Deals are already filtered and sorted server-side (top 6 closed deals)
+  const recentlyClosedDeals = deals;
 
-  const totalCustomers = tableCounts?.customers ?? customers.length;
+  const totalCustomers = tableCounts?.customers ?? 0;
+  const totalDeals = tableCounts?.deals ?? 0;
   const newCustomersCount = useMemo(
     () =>
       pipelineSeries.length
@@ -229,29 +126,22 @@ export function OverviewsTab({
   const newCustomersPercent =
     totalCustomers > 0 ? (newCustomersCount / totalCustomers) * 100 : 0;
 
+  // Calculate win rate from recently closed deals
   const wonDeals = useMemo(
     () =>
-      deals.filter(
+      recentlyClosedDeals.filter(
         (row) => String(row.stage ?? "").toLowerCase() === "closed_won",
       ).length,
-    [deals],
+    [recentlyClosedDeals],
   );
 
-  const closedDeals = useMemo(
-    () =>
-      deals.filter((row) => {
-        const stage = String(row.stage ?? "").toLowerCase();
-        return stage === "closed_won" || stage === "closed_lost";
-      }).length,
-    [deals],
-  );
-
+  const closedDeals = recentlyClosedDeals.length;
   const winRate = closedDeals > 0 ? (wonDeals / closedDeals) * 100 : 0;
 
   const kpis = [
     {
       label: "Total Active Deals",
-      value: String(tableCounts?.deals ?? deals.length),
+      value: String(totalDeals),
       delta: "+8% vs last month",
       deltaTone: "text-emerald-600",
     },
