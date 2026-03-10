@@ -169,6 +169,46 @@ export async function getCrmTrendAction(input: unknown): Promise<
   return { success: true, data: response.data };
 }
 
+export async function getCrmOverviewAction(input: unknown): Promise<
+  ActionResult<{
+    counts: { customers: number; deals: number; activities: number };
+    trend: {
+      month: string;
+      key: string;
+      customers: number;
+      deals: number;
+      activities: number;
+    }[];
+    topActivities: Record<string, unknown>[];
+    recentDeals: Record<string, unknown>[];
+    customerMix: { company: number; person: number };
+  }>
+> {
+  const parsed = crmCompanyScopeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: zodErrorToText(parsed.error) };
+  }
+
+  const auth = await getAuthContext(parsed.data.companyId);
+  if (!auth.success || !auth.data) {
+    return { success: false, error: auth.error };
+  }
+
+  const response = await crmService.getOverviewDashboard({
+    supabase: auth.data.supabase,
+    companyId: auth.data.companyId,
+  });
+
+  if (response.error || !response.data) {
+    return {
+      success: false,
+      error: response.error || "Failed to load CRM overview dashboard",
+    };
+  }
+
+  return { success: true, data: response.data };
+}
+
 export async function getCrmRowsAction(input: unknown): Promise<
   ActionResult<{
     rows: Record<string, unknown>[];
