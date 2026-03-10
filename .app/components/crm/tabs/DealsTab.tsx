@@ -247,7 +247,7 @@ export default function DealsTab({
             : current.rows,
         totalRows: current.totalRows + 1,
       }));
-      void invalidateRowsScope(currentPage !== 1);
+      void invalidateRowsScope();
       void queryClient.invalidateQueries({
         queryKey: crmKeys.counts({ companyId }),
       });
@@ -380,7 +380,7 @@ export default function DealsTab({
       });
     },
     onSuccess: () => {
-      void invalidateRowsScope(true);
+      void invalidateRowsScope();
       void queryClient.invalidateQueries({
         queryKey: crmKeys.counts({ companyId }),
       });
