@@ -820,7 +820,8 @@ export const crmService = {
       trendResult,
       activitiesResult,
       dealsResult,
-      customersResult,
+      companyCountResult,
+      personCountResult,
     ] = await Promise.all([
       // 1. Table counts
       this.getTableCounts({ supabase, companyId }),
@@ -828,32 +829,39 @@ export const crmService = {
       // 2. Monthly trend (6 months)
       this.getMonthlyTrend({ supabase, companyId, months: 6 }),
 
-      // 3. Top 8 activities (overdue + upcoming)
+      // 3. Top 6 activities (overdue + upcoming)
       supabase
         .from("activities")
-        .select("*")
+        .select("id,subject,due_date,activity_type")
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .is("completed_at", null)
         .not("due_date", "is", null)
         .order("due_date", { ascending: true })
-        .limit(8),
+        .limit(6),
 
       // 4. Top 6 recently closed deals
       supabase
         .from("deals")
-        .select("*")
+        .select("id,title,value,stage,updated_at")
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .in("stage", ["closed_won", "closed_lost"])
         .order("updated_at", { ascending: false })
         .limit(6),
 
-      // 5. All customers for type breakdown
+      // 5. Customer mix counts (company/person) without full row payload
       supabase
         .from("customers")
-        .select("type")
+        .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
+        .eq("type", "company")
+        .is("deleted_at", null),
+      supabase
+        .from("customers")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("type", "person")
         .is("deleted_at", null),
     ]);
 
@@ -870,21 +878,15 @@ export const crmService = {
     if (dealsResult.error) {
       return { error: dealsResult.error.message };
     }
-    if (customersResult.error) {
-      return { error: customersResult.error.message };
+    if (companyCountResult.error) {
+      return { error: companyCountResult.error.message };
+    }
+    if (personCountResult.error) {
+      return { error: personCountResult.error.message };
     }
 
-    // Calculate customer mix
-    let companyCount = 0;
-    let personCount = 0;
-    for (const row of customersResult.data ?? []) {
-      const type = String(row.type ?? "").toLowerCase();
-      if (type === "company") {
-        companyCount += 1;
-      } else {
-        personCount += 1;
-      }
-    }
+    const companyCount = companyCountResult.count ?? 0;
+    const personCount = personCountResult.count ?? 0;
 
     return {
       data: {

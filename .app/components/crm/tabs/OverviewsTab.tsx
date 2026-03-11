@@ -2,17 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
 import { useCompanies } from "@/hooks/use-companies";
 import { useCrmOverviewQuery } from "../workspace/queries/crm-workspace.queries";
 
@@ -36,6 +26,39 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const NOW_TS = Date.now();
+
+const OverviewsCharts = dynamic(() => import("./OverviewsCharts"), {
+  ssr: false,
+  loading: () => (
+    <>
+      <div
+        className={`${CARD_CLASS} lg:col-span-8 animate-pulse`}
+        aria-hidden="true"
+      >
+        <div className="mb-4 h-4 w-40 rounded bg-[#EFEFED]" />
+        <div className="mb-3 flex gap-2">
+          <div className="h-7 w-28 rounded-full bg-[#F3F3F2]" />
+          <div className="h-7 w-24 rounded-full bg-[#F3F3F2]" />
+          <div className="h-7 w-28 rounded-full bg-[#F3F3F2]" />
+        </div>
+        <div className="h-[280px] rounded-lg bg-[#F8F8F7]" />
+      </div>
+      <div
+        className={`${CARD_CLASS} lg:col-span-4 animate-pulse`}
+        aria-hidden="true"
+      >
+        <div className="mb-4 h-4 w-28 rounded bg-[#EFEFED]" />
+        <div className="mx-auto h-[220px] w-[220px] rounded-full bg-[#F8F8F7]" />
+        <div className="mt-4 space-y-2">
+          <div className="h-4 w-36 rounded bg-[#F3F3F2]" />
+          <div className="h-4 w-28 rounded bg-[#F3F3F2]" />
+        </div>
+      </div>
+    </>
+  ),
+});
+
 export function OverviewsTab({
   refreshNonce = 0,
   onRefreshStateChange,
@@ -52,16 +75,23 @@ export function OverviewsTab({
     null;
 
   // Refresh handler - simplified to single query
+  const overviewRefetch = overviewQuery.refetch;
   useEffect(() => {
     if (!refreshNonce) return;
     onRefreshStateChange?.(true);
-    void overviewQuery.refetch().finally(() => onRefreshStateChange?.(false));
-  }, [overviewQuery, onRefreshStateChange, refreshNonce]);
+    void overviewRefetch().finally(() => onRefreshStateChange?.(false));
+  }, [overviewRefetch, onRefreshStateChange, refreshNonce]);
 
   // Extract data from aggregated response
   const tableCounts = overviewQuery.data?.counts;
-  const activities = overviewQuery.data?.topActivities ?? [];
-  const deals = overviewQuery.data?.recentDeals ?? [];
+  const activities = useMemo(
+    () => overviewQuery.data?.topActivities ?? [],
+    [overviewQuery.data?.topActivities],
+  );
+  const deals = useMemo(
+    () => overviewQuery.data?.recentDeals ?? [],
+    [overviewQuery.data?.recentDeals],
+  );
   const chartCardRef = useRef<HTMLDivElement | null>(null);
   const [selectedSeries, setSelectedSeries] = useState<
     "customers" | "deals" | "activities" | null
@@ -79,8 +109,11 @@ export function OverviewsTab({
       document.removeEventListener("mousedown", onDocumentPointerDown);
   }, [selectedSeries]);
 
-  const now = useMemo(() => new Date(), []);
-  const pipelineSeries = overviewQuery.data?.trend ?? [];
+  const now = useMemo(() => new Date(NOW_TS), []);
+  const pipelineSeries = useMemo(
+    () => overviewQuery.data?.trend ?? [],
+    [overviewQuery.data?.trend],
+  );
 
   // Customer mix comes pre-calculated from server
   const customerTypeSeries = useMemo(() => {
@@ -191,140 +224,16 @@ export function OverviewsTab({
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <div ref={chartCardRef} className={`${CARD_CLASS} lg:col-span-8`}>
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-[#787774]">
-              CRM Trend (6 months)
-            </h3>
-          </div>
-          <div className="mb-3 flex flex-wrap items-center gap-3">
-            {SERIES.map((series) => {
-              const active = selectedSeries === series.key;
-              const dimmed = selectedSeries !== null && !active;
-              return (
-                <button
-                  key={series.key}
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setSelectedSeries(active ? null : series.key);
-                  }}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${
-                    active
-                      ? "border-[#CBD5E1] bg-[#F8FAFC] font-bold text-[#1F2937]"
-                      : "border-[#E5E7EB] bg-white text-[#4B5563]"
-                  } ${dimmed ? "opacity-40" : ""}`}
-                >
-                  <span
-                    className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: series.color }}
-                  />
-                  {series.label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={pipelineSeries}
-                margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
-                onClick={() => setSelectedSeries(null)}
-              >
-                <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                <YAxis
-                  allowDecimals={false}
-                  tickLine={false}
-                  axisLine={false}
-                  width={32}
-                />
-                <Tooltip cursor={{ fill: "#f8fafc" }} />
-                <Line
-                  type="monotone"
-                  dataKey="customers"
-                  name="Customers"
-                  stroke={PIPELINE_COLORS[0]}
-                  strokeWidth={selectedSeries === "customers" ? 3.5 : 2.5}
-                  strokeOpacity={
-                    selectedSeries && selectedSeries !== "customers" ? 0.2 : 1
-                  }
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="deals"
-                  name="Deals"
-                  stroke={PIPELINE_COLORS[1]}
-                  strokeWidth={selectedSeries === "deals" ? 3.5 : 2.5}
-                  strokeOpacity={
-                    selectedSeries && selectedSeries !== "deals" ? 0.2 : 1
-                  }
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="activities"
-                  name="Activities"
-                  stroke={PIPELINE_COLORS[2]}
-                  strokeWidth={selectedSeries === "activities" ? 3.5 : 2.5}
-                  strokeOpacity={
-                    selectedSeries && selectedSeries !== "activities" ? 0.2 : 1
-                  }
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className={`${CARD_CLASS} lg:col-span-4`}>
-          <h3 className="mb-4 text-sm font-bold uppercase tracking-widest text-[#787774]">
-            Customer Mix
-          </h3>
-          <div className="flex h-[220px] items-center justify-center">
-            <PieChart width={220} height={220}>
-              <Pie
-                data={customerTypeSeries}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={58}
-                outerRadius={84}
-                paddingAngle={2}
-              >
-                {customerTypeSeries.map((entry, index) => (
-                  <Cell
-                    key={entry.name}
-                    fill={DONUT_COLORS[index % DONUT_COLORS.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </div>
-          <div className="mt-2 space-y-2">
-            {customerTypeSeries.map((entry, index) => (
-              <div
-                key={entry.name}
-                className="flex items-center justify-between text-xs font-semibold text-[#37352F]"
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{
-                      backgroundColor:
-                        DONUT_COLORS[index % DONUT_COLORS.length],
-                    }}
-                  />
-                  <span>{entry.name}</span>
-                </div>
-                <span>{entry.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <OverviewsCharts
+          cardClass={CARD_CLASS}
+          chartCardRef={chartCardRef}
+          pipelineSeries={pipelineSeries}
+          customerTypeSeries={customerTypeSeries}
+          donutColors={DONUT_COLORS}
+          series={SERIES}
+          selectedSeries={selectedSeries}
+          onSelectSeries={setSelectedSeries}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
