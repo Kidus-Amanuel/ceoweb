@@ -35,7 +35,7 @@ export function ChatInput({
           rows={1}
         />
         <div className="flex items-center justify-between px-2 pb-1.5">
-          <div className="flex items-center gap-0.5">
+          {/* <div className="flex items-center gap-0.5">
             <button className="p-1.5 text-muted-foreground/30 hover:text-primary rounded-lg transition-all">
               <Paperclip className="w-3.5 h-3.5" />
             </button>
@@ -45,7 +45,7 @@ export function ChatInput({
             <button className="p-1.5 text-muted-foreground/30 hover:text-primary rounded-lg transition-all">
               <Smile className="w-3.5 h-3.5" />
             </button>
-          </div>
+          </div> */}
           <button
             onClick={onSend}
             disabled={!value.trim()}
