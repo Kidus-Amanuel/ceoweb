@@ -1608,8 +1608,8 @@ export function EditableTable<
                       ...next,
                       customValues: {
                         ...(prev.customValues || {}),
-                        [fileEditingCell.virtualKey ?? fileEditingCell.columnId]:
-                          files,
+                        [fileEditingCell.virtualKey ??
+                        fileEditingCell.columnId]: files,
                       },
                     };
                   }

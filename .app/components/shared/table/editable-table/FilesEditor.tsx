@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { 
-  Upload, 
-  X, 
-  File as FileIcon, 
-  Download, 
-  Plus, 
+import {
+  Upload,
+  X,
+  File as FileIcon,
+  Download,
+  Plus,
   Loader2,
   FileText,
   Image as ImageIcon,
   FileArchive,
-  Trash2
+  Trash2,
 } from "lucide-react";
 import {
   Dialog,
@@ -52,7 +52,7 @@ export default function FilesEditor({
   initialFiles = [],
   title = "Manage Files",
   tableName = "general",
-  recordId = "unknown"
+  recordId = "unknown",
 }: FilesEditorProps) {
   const { user } = useAuth();
   const supabase = createClient();
@@ -62,10 +62,11 @@ export default function FilesEditor({
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
-    if (!selectedFiles || selectedFiles.length === 0 || !user?.companyId) return;
+    if (!selectedFiles || selectedFiles.length === 0 || !user?.companyId)
+      return;
 
     setIsUploading(true);
-    
+
     const nextFiles: FileObject[] = [];
     for (let i = 0; i < selectedFiles.length; i++) {
       const file = selectedFiles[i];
@@ -88,7 +89,10 @@ export default function FilesEditor({
             company_id: user.companyId,
             user_id: user.id,
             table_name: tableName,
-            record_id: recordId === "new-row" ? "00000000-0000-0000-0000-000000000000" : recordId,
+            record_id:
+              recordId === "new-row"
+                ? "00000000-0000-0000-0000-000000000000"
+                : recordId,
             name: file.name,
             storage_path: filePath,
             file_type: file.type,
@@ -103,9 +107,9 @@ export default function FilesEditor({
           throw dbError;
         }
 
-        const { data: { publicUrl } } = supabase.storage
-          .from("erp-files")
-          .getPublicUrl(filePath);
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("erp-files").getPublicUrl(filePath);
 
         nextFiles.push({
           id: attachmentData.id, // Use DB record ID
@@ -120,7 +124,7 @@ export default function FilesEditor({
       }
     }
 
-    setFiles(prev => [...prev, ...nextFiles]);
+    setFiles((prev) => [...prev, ...nextFiles]);
     setIsUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -130,11 +134,11 @@ export default function FilesEditor({
       const { data, error } = await supabase.storage
         .from("erp-files")
         .createSignedUrl(path, 60, {
-          download: fileName
+          download: fileName,
         });
-      
+
       if (error) throw error;
-      
+
       // Create a temporary link and trigger download
       const link = document.createElement("a");
       link.href = data.signedUrl;
@@ -155,17 +159,18 @@ export default function FilesEditor({
         .from("attachments")
         .delete()
         .eq("id", id);
-      
+
       if (dbError) throw dbError;
 
       // 2. Delete from storage
       const { error: storageError } = await supabase.storage
         .from("erp-files")
         .remove([path]);
-      
-      if (storageError) console.warn("Storage cleanup failed:", storageError.message);
-      
-      setFiles(prev => prev.filter(f => f.id !== id));
+
+      if (storageError)
+        console.warn("Storage cleanup failed:", storageError.message);
+
+      setFiles((prev) => prev.filter((f) => f.id !== id));
       toast.success("File removed successfully");
     } catch (error: any) {
       toast.error(`Error deleting file: ${error.message}`);
@@ -191,23 +196,27 @@ export default function FilesEditor({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden rounded-[24px] border-none shadow-2xl bg-white">
         <DialogHeader className="px-6 py-5 border-b border-gray-100 bg-[#F9FBFF]">
-          <DialogTitle className="text-xl font-bold text-[#2F3A4E]">{title}</DialogTitle>
+          <DialogTitle className="text-xl font-bold text-[#2F3A4E]">
+            {title}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="p-6 space-y-6">
-          <div 
+          <div
             className={cn(
               "group relative flex flex-col items-center justify-center border-2 border-dashed rounded-[20px] p-10 transition-all cursor-pointer",
-              isUploading ? "border-indigo-300 bg-indigo-50/30" : "border-gray-200 hover:border-indigo-400 hover:bg-gray-50/50"
+              isUploading
+                ? "border-indigo-300 bg-indigo-50/30"
+                : "border-gray-200 hover:border-indigo-400 hover:bg-gray-50/50",
             )}
             onClick={() => fileInputRef.current?.click()}
           >
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              onChange={handleFileChange} 
-              multiple 
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              onChange={handleFileChange}
+              multiple
             />
             <div className="flex flex-col items-center gap-3">
               {isUploading ? (
@@ -219,9 +228,13 @@ export default function FilesEditor({
               )}
               <div className="text-center">
                 <p className="text-base font-semibold text-[#37352F]">
-                  {isUploading ? "Uploading files..." : "Click to upload or drag and drop"}
+                  {isUploading
+                    ? "Uploading files..."
+                    : "Click to upload or drag and drop"}
                 </p>
-                <p className="text-sm text-gray-500 mt-1">Maximum file size 50MB</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Maximum file size 50MB
+                </p>
               </div>
             </div>
           </div>
@@ -235,16 +248,20 @@ export default function FilesEditor({
               files.map((file) => {
                 const Icon = getFileIcon(file.type);
                 return (
-                  <div 
-                    key={file.id} 
+                  <div
+                    key={file.id}
                     className="flex items-center gap-4 p-3 rounded-xl border border-gray-100 bg-white hover:border-indigo-200 hover:shadow-sm transition-all group"
                   >
                     <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
                       <Icon className="w-5 h-5 text-gray-500" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[#37352F] truncate">{file.name}</p>
-                      <p className="text-xs text-gray-500">{formatSize(file.size)}</p>
+                      <p className="text-sm font-semibold text-[#37352F] truncate">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formatSize(file.size)}
+                      </p>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
@@ -272,14 +289,14 @@ export default function FilesEditor({
         </div>
 
         <DialogFooter className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 gap-3">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={onClose}
             className="rounded-xl px-6 h-11 font-semibold border-gray-200 text-gray-600 hover:bg-white"
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={() => onSave(files)}
             className="rounded-xl px-8 h-11 font-semibold bg-[#2F3A4E] hover:bg-[#232C3D] text-white shadow-lg shadow-[#2F3A4E]/20"
           >

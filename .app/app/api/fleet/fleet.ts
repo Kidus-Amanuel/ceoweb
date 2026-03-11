@@ -109,7 +109,10 @@ export async function createFleetCustomFieldAction(
 ): Promise<ActionResult<Record<string, unknown>>> {
   const parsed = fleetCreateCustomFieldInputSchema.safeParse(input);
   if (!parsed.success) {
-    console.error("[Fleet Action] createFleetCustomFieldAction Validation Failed:", parsed.error.format());
+    console.error(
+      "[Fleet Action] createFleetCustomFieldAction Validation Failed:",
+      parsed.error.format(),
+    );
     return { success: false, error: zodErrorToText(parsed.error) };
   }
 
@@ -141,7 +144,10 @@ export async function createFleetCustomFieldAction(
     };
   }
 
-  console.log("[Fleet Action] Custom Field Created Successfully:", response.data.id);
+  console.log(
+    "[Fleet Action] Custom Field Created Successfully:",
+    response.data.id,
+  );
   return { success: true, data: response.data as Record<string, unknown> };
 }
 

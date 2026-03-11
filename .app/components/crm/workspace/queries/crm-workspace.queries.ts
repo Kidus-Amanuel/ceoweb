@@ -451,10 +451,7 @@ export type CrmOverviewData = {
   customerMix: { company: number; person: number };
 };
 
-export const useCrmOverviewQuery = (
-  companyId: string | null,
-  enabled = true,
-) =>
+export const useCrmOverviewQuery = (companyId: string | null, enabled = true) =>
   useQuery<CrmOverviewData>({
     queryKey: companyId
       ? crmKeys.overview({ companyId })

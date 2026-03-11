@@ -739,7 +739,11 @@ export class FleetService {
       field_name: fieldName,
     });
 
-    console.log("[FleetService] Saving Column Definition:", { entityType, fieldName, type: next.field_type });
+    console.log("[FleetService] Saving Column Definition:", {
+      entityType,
+      fieldName,
+      type: next.field_type,
+    });
 
     metadata[entityType] = [
       ...current.filter(
@@ -756,7 +760,10 @@ export class FleetService {
       .is("deleted_at", null);
 
     if (updateError) {
-      console.error("[FleetService] Update Company Settings Failed:", updateError);
+      console.error(
+        "[FleetService] Update Company Settings Failed:",
+        updateError,
+      );
       return { error: updateError.message };
     }
 

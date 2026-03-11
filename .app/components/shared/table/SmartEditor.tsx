@@ -271,7 +271,7 @@ export const SmartEditor = ({
       </Select>
     );
   }
-  
+
   if (type === "files") {
     const files = Array.isArray(value) ? value : [];
     const count = files.length;
