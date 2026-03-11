@@ -75,11 +75,12 @@ export function OverviewsTab({
     null;
 
   // Refresh handler - simplified to single query
+  const overviewRefetch = overviewQuery.refetch;
   useEffect(() => {
     if (!refreshNonce) return;
     onRefreshStateChange?.(true);
-    void overviewQuery.refetch().finally(() => onRefreshStateChange?.(false));
-  }, [overviewQuery, onRefreshStateChange, refreshNonce]);
+    void overviewRefetch().finally(() => onRefreshStateChange?.(false));
+  }, [overviewRefetch, onRefreshStateChange, refreshNonce]);
 
   // Extract data from aggregated response
   const tableCounts = overviewQuery.data?.counts;

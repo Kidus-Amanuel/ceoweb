@@ -110,6 +110,7 @@ export default function CustomersTab({
   const selectedRowId = searchParams.get("rowId");
   const [pageState, setPageState] = useState({ page: 1, search: "" });
   const rowUpdateQueueRef = useRef(new Map<string, Promise<void>>());
+  const lastRefreshNonceRef = useRef(0);
 
   const normalizedSearch = useMemo(
     () => normalizeCrmWorkspaceFilters({ search: searchQuery }).search,
@@ -145,22 +146,27 @@ export default function CustomersTab({
   const columnsQuery = useCrmColumnsQuery({ companyId, table: TABLE });
   const relationsQuery = useCrmRelationsQueries({ companyId, table: TABLE });
 
+  const rowsRefetch = rowsQuery.refetch;
+  const columnsRefetch = columnsQuery.refetch;
+  const relationsRefetchAll = relationsQuery.refetchAll;
   useEffect(() => {
     if (!refreshNonce) return;
+    if (lastRefreshNonceRef.current === refreshNonce) return;
+    lastRefreshNonceRef.current = refreshNonce;
     onRefreshStateChange?.(true);
     void Promise.all([
-      rowsQuery.refetch(),
-      columnsQuery.refetch(),
-      relationsQuery.refetchAll(),
+      rowsRefetch(),
+      columnsRefetch(),
+      relationsRefetchAll(),
       queryClient.invalidateQueries({
         queryKey: crmKeys.counts({ companyId }),
       }),
     ]).finally(() => onRefreshStateChange?.(false));
   }, [
     refreshNonce,
-    rowsQuery,
-    columnsQuery,
-    relationsQuery,
+    rowsRefetch,
+    columnsRefetch,
+    relationsRefetchAll,
     queryClient,
     companyId,
     onRefreshStateChange,
