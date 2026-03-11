@@ -21,6 +21,11 @@ export const fleetCustomFieldTypeSchema = z.enum([
   "select",
   "boolean",
   "currency",
+  "status",
+  "email",
+  "phone",
+  "files",
+  "json",
 ]);
 
 export const fleetCompanyScopeSchema = z.object({

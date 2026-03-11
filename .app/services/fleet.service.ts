@@ -718,8 +718,14 @@ export class FleetService {
       .is("deleted_at", null)
       .maybeSingle();
 
-    if (error) return { error: error.message };
-    if (!company) return { error: "Company settings not found." };
+    if (error) {
+      console.error("[FleetService] Fetch Company Failed:", error);
+      return { error: error.message };
+    }
+    if (!company) {
+      console.error("[FleetService] Company Not Found:", companyId);
+      return { error: "Company settings not found." };
+    }
 
     const fieldName =
       column.field_name || toSnakeCase(column.field_label || "");
@@ -732,6 +738,8 @@ export class FleetService {
       entity_type: entityType,
       field_name: fieldName,
     });
+
+    console.log("[FleetService] Saving Column Definition:", { entityType, fieldName, type: next.field_type });
 
     metadata[entityType] = [
       ...current.filter(
@@ -747,8 +755,12 @@ export class FleetService {
       .eq("id", companyId)
       .is("deleted_at", null);
 
-    if (updateError) return { error: updateError.message };
+    if (updateError) {
+      console.error("[FleetService] Update Company Settings Failed:", updateError);
+      return { error: updateError.message };
+    }
 
+    console.log("[FleetService] Column Definition Saved Successfully");
     return { data: next };
   }
 

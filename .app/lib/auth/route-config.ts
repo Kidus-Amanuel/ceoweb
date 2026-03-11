@@ -23,10 +23,11 @@ export const PUBLIC_ROUTES = [
   "/reset-password",
   "/api/auth",
   "/api/ai/agent",
-];
   "/api/webhooks",
   "/coming-soon",
-] as const;
+];
+ 
+
 
 /**
  * Super admin only routes.
