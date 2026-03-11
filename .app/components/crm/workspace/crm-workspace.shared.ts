@@ -190,6 +190,8 @@ export const mapFieldType = (value: string): VirtualColumn["type"] => {
   if (token === "phone" || token === "tel" || token === "telephone")
     return "phone";
   if (token === "email" || token === "e_mail") return "email";
+  if (token === "files") return "files";
+  if (token === "json") return "json";
   return "text";
 };
 
