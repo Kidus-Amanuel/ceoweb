@@ -1212,6 +1212,7 @@ export function EditableTable<
                                     : "min-w-[240px]"
                               : sizeClasses,
                             isEditing ? "" : i === 0 ? "px-4" : "px-6",
+                            isEditing && "ring-2 ring-blue-400/70 ring-inset",
                           )}
                           style={
                             isEmailOrPhone
@@ -1301,6 +1302,11 @@ export function EditableTable<
                         column.columnDef.meta,
                         newRowData,
                       );
+                      const isActiveNewCell = !!(
+                        isAdding &&
+                        editingCell?.id === "new" &&
+                        editingCell?.columnId === columnId
+                      );
                       const sizeClasses = getColumnSizeClasses(
                         String(virtualKey ?? columnId),
                         isVirtual,
@@ -1317,7 +1323,15 @@ export function EditableTable<
                             "py-2 border-b border-border/70 align-middle text-center",
                             sizeClasses,
                             i === 0 ? "px-4" : "px-6",
+                            isActiveNewCell &&
+                              "ring-2 ring-blue-400/70 ring-inset",
                           )}
+                          onClick={() => {
+                            setEditingCell({ id: "new", columnId });
+                          }}
+                          onFocusCapture={() => {
+                            setEditingCell({ id: "new", columnId });
+                          }}
                         >
                           <SmartEditor
                             isAddMode
@@ -1505,7 +1519,7 @@ export function EditableTable<
             <p className="whitespace-nowrap">
               {totalRows || data.length} rows
               {table.getSelectedRowModel().rows.length > 0
-                ? ` � ${table.getSelectedRowModel().rows.length} selected`
+                ? ` - ${table.getSelectedRowModel().rows.length} selected`
                 : ""}
             </p>
             <p className="whitespace-nowrap">

@@ -812,42 +812,55 @@ export const crmService = {
     const now = new Date().toISOString();
 
     // Aggregate all required data in parallel
-    const [countsResult, trendResult, activitiesResult, dealsResult, customersResult] =
-      await Promise.all([
-        // 1. Table counts
-        this.getTableCounts({ supabase, companyId }),
+    const [
+      countsResult,
+      trendResult,
+      activitiesResult,
+      dealsResult,
+      companyCountResult,
+      personCountResult,
+    ] = await Promise.all([
+      // 1. Table counts
+      this.getTableCounts({ supabase, companyId }),
 
-        // 2. Monthly trend (6 months)
-        this.getMonthlyTrend({ supabase, companyId, months: 6 }),
+      // 2. Monthly trend (6 months)
+      this.getMonthlyTrend({ supabase, companyId, months: 6 }),
 
-        // 3. Top 8 activities (overdue + upcoming)
-        supabase
-          .from("activities")
-          .select("*")
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .is("completed_at", null)
-          .not("due_date", "is", null)
-          .order("due_date", { ascending: true })
-          .limit(8),
+      // 3. Top 6 activities (overdue + upcoming)
+      supabase
+        .from("activities")
+        .select("id,subject,due_date,activity_type")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .is("completed_at", null)
+        .not("due_date", "is", null)
+        .order("due_date", { ascending: true })
+        .limit(6),
 
-        // 4. Top 6 recently closed deals
-        supabase
-          .from("deals")
-          .select("*")
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .in("stage", ["closed_won", "closed_lost"])
-          .order("updated_at", { ascending: false })
-          .limit(6),
+      // 4. Top 6 recently closed deals
+      supabase
+        .from("deals")
+        .select("id,title,value,stage,updated_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("stage", ["closed_won", "closed_lost"])
+        .order("updated_at", { ascending: false })
+        .limit(6),
 
-        // 5. All customers for type breakdown
-        supabase
-          .from("customers")
-          .select("type")
-          .eq("company_id", companyId)
-          .is("deleted_at", null),
-      ]);
+      // 5. Customer mix counts (company/person) without full row payload
+      supabase
+        .from("customers")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("type", "company")
+        .is("deleted_at", null),
+      supabase
+        .from("customers")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("type", "person")
+        .is("deleted_at", null),
+    ]);
 
     // Check for errors
     if (countsResult.error) {
@@ -862,21 +875,15 @@ export const crmService = {
     if (dealsResult.error) {
       return { error: dealsResult.error.message };
     }
-    if (customersResult.error) {
-      return { error: customersResult.error.message };
+    if (companyCountResult.error) {
+      return { error: companyCountResult.error.message };
+    }
+    if (personCountResult.error) {
+      return { error: personCountResult.error.message };
     }
 
-    // Calculate customer mix
-    let companyCount = 0;
-    let personCount = 0;
-    for (const row of customersResult.data ?? []) {
-      const type = String(row.type ?? "").toLowerCase();
-      if (type === "company") {
-        companyCount += 1;
-      } else {
-        personCount += 1;
-      }
-    }
+    const companyCount = companyCountResult.count ?? 0;
+    const personCount = personCountResult.count ?? 0;
 
     return {
       data: {

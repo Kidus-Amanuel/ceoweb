@@ -74,7 +74,10 @@ export function useCompanies() {
       }),
   });
 
-  const availableCompanies = companiesQuery.data ?? [];
+  const availableCompanies = useMemo(
+    () => companiesQuery.data ?? [],
+    [companiesQuery.data],
+  );
 
   // Determine selected company
   const selectedCompany = useMemo(
