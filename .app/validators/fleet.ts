@@ -1,51 +1,21 @@
-import { z } from "zod";
+import * as z from "zod";
+import { 
+  optionalInput, 
+  companyScopeSchema, 
+  customDataSchema, 
+  createCustomFieldSchema,
+  deleteCustomFieldSchema,
+  customFieldTypeSchema
+} from "./shared";
 
-const emptyToUndefined = (value: unknown) =>
-  value === "" || value === null ? undefined : value;
-
-const optionalInput = <T extends z.ZodTypeAny>(schema: T) =>
-  z.preprocess(emptyToUndefined, schema.optional().catch(undefined));
-
+// Table & Entity Types
 export const fleetTableSchema = z.enum(["vehicles", "drivers", "maintenance"]);
-export const fleetEntityTypeSchema = z.enum([
-  "vehicles",
-  "drivers",
-  "maintenance",
-]);
+export const fleetEntityTypeSchema = fleetTableSchema;
 
-export const fleetCustomFieldTypeSchema = z.enum([
-  "text",
-  "number",
-  "date",
-  "datetime",
-  "select",
-  "boolean",
-  "currency",
-]);
+// Custom Field Types (Re-exporting shared)
+export const fleetCustomFieldTypeSchema = customFieldTypeSchema;
 
-export const fleetCompanyScopeSchema = z.object({
-  companyId: z.string().uuid("Invalid company id"),
-});
-
-const jsonPrimitiveSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-]);
-
-const jsonValueSchema: z.ZodTypeAny = z.lazy(() =>
-  z.union([
-    jsonPrimitiveSchema,
-    z.array(jsonValueSchema),
-    z.record(z.string(), jsonValueSchema),
-  ]),
-);
-
-export const fleetCustomDataSchema = z
-  .record(z.string(), jsonValueSchema)
-  .default({});
-
+// Standard Record Schemas
 export const vehicleStandardSchema = z.object({
   vehicle_number: z.string().min(1).max(255),
   make: optionalInput(z.string().min(1).max(255)),
@@ -80,6 +50,10 @@ export const maintenanceStandardSchema = z.object({
   notes: optionalInput(z.string().max(5000)),
 });
 
+// Row Management Input Schemas
+export const fleetCompanyScopeSchema = companyScopeSchema;
+export const fleetCustomDataSchema = customDataSchema;
+
 export const fleetTableViewInputSchema = fleetCompanyScopeSchema.extend({
   table: fleetTableSchema,
   page: z.coerce.number().int().positive().optional().default(1),
@@ -87,33 +61,17 @@ export const fleetTableViewInputSchema = fleetCompanyScopeSchema.extend({
   search: optionalInput(z.string().max(120)),
 });
 
-export const fleetCreateCustomFieldInputSchema = fleetCompanyScopeSchema.extend(
-  {
-    entityType: fleetEntityTypeSchema,
-    fieldLabel: z.string().min(1).max(120),
-    fieldName: z
-      .string()
-      .min(1)
-      .max(120)
-      .regex(/^[a-zA-Z][a-zA-Z0-9_]*$/)
-      .optional(),
-    fieldType: fleetCustomFieldTypeSchema,
-    fieldOptions: z.array(z.string().min(1)).optional(),
-    isRequired: z.boolean().optional(),
-  },
-);
+// Custom Field Definition Input Schemas
+export const fleetCreateCustomFieldInputSchema = createCustomFieldSchema(fleetEntityTypeSchema);
 
 export const fleetUpdateCustomFieldInputSchema =
   fleetCreateCustomFieldInputSchema.extend({
     fieldId: z.string().min(1, "Invalid custom field id"),
   });
 
-export const fleetDeleteCustomFieldInputSchema = fleetCompanyScopeSchema.extend(
-  {
-    fieldId: z.string().min(1, "Invalid custom field id"),
-  },
-);
+export const fleetDeleteCustomFieldInputSchema = deleteCustomFieldSchema;
 
+// Row CRUD Input Schemas
 export const fleetCreateRowInputSchema = z.discriminatedUnion("table", [
   fleetCompanyScopeSchema.extend({
     table: z.literal("vehicles"),
@@ -157,6 +115,7 @@ export const fleetDeleteRowInputSchema = fleetTableViewInputSchema.extend({
   rowId: z.string().uuid("Invalid row id"),
 });
 
+// Types
 export type FleetTable = z.infer<typeof fleetTableSchema>;
 export type FleetEntityType = z.infer<typeof fleetEntityTypeSchema>;
 export type FleetCustomFieldType = z.infer<typeof fleetCustomFieldTypeSchema>;

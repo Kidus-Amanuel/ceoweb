@@ -26,50 +26,57 @@ Construct a dependency map showing how the entry file interacts with related fil
 Example format:
 
 Entry File
- ├ Component A
- │  ├ Hook X
- │  └ API Call Y
- └ Component B
-    └ Utility Z
+├ Component A
+│ ├ Hook X
+│ └ API Call Y
+└ Component B
+└ Utility Z
 
 Step 3 — Review the Full Dependency Graph
 
 Analyze the entire feature across these categories:
 
 Performance
+
 - unnecessary re-renders
 - expensive computations
 - inefficient data fetching
 - redundant API calls
 
 Architecture
+
 - tight coupling
 - duplicated logic
 - oversized components
 - missing abstraction layers
 
 Next.js Best Practices
+
 - incorrect server/client boundaries
 - missing caching
 - inefficient data fetching
 - large client bundles
 
 Data Flow
+
 - prop drilling
 - confusing state ownership
 - unnecessary global state
 
 API and Server Actions
+
 - redundant calls
 - missing validation
 - poor error handling
 
 Security
+
 - unsafe API calls
 - exposed secrets
 - missing input validation
 
 Code Quality
+
 - naming issues
 - unclear structure
 - maintainability risks

@@ -23,6 +23,7 @@ import {
   ChevronUp,
   Pencil,
   Plus,
+  Paperclip,
   Search,
   Trash2,
   X,
@@ -94,7 +95,8 @@ declare module "@tanstack/react-table" {
       | "currency"
       | "status"
       | "phone"
-      | "email";
+      | "email"
+      | "files";
     options?: { label: string; value: ColumnMetaOptionValue<TValue> }[];
     optionsByType?: Record<
       string,
@@ -143,6 +145,18 @@ const DeleteConfirmationDialog = dynamic(
   () => import("./editable-table/DeleteConfirmationDialog"),
   { loading: () => null, ssr: false },
 );
+const FilesEditor = dynamic<{
+  open: boolean;
+  onClose: () => void;
+  onSave: (files: any[]) => void;
+  initialFiles?: any[];
+  title?: string;
+  tableName?: string;
+  recordId?: string;
+}>(() => import("@/components/shared/table/editable-table/FilesEditor"), {
+  loading: () => null,
+  ssr: false,
+});
 const useSafeTableInterop = <TData extends RowData>(
   options: Parameters<typeof useReactTable<TData>>[0],
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -177,6 +191,7 @@ export function EditableTable<
   hasMoreRows = false,
   isFetchingMoreRows = false,
 }: EditableTableProps<T>) {
+  const EditorComponent = FilesEditor as any;
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const [globalFilter, setGlobalFilter] = useState("");
@@ -195,6 +210,13 @@ export function EditableTable<
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [newColLabelValue, setNewColLabelValue] = useState("");
   const [newColOptionsValue, setNewColOptionsValue] = useState("");
+  const [fileEditingCell, setFileEditingCell] = useState<{
+    id: string;
+    columnId: string;
+    value: any;
+    isVirtual: boolean;
+    virtualKey?: string;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const addRowFirstInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(
     null,
@@ -1187,6 +1209,33 @@ export function EditableTable<
                               {formatDateValue(val, meta.type === "datetime")}
                             </span>
                           );
+                        if (meta?.type === "files") {
+                          const files = Array.isArray(val) ? val : [];
+                          const count = files.length;
+                          return (
+                            <button
+                              type="button"
+                              className="group/file flex items-center gap-1.5 rounded-md px-2 py-1 hover:bg-indigo-50 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFileEditingCell({
+                                  id: row.original.id,
+                                  columnId: cell.column.id,
+                                  value: val,
+                                  isVirtual,
+                                  virtualKey,
+                                });
+                              }}
+                            >
+                              <Paperclip className="w-3.5 h-3.5 text-indigo-500 group-hover/file:text-indigo-600" />
+                              <span className="text-xs font-medium text-indigo-700">
+                                {count > 0
+                                  ? `${count} file${count > 1 ? "s" : ""}`
+                                  : "Add file"}
+                              </span>
+                            </button>
+                          );
+                        }
                         return !isVirtual ? (
                           flexRender(
                             cell.column.columnDef.cell,
@@ -1235,6 +1284,16 @@ export function EditableTable<
                               : undefined
                           }
                           onClick={() => {
+                            if (meta?.type === "files") {
+                              setFileEditingCell({
+                                id: row.original.id,
+                                columnId: cell.column.id,
+                                value: cell.getValue(),
+                                isVirtual,
+                                virtualKey,
+                              });
+                              return;
+                            }
                             if (meta?.type !== "boolean" && !isEditing) {
                               setEditingCell({
                                 id: row.original.id,
@@ -1346,6 +1405,21 @@ export function EditableTable<
                                   ]
                                 : newRowData[columnId]
                             }
+                            onClick={() => {
+                              if (meta?.type === "files") {
+                                setFileEditingCell({
+                                  id: "new-row",
+                                  columnId: columnId,
+                                  value: isVirtual
+                                    ? newRowData.customValues?.[
+                                        String(virtualKey ?? columnId)
+                                      ]
+                                    : newRowData[columnId],
+                                  isVirtual,
+                                  virtualKey,
+                                });
+                              }
+                            }}
                             onChange={(nextValue) => {
                               setNewRowData((prev) => {
                                 const next = { ...prev };
@@ -1534,6 +1608,46 @@ export function EditableTable<
         onConfirmRow={onDelete}
         onConfirmColumn={onColumnDelete}
       />
+      {fileEditingCell && (
+        <EditorComponent
+          open={!!fileEditingCell}
+          onClose={() => setFileEditingCell(null)}
+          onSave={(files: any[]) => {
+            if (fileEditingCell) {
+              if (fileEditingCell.id === "new-row") {
+                setNewRowData((prev) => {
+                  const next = { ...prev };
+                  if (fileEditingCell.isVirtual) {
+                    return {
+                      ...next,
+                      customValues: {
+                        ...(prev.customValues || {}),
+                        [fileEditingCell.virtualKey ??
+                        fileEditingCell.columnId]: files,
+                      },
+                    };
+                  }
+                  next[fileEditingCell.columnId] = files;
+                  return next;
+                });
+              } else {
+                handleSave(
+                  fileEditingCell.id,
+                  fileEditingCell.columnId,
+                  files,
+                  fileEditingCell.isVirtual,
+                  fileEditingCell.virtualKey,
+                );
+              }
+            }
+            setFileEditingCell(null);
+          }}
+          initialFiles={fileEditingCell.value}
+          title="Manage Files"
+          tableName={title?.toLowerCase().replace(/\s+/g, "-") || "general"}
+          recordId={fileEditingCell.id}
+        />
+      )}
     </div>
   );
 }

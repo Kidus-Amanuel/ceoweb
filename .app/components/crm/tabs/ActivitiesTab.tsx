@@ -408,11 +408,9 @@ export default function ActivitiesTab({
         fieldLabel: column.label,
         fieldName: column.key,
         fieldType:
-          column.type === "json"
-            ? "text"
-            : column.type === "status"
-              ? "select"
-              : column.type,
+          column.type === "status"
+            ? "select"
+            : column.type,
         fieldOptions:
           column.type === "select" ||
           column.type === "currency" ||
@@ -465,11 +463,9 @@ export default function ActivitiesTab({
         fieldLabel: column.label,
         fieldName: column.key,
         fieldType:
-          column.type === "json"
-            ? "text"
-            : column.type === "status"
-              ? "select"
-              : column.type,
+          column.type === "status"
+            ? "select"
+            : column.type,
         fieldOptions:
           column.type === "select" ||
           column.type === "currency" ||
