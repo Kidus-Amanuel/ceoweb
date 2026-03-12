@@ -25,7 +25,7 @@ export const PUBLIC_ROUTES = [
   "/api/ai/agent",
   "/api/webhooks",
   "/coming-soon",
-] as const;
+];
 
 /**
  * Super admin only routes.

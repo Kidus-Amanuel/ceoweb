@@ -109,11 +109,17 @@ export async function createFleetCustomFieldAction(
 ): Promise<ActionResult<Record<string, unknown>>> {
   const parsed = fleetCreateCustomFieldInputSchema.safeParse(input);
   if (!parsed.success) {
+    console.error(
+      "[Fleet Action] createFleetCustomFieldAction Validation Failed:",
+      parsed.error.format(),
+    );
     return { success: false, error: zodErrorToText(parsed.error) };
   }
 
+  console.log("[Fleet Action] Creating Custom Field:", parsed.data);
   const auth = await getAuthContext(parsed.data.companyId);
   if (!auth.success || !auth.data) {
+    console.error("[Fleet Action] Auth Failed:", auth.error);
     return { success: false, error: auth.error };
   }
 
@@ -131,12 +137,17 @@ export async function createFleetCustomFieldAction(
   });
 
   if (response.error || !response.data) {
+    console.error("[Fleet Action] Service Error:", response.error);
     return {
       success: false,
       error: response.error || "Failed to create custom field",
     };
   }
 
+  console.log(
+    "[Fleet Action] Custom Field Created Successfully:",
+    response.data.id,
+  );
   return { success: true, data: response.data as Record<string, unknown> };
 }
 
@@ -232,6 +243,14 @@ export async function createFleetRowAction(
 
   if (error) return { success: false, error: error.message };
 
+  // 1. Link any "new-row" attachments to this newly created record
+  await supabase
+    .from("attachments")
+    .update({ record_id: data.id })
+    .eq("record_id", "00000000-0000-0000-0000-000000000000")
+    .eq("table_name", entityType)
+    .eq("company_id", companyId);
+
   if (table === "vehicles") {
     try {
       await FleetService.syncVehicleToTraccar(data.id);
@@ -291,6 +310,14 @@ export async function updateFleetRowAction(
 
   if (error) return { success: false, error: error.message };
 
+  // Update record_id for any temporary attachments that might have been added during edit
+  await supabase
+    .from("attachments")
+    .update({ record_id: rowId })
+    .eq("record_id", "00000000-0000-0000-0000-000000000000")
+    .eq("table_name", entityType)
+    .eq("company_id", companyId);
+
   if (table === "vehicles") {
     try {
       await FleetService.syncVehicleToTraccar(rowId);
@@ -334,6 +361,14 @@ export async function deleteFleetRowAction(
     .eq("company_id", companyId);
 
   if (error) return { success: false, error: error.message };
+
+  // Cascade delete attachments (soft delete to match row)
+  await supabase
+    .from("attachments")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("record_id", rowId)
+    .eq("table_name", entityType)
+    .eq("company_id", companyId);
 
   return { success: true, data: null };
 }

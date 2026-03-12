@@ -62,8 +62,8 @@ export const allowedTypes: VirtualColumn["type"][] = [
   "json",
   "currency",
   "status",
-  "phone",
   "email",
+  "files",
 ];
 export const asColumnType = (v: unknown): VirtualColumn["type"] =>
   allowedTypes.includes(v as VirtualColumn["type"])
@@ -286,7 +286,9 @@ export const getTypeIcon = (type: unknown) => {
                     ? Mail
                     : t === "json"
                       ? Braces
-                      : AlignLeft;
+                      : t === "files"
+                        ? Paperclip
+                        : AlignLeft;
 };
 
 export const getTypeIconTone = (type: unknown) => {
@@ -311,7 +313,9 @@ export const getTypeIconTone = (type: unknown) => {
                     ? "text-blue-700 bg-blue-50 border-blue-200"
                     : t === "json"
                       ? "text-slate-700 bg-slate-100 border-slate-200"
-                      : "text-blue-700 bg-blue-50 border-blue-200";
+                      : t === "files"
+                        ? "text-indigo-700 bg-indigo-50 border-indigo-200"
+                        : "text-blue-700 bg-blue-50 border-blue-200";
 };
 
 export const fieldTypeChoices: ColumnFieldChoice[] = [
@@ -383,7 +387,7 @@ export const fieldTypeChoices: ColumnFieldChoice[] = [
     label: "Files & media",
     icon: Paperclip,
     tone: "text-indigo-700 bg-indigo-50 border-indigo-200",
-    enabled: false,
+    enabled: true,
   },
   {
     key: "url",
