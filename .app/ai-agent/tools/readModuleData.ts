@@ -7,21 +7,24 @@ interface ReadResponse {
 }
 
 // Define module configuration based on user's schema
-const moduleConfig: Record<string, { table: string; fields: string[]; displayColumns: string[] }> = {
+const moduleConfig: Record<
+  string,
+  { table: string; fields: string[]; displayColumns: string[] }
+> = {
   crm: {
     table: "customers",
     fields: ["id", "name", "email", "phone", "type", "status", "created_at"],
-    displayColumns: ["Id", "Name", "Email", "Phone", "Status"]
+    displayColumns: ["Id", "Name", "Email", "Phone", "Status"],
   },
   fleet: {
     table: "vehicles",
     fields: ["id", "name", "type", "status", "created_at"],
-    displayColumns: ["Id", "Name", "Type", "Status"]
+    displayColumns: ["Id", "Name", "Type", "Status"],
   },
   inventory: {
     table: "products",
     fields: ["id", "name", "category", "status", "created_at"],
-    displayColumns: ["Id", "Name", "Category", "Status"]
+    displayColumns: ["Id", "Name", "Category", "Status"],
   },
   hr: {
     table: "employees",
@@ -34,12 +37,12 @@ const moduleConfig: Record<string, { table: string; fields: string[]; displayCol
       "status",
       "created_at",
     ],
-    displayColumns: ["Id", "Name", "Email", "Phone", "Department", "Status"]
+    displayColumns: ["Id", "Name", "Email", "Phone", "Department", "Status"],
   },
   finance: {
     table: "invoices",
     fields: ["id", "number", "status", "amount", "created_at"],
-    displayColumns: ["Id", "Number", "Status", "Amount", "Created At"]
+    displayColumns: ["Id", "Number", "Status", "Amount", "Created At"],
   },
 };
 
@@ -161,9 +164,9 @@ export async function readModuleData(
     // Order by creation date (latest first)
     query = query.order("created_at", { ascending: false });
 
-     // Limit results to reasonable number
-     const limit = 15; // Show first 15 records for AI responses
-     query = query.limit(limit + 1); // Fetch one extra to check if there are more
+    // Limit results to reasonable number
+    const limit = 15; // Show first 15 records for AI responses
+    query = query.limit(limit + 1); // Fetch one extra to check if there are more
 
     // Execute query - RLS will enforce permissions and multi-tenancy
     console.log("Executing query...");
@@ -174,48 +177,50 @@ export async function readModuleData(
       throw new Error(`readModuleData failed: ${error.message}`);
     }
 
-     console.log(
-       `Query returned ${Array.isArray(data) ? data.length : 0} records`,
-     );
+    console.log(
+      `Query returned ${Array.isArray(data) ? data.length : 0} records`,
+    );
 
-     // Check if there are more records
-     const hasMore = data.length > 15;
-     const resultsToReturn = hasMore ? data.slice(0, 15) : data;
+    // Check if there are more records
+    const hasMore = data.length > 15;
+    const resultsToReturn = hasMore ? data.slice(0, 15) : data;
 
-      // Clean up data to remove validation messages and ensure id is included
-      console.log("Cleaning up response data...");
-      const cleanedData = resultsToReturn.map((item: any) => {
-        const newItem = { ...item };
-        // Remove any validation error fields (starting with standardData.)
-        Object.keys(newItem).forEach((key) => {
-          if (key.startsWith("standardData.") || key.includes("Please enter")) {
-            delete newItem[key];
-          }
-        });
-        // Truncate long strings
-        Object.keys(newItem).forEach((key) => {
-          if (typeof newItem[key] === "string" && newItem[key].length > 50) {
-            newItem[key] = newItem[key].substring(0, 47) + "...";
-          }
-        });
-        // Ensure id is always present and first in the row for URL creation
-        if (!newItem.id) {
-          // If no id, create a temporary one from name or index
-          newItem.id = item.name ? item.name.toLowerCase().replace(/\s+/g, "-") : `temp-${Math.random().toString(36).substr(2, 9)}`;
+    // Clean up data to remove validation messages and ensure id is included
+    console.log("Cleaning up response data...");
+    const cleanedData = resultsToReturn.map((item: any) => {
+      const newItem = { ...item };
+      // Remove any validation error fields (starting with standardData.)
+      Object.keys(newItem).forEach((key) => {
+        if (key.startsWith("standardData.") || key.includes("Please enter")) {
+          delete newItem[key];
         }
-        return newItem;
       });
+      // Truncate long strings
+      Object.keys(newItem).forEach((key) => {
+        if (typeof newItem[key] === "string" && newItem[key].length > 50) {
+          newItem[key] = newItem[key].substring(0, 47) + "...";
+        }
+      });
+      // Ensure id is always present and first in the row for URL creation
+      if (!newItem.id) {
+        // If no id, create a temporary one from name or index
+        newItem.id = item.name
+          ? item.name.toLowerCase().replace(/\s+/g, "-")
+          : `temp-${Math.random().toString(36).substr(2, 9)}`;
+      }
+      return newItem;
+    });
 
-      console.log("=== Tool: readModuleData Completed ===");
-      // Cache the result with appropriate TTL (1 minute for potentially changing data)
-      const result = {
-        data: cleanedData,
-        columns: moduleConfig[module].displayColumns,
-        hasMore: hasMore,
-        totalCount: hasMore ? 15 + " plus more" : cleanedData.length
-      };
-      cache.set(cacheKey, result, 60 * 1000); // 1 minute TTL
-      return result;
+    console.log("=== Tool: readModuleData Completed ===");
+    // Cache the result with appropriate TTL (1 minute for potentially changing data)
+    const result = {
+      data: cleanedData,
+      columns: moduleConfig[module].displayColumns,
+      hasMore: hasMore,
+      totalCount: hasMore ? 15 + " plus more" : cleanedData.length,
+    };
+    cache.set(cacheKey, result, 60 * 1000); // 1 minute TTL
+    return result;
   } catch (err: any) {
     console.error("=== Tool: readModuleData Failed ===");
     console.error("Error message:", err?.message);
