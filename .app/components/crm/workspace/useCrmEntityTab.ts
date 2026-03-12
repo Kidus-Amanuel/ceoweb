@@ -98,6 +98,211 @@ const toVirtualColumns = (fields: Record<string, unknown>[]): VirtualColumn[] =>
     };
   });
 
+const normalizeNil = (value: unknown) =>
+  value === "" || value === null || value === undefined ? null : value;
+
+const toStringSafe = (value: unknown) =>
+  value === null || value === undefined ? "" : String(value);
+
+const normalizeSelectValue = (value: unknown) => {
+  const raw =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as { value?: unknown; label?: unknown }).value ??
+        (value as { label?: unknown }).label
+      : value;
+  const trimmed = toStringSafe(normalizeNil(raw)).trim();
+  return trimmed ? trimmed.toLowerCase() : null;
+};
+
+const normalizeText = (value: unknown) => {
+  const normalized = normalizeNil(value);
+  if (normalized === null) return null;
+  return toStringSafe(normalized).trim();
+};
+
+const normalizeEmail = (value: unknown) => {
+  const normalized = normalizeText(value);
+  return normalized ? normalized.toLowerCase() : null;
+};
+
+const normalizePhone = (value: unknown) => {
+  const normalized = normalizeText(value);
+  if (!normalized) return null;
+  const trimmed = normalized.trim();
+  const hasPlus = trimmed.startsWith("+");
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return null;
+  return `${hasPlus ? "+" : ""}${digits}`;
+};
+
+const normalizeNumber = (value: unknown) => {
+  const normalized = normalizeNil(value);
+  if (normalized === null) return null;
+  const parsed = typeof normalized === "number" ? normalized : Number(normalized);
+  return Number.isFinite(parsed) ? parsed : toStringSafe(normalized).trim();
+};
+
+const normalizeCurrency = (value: unknown) => {
+  const normalized = normalizeNil(value);
+  if (normalized === null) return null;
+  if (typeof normalized === "object" && !Array.isArray(normalized)) {
+    const record = normalized as { amount?: unknown; currency?: unknown };
+    const amount = normalizeNumber(record.amount ?? null);
+    const currency = normalizeText(record.currency ?? null);
+    return JSON.stringify({
+      amount: typeof amount === "number" ? amount : amount ?? null,
+      currency: currency ? currency.toUpperCase() : null,
+    });
+  }
+  if (typeof normalized === "string") {
+    return JSON.stringify({
+      amount: null,
+      currency: normalized.trim().toUpperCase(),
+    });
+  }
+  if (typeof normalized === "number") {
+    return JSON.stringify({ amount: normalized, currency: null });
+  }
+  return JSON.stringify({ amount: null, currency: null });
+};
+
+const normalizeDate = (value: unknown) => {
+  const normalized = normalizeNil(value);
+  if (normalized === null) return null;
+  const date = new Date(String(normalized));
+  if (Number.isNaN(date.getTime())) return normalizeText(normalized);
+  return date.toISOString().slice(0, 10);
+};
+
+const normalizeDateTime = (value: unknown) => {
+  const normalized = normalizeNil(value);
+  if (normalized === null) return null;
+  const date = new Date(String(normalized));
+  if (Number.isNaN(date.getTime())) return normalizeText(normalized);
+  return date.toISOString();
+};
+
+const stableStringify = (value: unknown): string => {
+  if (value === null || value === undefined) return "null";
+  if (typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, val]) => `${JSON.stringify(key)}:${stableStringify(val)}`);
+  return `{${entries.join(",")}}`;
+};
+
+const normalizeJson = (value: unknown) => {
+  const normalized = normalizeNil(value);
+  if (normalized === null) return null;
+  return stableStringify(normalized);
+};
+
+const normalizeFiles = (value: unknown) => {
+  if (!Array.isArray(value)) return normalizeJson(value);
+  const ids = value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return String(entry ?? "");
+      const record = entry as {
+        id?: unknown;
+        path?: unknown;
+        url?: unknown;
+        name?: unknown;
+      };
+      return (
+        toStringSafe(record.id) ||
+        toStringSafe(record.path) ||
+        toStringSafe(record.url) ||
+        toStringSafe(record.name)
+      ).trim();
+    })
+    .filter(Boolean)
+    .sort();
+  return JSON.stringify(ids);
+};
+
+const normalizeByType = (value: unknown, type: VirtualColumn["type"]) => {
+  switch (type) {
+    case "select":
+    case "status":
+      return normalizeSelectValue(value);
+    case "number":
+      return normalizeNumber(value);
+    case "currency":
+      return normalizeCurrency(value);
+    case "date":
+      return normalizeDate(value);
+    case "datetime":
+      return normalizeDateTime(value);
+    case "boolean": {
+      const normalized = normalizeNil(value);
+      if (normalized === null) return null;
+      if (typeof normalized === "boolean") return normalized;
+      const token = toStringSafe(normalized).trim().toLowerCase();
+      if (token === "true" || token === "1") return true;
+      if (token === "false" || token === "0") return false;
+      return token ? true : null;
+    }
+    case "email":
+      return normalizeEmail(value);
+    case "phone":
+      return normalizePhone(value);
+    case "files":
+      return normalizeFiles(value);
+    case "json":
+      return normalizeJson(value);
+    case "text":
+    default:
+      return normalizeText(value);
+  }
+};
+
+const isEqualByType = (
+  left: unknown,
+  right: unknown,
+  type: VirtualColumn["type"],
+) => {
+  const leftNorm = normalizeByType(left, type);
+  const rightNorm = normalizeByType(right, type);
+  if (typeof leftNorm === "number" && typeof rightNorm === "number") {
+    return Number.isFinite(leftNorm) && Number.isFinite(rightNorm)
+      ? leftNorm === rightNorm
+      : leftNorm === rightNorm;
+  }
+  return Object.is(leftNorm, rightNorm);
+};
+
+const hasRowChanges = (
+  row: RawRow | undefined,
+  payload: Record<string, unknown>,
+  standardTypeByKey: Map<string, VirtualColumn["type"]>,
+  customTypeByKey: Map<string, VirtualColumn["type"]>,
+) => {
+  if (!row) return true;
+  const entries = Object.entries(payload);
+  if (!entries.length) return false;
+  const existingCustom = asRecord(row.custom_data ?? row.custom_fields);
+
+  for (const [key, value] of entries) {
+    if (key === "customValues") {
+      if (value === undefined) continue;
+      const nextCustom = asRecord(value);
+      for (const [customKey, customValue] of Object.entries(nextCustom)) {
+        const type = customTypeByKey.get(customKey) ?? "text";
+        if (!isEqualByType(existingCustom[customKey], customValue, type))
+          return true;
+      }
+      continue;
+    }
+    const type = standardTypeByKey.get(key) ?? "text";
+    if (!isEqualByType((row as Record<string, unknown>)[key], value, type))
+      return true;
+  }
+  return false;
+};
+
 const buildRelations = (
   table: CrmDataTable,
   relationsQuery: ReturnType<typeof useCrmRelationsQueries>,
@@ -206,6 +411,23 @@ export function useCrmEntityTab({
     () => buildRelations(table, relationsQuery),
     [relationsQuery, table],
   );
+  const standardTypeByKey = useMemo(() => {
+    const map = new Map<string, VirtualColumn["type"]>();
+    crmViewHelpers
+      .getStandardColumns(table, relations)
+      .forEach((column) => {
+        const key = String(
+          (column as { accessorKey?: unknown }).accessorKey ??
+            (column as { id?: unknown }).id ??
+            "",
+        );
+        if (!key) return;
+        const meta = (column as { meta?: { type?: VirtualColumn["type"] } })
+          .meta;
+        map.set(key, meta?.type ?? "text");
+      });
+    return map;
+  }, [relations, table]);
   const gridData = useMemo(
     () => rows.map((row) => normalizeRowForGrid(table, row)),
     [rows, table],
@@ -213,6 +435,13 @@ export function useCrmEntityTab({
   const virtualColumns = useMemo(
     () => toVirtualColumns(columnDefinitions),
     [columnDefinitions],
+  );
+  const customTypeByKey = useMemo(
+    () =>
+      new Map(
+        virtualColumns.map((column) => [column.key, column.type] as const),
+      ),
+    [virtualColumns],
   );
 
   const queryError =
@@ -263,7 +492,9 @@ export function useCrmEntityTab({
             : current.rows,
         totalRows: current.totalRows + 1,
       }));
-      void invalidateRowsScope();
+      if (currentPage !== 1) {
+        void invalidateRowsScope(true);
+      }
       void queryClient.invalidateQueries({
         queryKey: crmKeys.counts({ companyId }),
       });
@@ -394,7 +625,9 @@ export function useCrmEntityTab({
       });
     },
     onSuccess: () => {
-      void invalidateRowsScope();
+      if (currentPage !== 1) {
+        void invalidateRowsScope(true);
+      }
       void queryClient.invalidateQueries({
         queryKey: crmKeys.counts({ companyId }),
       });
@@ -560,6 +793,15 @@ export function useCrmEntityTab({
   );
   const handleUpdateRow = useCallback(
     async (rowId: string, payload: Record<string, unknown>) => {
+      if (
+        !hasRowChanges(
+          rowsById.get(rowId),
+          payload,
+          standardTypeByKey,
+          customTypeByKey,
+        )
+      )
+        return;
       const previous = rowUpdateQueueRef.current.get(rowId) ?? Promise.resolve();
       const run: Promise<void> = previous
         .catch(() => undefined)
@@ -573,7 +815,7 @@ export function useCrmEntityTab({
       rowUpdateQueueRef.current.set(rowId, run);
       await run;
     },
-    [updateRowMutation],
+    [customTypeByKey, rowsById, standardTypeByKey, updateRowMutation],
   );
   const handleDeleteRow = useCallback(
     async (rowId: string) => {
