@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Loader2, RefreshCw, Search } from "lucide-react";
@@ -18,6 +19,17 @@ import { OverviewsTab } from "./tabs/OverviewsTab";
 type CrmWorkspaceProps = {
   defaultTable?: CrmTable;
 };
+
+type TabBoundaryProps = {
+  tabKey: string;
+  children: ReactNode;
+};
+
+const TabBoundary = ({ tabKey, children }: TabBoundaryProps) => (
+  <CrmWorkspaceErrorBoundary key={tabKey}>
+    {children}
+  </CrmWorkspaceErrorBoundary>
+);
 
 export function CrmWorkspace({
   defaultTable = "customers",
@@ -117,7 +129,7 @@ export function CrmWorkspace({
 
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeTable === "customers" ? (
-          <CrmWorkspaceErrorBoundary>
+          <TabBoundary tabKey="customers">
             <CustomersTab
               companyId={selectedCompany.id}
               searchQuery={debouncedSearchQuery}
@@ -125,10 +137,10 @@ export function CrmWorkspace({
               onRefreshStateChange={setIsRefreshing}
               onMutationStateChange={setIsMutating}
             />
-          </CrmWorkspaceErrorBoundary>
+          </TabBoundary>
         ) : null}
         {activeTable === "deals" ? (
-          <CrmWorkspaceErrorBoundary>
+          <TabBoundary tabKey="deals">
             <DealsTab
               companyId={selectedCompany.id}
               searchQuery={debouncedSearchQuery}
@@ -136,10 +148,10 @@ export function CrmWorkspace({
               onRefreshStateChange={setIsRefreshing}
               onMutationStateChange={setIsMutating}
             />
-          </CrmWorkspaceErrorBoundary>
+          </TabBoundary>
         ) : null}
         {activeTable === "activities" ? (
-          <CrmWorkspaceErrorBoundary>
+          <TabBoundary tabKey="activities">
             <ActivitiesTab
               companyId={selectedCompany.id}
               searchQuery={debouncedSearchQuery}
@@ -147,15 +159,15 @@ export function CrmWorkspace({
               onRefreshStateChange={setIsRefreshing}
               onMutationStateChange={setIsMutating}
             />
-          </CrmWorkspaceErrorBoundary>
+          </TabBoundary>
         ) : null}
         {activeTable === "overviews" ? (
-          <CrmWorkspaceErrorBoundary>
+          <TabBoundary tabKey="overviews">
             <OverviewsTab
               refreshNonce={refreshNonce}
               onRefreshStateChange={setIsRefreshing}
             />
-          </CrmWorkspaceErrorBoundary>
+          </TabBoundary>
         ) : null}
       </div>
     </div>
