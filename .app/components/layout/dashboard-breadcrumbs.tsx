@@ -28,6 +28,18 @@ const segmentLabelMap: Record<string, string> = {
 const getSegmentLabel = (segment: string) =>
   segmentLabelMap[segment.toLowerCase()] ?? toLabel(segment);
 
+const rootSegmentHrefMap: Record<string, string> = {
+  crm: "/crm/overviews",
+};
+
+const getSegmentHref = (trail: string[], index: number) => {
+  const segment = trail[index]?.toLowerCase() ?? "";
+  if (index === 0 && rootSegmentHrefMap[segment]) {
+    return rootSegmentHrefMap[segment];
+  }
+  return `/${trail.slice(0, index + 1).join("/")}`;
+};
+
 export function DashboardBreadcrumbs() {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
@@ -50,7 +62,7 @@ export function DashboardBreadcrumbs() {
         </BreadcrumbItem>
 
         {trail.map((segment, index, rest) => {
-          const href = `/${trail.slice(0, index + 1).join("/")}`;
+          const href = getSegmentHref(trail, index);
           const isLast = index === rest.length - 1;
           return (
             <div key={href} className="contents">

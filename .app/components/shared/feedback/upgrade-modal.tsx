@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,8 @@ export function UpgradeModal({
   moduleName,
   currentPlan = "Starter",
 }: UpgradeModalProps) {
+  const { t } = useTranslation();
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px] border-primary/20 bg-white/95 backdrop-blur-xl">
@@ -35,37 +38,36 @@ export function UpgradeModal({
             <Sparkles className="w-6 h-6 text-primary animate-pulse" />
           </div>
           <DialogTitle className="text-2xl font-bold">
-            Upgrade to use {moduleName || "this module"}
+            {t("upgrade.title", {
+              moduleName: moduleName || t("upgrade.this_module"),
+            })}
           </DialogTitle>
           <DialogDescription className="text-base text-muted-foreground">
-            The <span className="font-bold text-foreground">{moduleName}</span>{" "}
-            module is not available on your current{" "}
-            <span className="font-semibold text-primary">{currentPlan}</span>{" "}
-            plan.
+            {t("upgrade.description", {
+              moduleName: moduleName || t("upgrade.this_module"),
+              currentPlan: currentPlan,
+            })}
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-6 space-y-4">
           <p className="text-sm font-semibold text-foreground">
-            What you&apos;ll get in the Business plan:
+            {t("upgrade.benefits_title")}
           </p>
           <ul className="space-y-3">
-            {[
-              "Access to Inventory & Finance modules",
-              "Manage up to 20 users",
-              "Advanced reporting features",
-              "Priority support & higher reliability",
-            ].map((feature, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-3 text-sm text-muted-foreground"
-              >
-                <div className="mt-0.5 w-4 h-4 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
-                  <Check className="w-2.5 h-2.5 text-green-600" />
-                </div>
-                {feature}
-              </li>
-            ))}
+            {(t("upgrade.benefits", { returnObjects: true }) as string[]).map(
+              (feature, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-3 text-sm text-muted-foreground"
+                >
+                  <div className="mt-0.5 w-4 h-4 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+                    <Check className="w-2.5 h-2.5 text-green-600" />
+                  </div>
+                  {feature}
+                </li>
+              ),
+            )}
           </ul>
         </div>
 
@@ -75,7 +77,7 @@ export function UpgradeModal({
             onClick={onClose}
             className="w-full sm:w-auto font-medium"
           >
-            Maybe later
+            {t("common.maybe_later")}
           </Button>
           <Button
             onClick={() => {
@@ -85,7 +87,7 @@ export function UpgradeModal({
             }}
             className="w-full sm:flex-1 gap-2 font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90"
           >
-            Upgrade Now <ArrowRight className="w-4 h-4" />
+            {t("upgrade.upgrade_now")} <ArrowRight className="w-4 h-4" />
           </Button>
         </DialogFooter>
       </DialogContent>

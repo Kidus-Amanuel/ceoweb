@@ -8,7 +8,7 @@ import {
   crmViewHelpers,
 } from "./crm-workspace.shared";
 
-type CrmWorkspaceTableProps = {
+export type CrmWorkspaceTableProps = {
   table: CrmDataTable;
   gridData: Record<string, unknown>[];
   relations: RelationalSets;
@@ -26,6 +26,11 @@ type CrmWorkspaceTableProps = {
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
   selectedRowId: string | null;
+  onSelectionChange?: (rowIds: string[]) => void;
+  pagination?: boolean;
+  onReachBottom?: () => void;
+  hasMoreRows?: boolean;
+  isFetchingMoreRows?: boolean;
 };
 
 export function CrmWorkspaceTable({
@@ -46,29 +51,41 @@ export function CrmWorkspaceTable({
   searchQuery,
   onSearchQueryChange,
   selectedRowId,
+  onSelectionChange,
+  pagination = true,
+  onReachBottom,
+  hasMoreRows = false,
+  isFetchingMoreRows = false,
 }: CrmWorkspaceTableProps) {
   return (
-    <EditableTable
-      title={undefined}
-      data={gridData as any}
-      columns={crmViewHelpers.getStandardColumns(table, relations) as any}
-      virtualColumns={virtualColumns}
-      currentPage={currentPage}
-      totalRows={totalRows}
-      pageSize={pageSize}
-      onPageChange={onPageChange}
-      onAdd={(payload) => onAdd(payload as Record<string, unknown>)}
-      onUpdate={(rowId, payload) =>
-        onUpdate(rowId, payload as Record<string, unknown>)
-      }
-      onDelete={onDelete}
-      onColumnAdd={onColumnAdd}
-      onColumnUpdate={onColumnUpdate}
-      onColumnDelete={onColumnDelete}
-      searchable={false}
-      searchQuery={searchQuery}
-      onSearchQueryChange={onSearchQueryChange}
-      selectedRowId={selectedRowId}
-    />
+    <div className="h-full min-h-0 min-w-0">
+      <EditableTable
+        title={undefined}
+        data={gridData as any}
+        columns={crmViewHelpers.getStandardColumns(table, relations) as any}
+        virtualColumns={virtualColumns}
+        currentPage={currentPage}
+        totalRows={totalRows}
+        pageSize={pageSize}
+        onPageChange={onPageChange}
+        pagination={pagination}
+        onAdd={(payload) => onAdd(payload as Record<string, unknown>)}
+        onUpdate={(rowId, payload) =>
+          onUpdate(rowId, payload as Record<string, unknown>)
+        }
+        onDelete={onDelete}
+        onColumnAdd={onColumnAdd}
+        onColumnUpdate={onColumnUpdate}
+        onColumnDelete={onColumnDelete}
+        searchable={false}
+        searchQuery={searchQuery}
+        onSearchQueryChange={onSearchQueryChange}
+        selectedRowId={selectedRowId}
+        onSelectionChange={onSelectionChange}
+        onReachBottom={onReachBottom}
+        hasMoreRows={hasMoreRows}
+        isFetchingMoreRows={isFetchingMoreRows}
+      />
+    </div>
   );
 }

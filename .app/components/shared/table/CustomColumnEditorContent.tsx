@@ -15,7 +15,9 @@ export type ColumnFieldType =
   | "boolean"
   | "json"
   | "currency"
-  | "status";
+  | "status"
+  | "phone"
+  | "email";
 
 export type ColumnFieldChoice = {
   key: string;
@@ -58,6 +60,11 @@ export function CustomColumnEditorContent({
   onSave,
   saveLabel,
 }: Props) {
+  const orderedChoices = [
+    ...choices.filter((choice) => choice.enabled),
+    ...choices.filter((choice) => !choice.enabled),
+  ];
+
   return (
     <div className="space-y-3">
       <div className="space-y-2">
@@ -81,7 +88,7 @@ export function CustomColumnEditorContent({
       </div>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-[14px] border border-[#ECECE9] p-3 max-h-[360px] overflow-auto">
-        {choices.map((choice) => {
+        {orderedChoices.map((choice) => {
           const Icon = choice.icon;
           const selected = choice.key === currentType;
           const typeLocked = lockTypeChange && choice.key !== currentType;
