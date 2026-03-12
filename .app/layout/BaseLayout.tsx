@@ -18,9 +18,17 @@ export default async function BaseLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body
         className="antialiased font-sans"
-        style={{ fontFamily: "Inter, system-ui, -apple-system, sans-serif" }}
+        style={{ fontFamily: "'DM Sans', system-ui, -apple-system, sans-serif" }}
       >
         <Providers locale={locale}>{children}</Providers>
       </body>

@@ -1,0 +1,166 @@
+import { flexRender } from "@tanstack/react-table";
+import type { Cell } from "@tanstack/react-table";
+import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/shared/ui/checkbox/Checkbox";
+import { SmartEditor } from "@/components/shared/table/SmartEditor";
+import {
+  findSelectLabel,
+  findSelectOptionIndex,
+  formatCurrencyValue,
+  formatDateValue,
+  getSemanticOptionTone,
+  prettyValue,
+} from "@/utils/table-utils";
+import type { RefObject } from "react";
+
+interface CellRendererProps<T> {
+  cell: Cell<T, any>;
+  isEditing: boolean;
+  editValue: any;
+  meta: any;
+  isVirtual: boolean;
+  virtualKey?: string;
+  inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement>;
+  dataFieldKey: string;
+  onEditValueChange: (value: any) => void;
+  onNavigate: (direction: "next" | "prev") => void;
+  onCommit: (value?: any) => void;
+  onCancel: () => void;
+  onSave: (
+    rowId: string,
+    columnId: string,
+    value: any,
+    isVirtual: boolean,
+    virtualKey?: string,
+  ) => void;
+}
+
+/**
+ * Renders cell content based on field type
+ *
+ * Handles:
+ * - SmartEditor for editing mode
+ * - Select/Status pills
+ * - Boolean checkboxes
+ * - Currency badges with formatted values
+ * - Date/DateTime formatting
+ * - Standard cell rendering via flexRender
+ */
+export function CellRenderer<T extends { id: string }>({
+  cell,
+  isEditing,
+  editValue,
+  meta,
+  isVirtual,
+  virtualKey,
+  inputRef,
+  dataFieldKey,
+  onEditValueChange,
+  onNavigate,
+  onCommit,
+  onCancel,
+  onSave,
+}: CellRendererProps<T>) {
+  const val = cell.getValue();
+  const row = cell.row.original;
+
+  // Editing mode: show SmartEditor
+  if (isEditing) {
+    return (
+      <SmartEditor
+        inputRef={inputRef}
+        meta={meta}
+        fieldKey={dataFieldKey}
+        value={editValue}
+        onChange={onEditValueChange}
+        onNavigate={onNavigate}
+        onCommit={onCommit}
+        onCancel={onCancel}
+      />
+    );
+  }
+
+  // Select or Status field: show pill with terminal styling
+  if (meta?.type === "select" || meta?.type === "status") {
+    return (
+      <span
+        className={cn(
+          "inline-flex rounded-sm border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm",
+          getSemanticOptionTone(
+            findSelectLabel(meta.options, val) ?? val,
+            findSelectOptionIndex(meta.options, val),
+          ),
+        )}
+        style={{
+          fontFamily: "'DM Sans', sans-serif",
+        }}
+      >
+        {findSelectLabel(meta.options, val) ??
+          (meta.options?.length
+            ? String(
+                meta.options[0]?.label ?? meta.options[0]?.value ?? "",
+              )
+            : prettyValue(val))}
+      </span>
+    );
+  }
+
+  // Boolean field: show checkbox
+  if (meta?.type === "boolean") {
+    return (
+      <Checkbox
+        checked={!!val}
+        onCheckedChange={(checked) =>
+          onSave(row.id, cell.column.id, checked === true, isVirtual, virtualKey)
+        }
+        onClick={(event) => event.stopPropagation()}
+      />
+    );
+  }
+
+  // Currency field: show formatted value with terminal styling
+  if (meta?.type === "currency") {
+    const rawCurrency =
+      val && typeof val === "object" && !Array.isArray(val)
+        ? String((val as Record<string, unknown>).currency ?? "")
+        : typeof val === "string" && Number.isNaN(Number(val))
+          ? val
+          : String(meta?.options?.[0]?.value ?? "ETB");
+
+    const currencyLabel =
+      findSelectLabel(meta?.options, rawCurrency) ?? rawCurrency;
+    const currencyIndex = findSelectOptionIndex(meta?.options, rawCurrency);
+
+    return (
+      <span
+        className={cn(
+          "inline-flex whitespace-nowrap rounded-sm border-2 px-2.5 py-1 text-[12px] font-mono font-bold tracking-tight shadow-sm",
+          getSemanticOptionTone(currencyLabel, currencyIndex),
+        )}
+      >
+        {formatCurrencyValue(val, meta?.options)}
+      </span>
+    );
+  }
+
+  // Date/DateTime field: show formatted date with monospace
+  if (meta?.type === "date" || meta?.type === "datetime") {
+    return (
+      <span
+        className="inline-flex whitespace-nowrap text-slate-600 font-mono text-[12px]"
+        style={{
+          letterSpacing: '-0.01em',
+        }}
+      >
+        {formatDateValue(val, meta.type === "datetime")}
+      </span>
+    );
+  }
+
+  // Standard field: use TanStack Table's flexRender or plain value
+  if (!isVirtual) {
+    return flexRender(cell.column.columnDef.cell, cell.getContext());
+  }
+
+  return <span>{prettyValue(val)}</span>;
+}

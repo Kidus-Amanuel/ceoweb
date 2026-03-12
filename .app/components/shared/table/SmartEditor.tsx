@@ -102,9 +102,9 @@ export const SmartEditor = ({
   const normalizedSelectValue = String(value ?? "").trim();
   const selectDefaultOption = selectOptions[0];
   const baseInputClass =
-    "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm shadow-none ring-0 focus-visible:ring-0";
+    "h-full min-h-[32px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm shadow-none ring-0 focus-visible:ring-0";
   const baseSelectTriggerClass =
-    "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 justify-center shadow-none ring-0 focus:ring-0";
+    "h-full min-h-[32px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 justify-start shadow-none ring-0 focus:ring-0 [&_svg]:opacity-100";
   const selectContentClass =
     "z-[120] rounded-md border border-border bg-background p-1 shadow-xl";
   const selectItemClass =
@@ -233,7 +233,7 @@ export const SmartEditor = ({
           {selectedOption ? (
             <span
               className={cn(
-                "inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold",
+                "inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ",
                 getSemanticOptionTone(selectedOption.label, selectedIndex),
               )}
             >
@@ -666,7 +666,7 @@ export const SmartEditor = ({
           }
           if (e.key === "Escape") onCancel?.();
         }}
-        className="h-full min-h-[40px] w-full max-w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm leading-5 shadow-none focus:outline-none focus:ring-0"
+        className="h-full min-h-[4px] w-full max-w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px- py-0 text-left text-sm leading-5 shadow-none focus:outline-none focus:ring-0 justify-center t"
       />
     );
   if (type === "text")
@@ -689,7 +689,7 @@ export const SmartEditor = ({
           }
           if (e.key === "Escape") onCancel?.();
         }}
-        className="h-full min-h-[40px] w-full max-w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm leading-5 shadow-none focus:outline-none focus:ring-0"
+        className="h-full min-h-[0px] w-full max-w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm leading-5 shadow-none focus:outline-none focus:ring-0"
       />
     );
 
