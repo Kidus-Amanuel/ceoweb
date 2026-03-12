@@ -23,11 +23,11 @@ type SeriesDef = {
 
 type OverviewsChartsProps = {
   cardClass: string;
-  chartCardRef: RefObject<HTMLDivElement>;
+  chartCardRef: RefObject<HTMLDivElement | null>;
   pipelineSeries: Array<Record<string, unknown>>;
   customerTypeSeries: { name: string; value: number }[];
   donutColors: string[];
-  series: SeriesDef[];
+  series: ReadonlyArray<SeriesDef>;
   selectedSeries: SeriesKey | null;
   onSelectSeries: (next: SeriesKey | null) => void;
 };
