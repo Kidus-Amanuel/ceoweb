@@ -82,25 +82,25 @@ export function CellRenderer<T extends { id: string }>({
 
   // Select or Status field: show pill with terminal styling
   if (meta?.type === "select" || meta?.type === "status") {
+    const label = findSelectLabel(meta.options, val);
+    const rawText = val === null || val === undefined ? "" : String(val);
+    const isUnassigned = !label && rawText.length === 0;
     return (
       <span
         className={cn(
           "inline-flex rounded-sm border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm",
-          getSemanticOptionTone(
-            findSelectLabel(meta.options, val) ?? val,
-            findSelectOptionIndex(meta.options, val),
-          ),
+          isUnassigned
+            ? "bg-slate-100 text-slate-500 border-slate-200"
+            : getSemanticOptionTone(
+                label ?? val,
+                findSelectOptionIndex(meta.options, val),
+              ),
         )}
         style={{
           fontFamily: "'DM Sans', sans-serif",
         }}
       >
-        {findSelectLabel(meta.options, val) ??
-          (meta.options?.length
-            ? String(
-                meta.options[0]?.label ?? meta.options[0]?.value ?? "",
-              )
-            : prettyValue(val))}
+        {label ?? (rawText.length > 0 ? rawText : "Unassigned")}
       </span>
     );
   }
@@ -111,7 +111,13 @@ export function CellRenderer<T extends { id: string }>({
       <Checkbox
         checked={!!val}
         onCheckedChange={(checked) =>
-          onSave(row.id, cell.column.id, checked === true, isVirtual, virtualKey)
+          onSave(
+            row.id,
+            cell.column.id,
+            checked === true,
+            isVirtual,
+            virtualKey,
+          )
         }
         onClick={(event) => event.stopPropagation()}
       />
@@ -149,7 +155,7 @@ export function CellRenderer<T extends { id: string }>({
       <span
         className="inline-flex whitespace-nowrap text-slate-600 font-mono text-[12px]"
         style={{
-          letterSpacing: '-0.01em',
+          letterSpacing: "-0.01em",
         }}
       >
         {formatDateValue(val, meta.type === "datetime")}
