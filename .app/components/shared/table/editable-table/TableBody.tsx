@@ -16,6 +16,7 @@ import type { EditingCell } from "@/hooks/use-cell-editing";
 interface EditableTableBodyProps<T extends { id: string }> {
   table: Table<T>;
   rows: Row<T>[];
+  columnsSignature: string;
   editingCell: EditingCell | null;
   editValue: any;
   inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
@@ -44,7 +45,10 @@ interface EditableTableBodyProps<T extends { id: string }> {
     virtualKey?: string,
   ) => void;
   onDeleteClick: (target: { kind: "row"; id: string; label: string }) => void;
-  onRowResizeMouseDown?: (event: React.MouseEvent<HTMLTableRowElement>, rowId: string) => void;
+  onRowResizeMouseDown?: (
+    event: React.MouseEvent<HTMLTableRowElement>,
+    rowId: string,
+  ) => void;
   onRegisterRef?: (rowId: string, element: HTMLTableRowElement | null) => void;
   onNewRowDataChange: (data: Record<string, any>) => void;
   onAddCommit: () => void;
@@ -70,9 +74,12 @@ interface EditableTableBodyProps<T extends { id: string }> {
  * - Add row form with SmartEditor inputs
  * - Commit and cancel buttons for new rows
  */
-export function EditableTableBody<T extends { id: string; customValues?: Record<string, unknown> }>({
+export function EditableTableBody<
+  T extends { id: string; customValues?: Record<string, unknown> },
+>({
   table,
   rows,
+  columnsSignature,
   editingCell,
   editValue,
   inputRef,
@@ -107,6 +114,8 @@ export function EditableTableBody<T extends { id: string; customValues?: Record<
           <EditableTableRow
             key={row.id}
             row={row}
+            columnsSignature={columnsSignature}
+            isSelected={row.getIsSelected()}
             editingCell={editingCell}
             editValue={editValue}
             inputRef={inputRef}
@@ -145,7 +154,10 @@ export function EditableTableBody<T extends { id: string; customValues?: Record<
               const isVirtual = !!column.columnDef.meta?.isVirtual;
               const virtualKey = column.columnDef.meta?.virtualKey;
               const columnId = column.id;
-              const meta = resolveMetaForValues(column.columnDef.meta, newRowData);
+              const meta = resolveMetaForValues(
+                column.columnDef.meta,
+                newRowData,
+              );
               const isActiveNewCell = !!(
                 isAdding &&
                 editingCell?.id === "new" &&
@@ -168,7 +180,8 @@ export function EditableTableBody<T extends { id: string; customValues?: Record<
                     "py-1.5 border-b border-r border-slate-200 align-middle",
                     sizeClasses,
                     "px-2",
-                    isActiveNewCell && "ring-2 ring-amber-300 ring-inset shadow-sm",
+                    isActiveNewCell &&
+                      "ring-2 ring-amber-300 ring-inset shadow-sm",
                   )}
                   onClick={() => onStartEditNewRow(columnId)}
                   onFocusCapture={() => onStartEditNewRow(columnId)}
@@ -181,7 +194,9 @@ export function EditableTableBody<T extends { id: string; customValues?: Record<
                     placeholder={`Set ${placeholderLabel}...`}
                     value={
                       isVirtual
-                        ? newRowData.customValues?.[String(virtualKey ?? columnId)]
+                        ? newRowData.customValues?.[
+                            String(virtualKey ?? columnId)
+                          ]
                         : newRowData[columnId]
                     }
                     onChange={(nextValue) => {
@@ -197,9 +212,11 @@ export function EditableTableBody<T extends { id: string; customValues?: Record<
                       } else {
                         next[columnId] = nextValue;
                         // Clear dependent columns when source changes
-                        (dependentColumnsBySource[columnId] || []).forEach((dep) => {
-                          if (dep !== columnId) next[dep] = undefined;
-                        });
+                        (dependentColumnsBySource[columnId] || []).forEach(
+                          (dep) => {
+                            if (dep !== columnId) next[dep] = undefined;
+                          },
+                        );
                         onNewRowDataChange(next);
                       }
                     }}

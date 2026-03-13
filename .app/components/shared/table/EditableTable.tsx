@@ -33,6 +33,7 @@ const DeleteConfirmationDialog = dynamic(
 
 const useSafeTableInterop = <TData extends RowData>(
   options: Parameters<typeof useReactTable<TData>>[0],
+  // eslint-disable-next-line react-hooks/incompatible-library
 ) => useReactTable(options);
 
 interface EditableTableProps<
@@ -174,22 +175,28 @@ export function EditableTable<
   );
 
   // Row selection with external selectedRowId
-  const effectiveRowSelection = useMemo(
-    () =>
-      !selectedRowId || tableState.rowSelection[selectedRowId]
-        ? tableState.rowSelection
-        : { ...tableState.rowSelection, [selectedRowId]: true },
-    [tableState.rowSelection, selectedRowId],
-  );
+  const lastSelectedRowIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!selectedRowId) {
+      lastSelectedRowIdRef.current = null;
+      return;
+    }
+    if (selectedRowId === lastSelectedRowIdRef.current) return;
+    lastSelectedRowIdRef.current = selectedRowId;
+    tableState.setRowSelection((prev) => ({
+      ...prev,
+      [selectedRowId]: true,
+    }));
+  }, [selectedRowId, tableState]);
 
   // Notify selection changes
   useEffect(() => {
     if (!onSelectionChange) return;
-    const selectedIds = Object.entries(effectiveRowSelection)
+    const selectedIds = Object.entries(tableState.rowSelection)
       .filter(([, isSelected]) => !!isSelected)
       .map(([id]) => id);
     onSelectionChange(selectedIds);
-  }, [effectiveRowSelection, onSelectionChange]);
+  }, [onSelectionChange, tableState.rowSelection]);
 
   // Reset scroll lock when not fetching
   useEffect(() => {
@@ -205,7 +212,7 @@ export function EditableTable<
     state: {
       sorting: safeSorting,
       globalFilter: effectiveGlobalFilter,
-      rowSelection: effectiveRowSelection,
+      rowSelection: tableState.rowSelection,
     },
     onSortingChange: tableState.setSorting,
     onGlobalFilterChange: tableState.setGlobalFilter,
@@ -224,10 +231,10 @@ export function EditableTable<
     [data],
   );
 
+  const leafColumns = table.getAllLeafColumns();
   const leafColumnsById = useMemo(
-    () =>
-      new Map(table.getAllLeafColumns().map((col) => [col.id, col] as const)),
-    [table],
+    () => new Map(leafColumns.map((col) => [col.id, col] as const)),
+    [leafColumns],
   );
 
   // Cell editing hook
@@ -237,6 +244,20 @@ export function EditableTable<
     onUpdate,
     table,
   });
+
+  const columnsSignature = useMemo(
+    () =>
+      finalColumns
+        .map((col) =>
+          String(
+            col.id ??
+              (((col as { accessorKey?: unknown }).accessorKey as string) ||
+                ""),
+          ),
+        )
+        .join("|"),
+    [finalColumns],
+  );
 
   // Row operations hook
   const rowOperations = useRowOperations<T>({
@@ -290,7 +311,7 @@ export function EditableTable<
       if (text.length > longest) longest = text.length;
     });
 
-    const minWidth = nameColumn ? 200 : emailColumn ? 120 :70;
+    const minWidth = nameColumn ? 200 : emailColumn ? 120 : 70;
     const maxWidth = 250;
     autoWidthByColumnId.set(
       column.id,
@@ -364,7 +385,7 @@ export function EditableTable<
             style={{
               backgroundImage: `linear-gradient(rgba(15,23,42,0.5) 1px, transparent 1px),
                                linear-gradient(90deg, rgba(15,23,42,0.5) 1px, transparent 1px)`,
-              backgroundSize: '20px 20px',
+              backgroundSize: "20px 20px",
             }}
           />
 
@@ -391,7 +412,7 @@ export function EditableTable<
                 className="pl-10 pr-4 h-10 bg-white border border-slate-200 text-[13px] font-medium placeholder:text-slate-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all duration-200"
                 style={{
                   fontFamily: "'JetBrains Mono', 'Consolas', monospace",
-                  letterSpacing: '-0.01em',
+                  letterSpacing: "-0.01em",
                 }}
               />
               {tableState.globalFilter && (
@@ -410,8 +431,8 @@ export function EditableTable<
           className="flex-1 min-h-0 overflow-x-auto overflow-y-auto pb-2"
           onScroll={handleTableScroll}
           style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#cbd5e1 #f8fafc',
+            scrollbarWidth: "thin",
+            scrollbarColor: "#cbd5e1 #f8fafc",
           }}
         >
           <Table className="w-full min-w-[1170px] table-auto border-collapse">
@@ -430,24 +451,29 @@ export function EditableTable<
               filteredTypeChoices={columnManagement.filteredTypeChoices}
               editingColumn={columnManagement.editingColumn}
               editingColumnHasValues={columnManagement.editingColumnHasValues}
-              onSelectAll={(checked) => table.toggleAllPageRowsSelected(checked)}
+              onSelectAll={(checked) =>
+                table.toggleAllPageRowsSelected(checked)
+              }
               onToggleSort={(columnId) => {
-                const column = table.getAllColumns().find((c) => c.id === columnId);
+                const column = table
+                  .getAllColumns()
+                  .find((c) => c.id === columnId);
                 column?.getToggleSortingHandler()?.({} as any);
               }}
               onOpenColumnForEdit={columnManagement.openColumnForEdit}
+              onRequestColumnDelete={(column) =>
+                setDeleteTarget({
+                  kind: "column",
+                  id: column.id,
+                  label: column.label,
+                })
+              }
               onOpenColumnForCreate={columnManagement.openColumnForCreate}
               onCloseColumnEditor={columnManagement.closeColumnEditor}
               onTypeFilterChange={columnManagement.setTypeFilter}
               onColTypeChange={columnManagement.setNewColType}
-              onColLabelChange={(value) => {
-                columnManagement.newColLabel.current = value;
-                columnManagement.setNewColLabelValue(value);
-              }}
-              onColOptionsChange={(value) => {
-                columnManagement.newColOptions.current = value;
-                columnManagement.setNewColOptionsValue(value);
-              }}
+              onColLabelChange={columnManagement.setNewColLabel}
+              onColOptionsChange={columnManagement.setNewColOptions}
               onSaveColumn={columnManagement.handleSaveColumn}
               getColumnSizeClasses={getColumnSizeClasses}
               isEmailColumn={isEmailColumn}
@@ -456,10 +482,12 @@ export function EditableTable<
               isSomeRowsSelected={table.getIsSomePageRowsSelected()}
               canAddColumns={!!onColumnAdd}
               canEditColumns={!!onColumnUpdate}
+              canDeleteColumns={!!onColumnDelete}
             />
             <EditableTableBody
               table={table}
               rows={table.getRowModel().rows}
+              columnsSignature={columnsSignature}
               editingCell={cellEditing.editingCell}
               editValue={cellEditing.editValue}
               inputRef={cellEditing.inputRef}
@@ -552,7 +580,9 @@ export function EditableTable<
         <div className="border-t border-slate-200 px-6 py-3 bg-slate-50/50">
           <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-slate-600 tracking-wide">
             <p className="whitespace-nowrap">
-              <span className="text-slate-900 font-bold">{totalRows || data.length}</span>
+              <span className="text-slate-900 font-bold">
+                {totalRows || data.length}
+              </span>
               <span className="text-slate-400 mx-1.5">RECORDS</span>
               {table.getSelectedRowModel().rows.length > 0 && (
                 <>

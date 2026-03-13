@@ -1,6 +1,6 @@
 import { flexRender } from "@tanstack/react-table";
 import type { HeaderGroup } from "@tanstack/react-table";
-import { ChevronUp, ChevronDown, Pencil, Plus } from "lucide-react";
+import { ChevronUp, ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/shared/ui/checkbox/Checkbox";
 import {
@@ -40,6 +40,7 @@ interface EditableTableHeaderProps<T extends { id: string }> {
   onSelectAll: (checked: boolean) => void;
   onToggleSort: (columnId: string) => void;
   onOpenColumnForEdit: (column: VirtualColumn) => void;
+  onRequestColumnDelete: (column: VirtualColumn) => void;
   onOpenColumnForCreate: () => void;
   onCloseColumnEditor: () => void;
   onTypeFilterChange: (value: string) => void;
@@ -62,6 +63,7 @@ interface EditableTableHeaderProps<T extends { id: string }> {
   isSomeRowsSelected: boolean;
   canAddColumns: boolean;
   canEditColumns: boolean;
+  canDeleteColumns: boolean;
 }
 
 /**
@@ -73,7 +75,9 @@ interface EditableTableHeaderProps<T extends { id: string }> {
  * - Edit button for virtual columns
  * - Add column button with popover editor
  */
-export function EditableTableHeader<T extends { id: string; customValues?: Record<string, unknown> }>({
+export function EditableTableHeader<
+  T extends { id: string; customValues?: Record<string, unknown> },
+>({
   headerGroups,
   autoWidthByColumnId,
   virtualColumns,
@@ -91,6 +95,7 @@ export function EditableTableHeader<T extends { id: string; customValues?: Recor
   onSelectAll,
   onToggleSort,
   onOpenColumnForEdit,
+  onRequestColumnDelete,
   onOpenColumnForCreate,
   onCloseColumnEditor,
   onTypeFilterChange,
@@ -105,6 +110,7 @@ export function EditableTableHeader<T extends { id: string; customValues?: Recor
   isSomeRowsSelected,
   canAddColumns,
   canEditColumns,
+  canDeleteColumns,
 }: EditableTableHeaderProps<T>) {
   return (
     <UITableHeader className="sticky top-0 z-30 bg-slate-50 [&_tr]:border-b [&_tr]:border-slate-300">
@@ -114,7 +120,9 @@ export function EditableTableHeader<T extends { id: string; customValues?: Recor
           <TableHead className="h-8 w-10 min-w-10 px-2 border-r border-slate-300 text-left bg-white">
             <div className="flex items-center justify-start">
               <Checkbox
-                checked={isAllRowsSelected || (isSomeRowsSelected && "indeterminate")}
+                checked={
+                  isAllRowsSelected || (isSomeRowsSelected && "indeterminate")
+                }
                 onCheckedChange={(value) => onSelectAll(value === true)}
                 className="size-4"
               />
@@ -143,11 +151,7 @@ export function EditableTableHeader<T extends { id: string; customValues?: Recor
                 key={header.id}
                 className={cn(
                   "h-8 text-left align-middle font-semibold text-[11px] uppercase tracking-wide text-slate-700 border-r border-slate-300 last:border-r-0 transition-colors hover:bg-slate-100",
-                  getColumnSizeClasses(
-                    headerKey,
-                    isVirtual,
-                    headerType,
-                  ),
+                  getColumnSizeClasses(headerKey, isVirtual, headerType),
                   "px-3",
                 )}
                 style={{
@@ -173,7 +177,10 @@ export function EditableTableHeader<T extends { id: string; customValues?: Recor
                             getTypeIconTone(type),
                           )}
                         >
-                          <Icon className="h-2 w-2 text-slate-600" strokeWidth={2.5} />
+                          <Icon
+                            className="h-2 w-2 text-slate-600"
+                            strokeWidth={2.5}
+                          />
                         </span>
                       );
                     })()}
@@ -188,7 +195,10 @@ export function EditableTableHeader<T extends { id: string; customValues?: Recor
                       {/* Edit button for virtual columns */}
                       {canEditColumns && isVirtual && virtualColumnData && (
                         <Popover
-                          open={isColPopoverOpen && editingColumnId === virtualColumnData.id}
+                          open={
+                            isColPopoverOpen &&
+                            editingColumnId === virtualColumnData.id
+                          }
                           onOpenChange={(open) => {
                             if (open) {
                               onOpenColumnForEdit(virtualColumnData);
@@ -223,7 +233,9 @@ export function EditableTableHeader<T extends { id: string; customValues?: Recor
                               fieldTypeFilter={typeFilter}
                               onFieldTypeFilterChange={onTypeFilterChange}
                               choices={filteredTypeChoices}
-                              lockTypeChange={editingColumnHasValues && !!editingColumn}
+                              lockTypeChange={
+                                editingColumnHasValues && !!editingColumn
+                              }
                               onTypeChange={onColTypeChange}
                               onNameChange={onColLabelChange}
                               onOptionsChange={onColOptionsChange}
@@ -234,14 +246,35 @@ export function EditableTableHeader<T extends { id: string; customValues?: Recor
                           </PopoverContent>
                         </Popover>
                       )}
+
+                      {/* Delete button for virtual columns */}
+                      {canDeleteColumns && isVirtual && virtualColumnData && (
+                        <button
+                          type="button"
+                          aria-label={`Delete column ${virtualColumnData.label}`}
+                          className="text-red-500 hover:text-red-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRequestColumnDelete(virtualColumnData);
+                          }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </span>
                   </div>
 
                   {/* Sort indicator - subtle and professional */}
                   {header.column.getIsSorted() === "asc" ? (
-                    <ChevronUp className="w-3 h-3 text-slate-600" strokeWidth={2.5} />
+                    <ChevronUp
+                      className="w-3 h-3 text-slate-600"
+                      strokeWidth={2.5}
+                    />
                   ) : header.column.getIsSorted() === "desc" ? (
-                    <ChevronDown className="w-3 h-3 text-slate-600" strokeWidth={2.5} />
+                    <ChevronDown
+                      className="w-3 h-3 text-slate-600"
+                      strokeWidth={2.5}
+                    />
                   ) : null}
                 </div>
               </TableHead>

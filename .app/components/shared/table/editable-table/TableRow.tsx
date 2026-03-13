@@ -13,6 +13,8 @@ import type { EditingCell } from "@/hooks/use-cell-editing";
 
 interface TableRowProps<T extends { id: string }> {
   row: Row<T>;
+  columnsSignature: string;
+  isSelected: boolean;
   editingCell: EditingCell | null;
   editValue: any;
   inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
@@ -32,7 +34,10 @@ interface TableRowProps<T extends { id: string }> {
     virtualKey?: string,
   ) => void;
   onDeleteClick: (target: DeleteTarget) => void;
-  onRowResizeMouseDown?: (event: React.MouseEvent<HTMLTableRowElement>, rowId: string) => void;
+  onRowResizeMouseDown?: (
+    event: React.MouseEvent<HTMLTableRowElement>,
+    rowId: string,
+  ) => void;
   onRegisterRef?: (rowId: string, element: HTMLTableRowElement | null) => void;
 
   // Utility functions
@@ -53,8 +58,12 @@ interface TableRowProps<T extends { id: string }> {
  * - Edit state changes
  * - Selection state changes
  */
-function TableRowComponent<T extends { id: string; customValues?: Record<string, unknown> }>({
+function TableRowComponent<
+  T extends { id: string; customValues?: Record<string, unknown> },
+>({
   row,
+  columnsSignature,
+  isSelected,
   editingCell,
   editValue,
   inputRef,
@@ -81,21 +90,19 @@ function TableRowComponent<T extends { id: string; customValues?: Record<string,
       onMouseDown={(event) => onRowResizeMouseDown?.(event, row.original.id)}
       className={cn(
         "group transition-all duration-150 relative",
-        row.getIsSelected()
-          ? "bg-amber-50/30 hover:bg-amber-50/40"
+        isSelected
+          ? "bg-amber-100/50 hover:bg-amber-100/60"
           : "hover:bg-slate-50/50",
       )}
     >
-      {/* Selection indicator bar */}
-      {row.getIsSelected() && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500" />
-      )}
-
       {/* Selection checkbox column */}
-      <TableCell className="w-10 min-w-10 px-2 py-1.5 border-b border-r border-slate-200 align-middle">
+      <TableCell className="w-10 min-w-10 px-2 py-1.5 border-b border-r border-slate-200 align-middle relative">
+        {isSelected && (
+          <span className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500" />
+        )}
         <div className="flex items-center justify-start">
           <Checkbox
-            checked={row.getIsSelected()}
+            checked={isSelected}
             onCheckedChange={(value) => row.toggleSelected(value === true)}
             onClick={(event) => event.stopPropagation()}
             className="cursor-pointer size-4"
@@ -154,8 +161,8 @@ function TableRowComponent<T extends { id: string; customValues?: Record<string,
             )}
             style={{
               fontFamily: "'DM Sans', sans-serif",
-              fontSize: '13px',
-              letterSpacing: '-0.01em',
+              fontSize: "13px",
+              letterSpacing: "-0.01em",
               ...(isEmailOrPhone
                 ? (() => {
                     if (isEditing) {
@@ -249,26 +256,26 @@ function TableRowComponent<T extends { id: string; customValues?: Record<string,
 /**
  * Memoized TableRow - only re-renders when necessary
  */
-export const EditableTableRow = memo(
-  TableRowComponent,
-  (prev, next) => {
-    // Re-render if row ID changed
-    if (prev.row.id !== next.row.id) return false;
+export const EditableTableRow = memo(TableRowComponent, (prev, next) => {
+  // Re-render if row ID changed
+  if (prev.row.id !== next.row.id) return false;
 
-    // Re-render if selection state changed
-    if (prev.row.getIsSelected() !== next.row.getIsSelected()) return false;
+  // Re-render if visible columns changed
+  if (prev.columnsSignature !== next.columnsSignature) return false;
 
-    // Re-render if editing this row
-    const isEditingPrev = prev.editingCell?.id === prev.row.original.id;
-    const isEditingNext = next.editingCell?.id === next.row.original.id;
-    if (isEditingPrev || isEditingNext) return false;
+  // Re-render if selection state changed
+  if (prev.isSelected !== next.isSelected) return false;
 
-    // Re-render if row data changed (deep equality check on id as proxy)
-    const prevData = prev.row.original;
-    const nextData = next.row.original;
-    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+  // Re-render if editing this row
+  const isEditingPrev = prev.editingCell?.id === prev.row.original.id;
+  const isEditingNext = next.editingCell?.id === next.row.original.id;
+  if (isEditingPrev || isEditingNext) return false;
 
-    // Otherwise, skip re-render
-    return true;
-  },
-) as typeof TableRowComponent;
+  // Re-render if row data changed (deep equality check on id as proxy)
+  const prevData = prev.row.original;
+  const nextData = next.row.original;
+  if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+
+  // Otherwise, skip re-render
+  return true;
+}) as typeof TableRowComponent;
