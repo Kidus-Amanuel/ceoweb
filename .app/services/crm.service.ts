@@ -79,7 +79,10 @@ type CustomFieldPayload = {
     | "boolean"
     | "currency"
     | "phone"
-    | "email";
+    | "email"
+    | "files"
+    | "json"
+    | "status";
   fieldOptions?: string[];
   isRequired?: boolean;
 };
@@ -1589,7 +1592,9 @@ export const crmService = {
     payload: CustomFieldPayload;
   }): Promise<ServiceResult<Record<string, unknown>>> {
     const optionBasedType =
-      payload.fieldType === "select" || payload.fieldType === "currency";
+      payload.fieldType === "select" ||
+      payload.fieldType === "currency" ||
+      payload.fieldType === "status";
     const normalizedOptions = optionBasedType
       ? normalizeOptionValues(payload.fieldType, payload.fieldOptions ?? [])
       : [];
@@ -1651,7 +1656,9 @@ export const crmService = {
 
     const isTypeChange = existing.field_type !== payload.fieldType;
     const optionBasedType =
-      payload.fieldType === "select" || payload.fieldType === "currency";
+      payload.fieldType === "select" ||
+      payload.fieldType === "currency" ||
+      payload.fieldType === "status";
     const incomingOptions = optionBasedType
       ? normalizeOptionValues(payload.fieldType, payload.fieldOptions ?? [])
       : [];

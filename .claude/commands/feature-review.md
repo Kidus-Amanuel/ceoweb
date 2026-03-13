@@ -30,34 +30,40 @@ Follow these steps:
 3. Evaluate the feature in the following areas:
 
 Performance
+
 - unnecessary re-renders
 - heavy components
 - inefficient data fetching
 - excessive client-side logic
 
 Architecture
+
 - large components
 - missing abstractions
 - duplicated logic
 - poor separation of concerns
 
 Next.js Best Practices
+
 - server vs client component misuse
 - inefficient fetch patterns
 - missing caching
 - unnecessary client components
 
 Data Flow
+
 - incorrect state management
 - prop drilling
 - unclear data ownership
 
 API & Server Actions
+
 - inefficient calls
 - missing validation
 - security risks
 
 Code Quality
+
 - readability
 - naming clarity
 - maintainability

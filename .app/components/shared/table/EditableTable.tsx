@@ -608,6 +608,46 @@ export function EditableTable<
         onConfirmRow={onDelete}
         onConfirmColumn={onColumnDelete}
       />
+      {fileEditingCell && (
+        <EditorComponent
+          open={!!fileEditingCell}
+          onClose={() => setFileEditingCell(null)}
+          onSave={(files: any[]) => {
+            if (fileEditingCell) {
+              if (fileEditingCell.id === "new-row") {
+                setNewRowData((prev) => {
+                  const next = { ...prev };
+                  if (fileEditingCell.isVirtual) {
+                    return {
+                      ...next,
+                      customValues: {
+                        ...(prev.customValues || {}),
+                        [fileEditingCell.virtualKey ??
+                        fileEditingCell.columnId]: files,
+                      },
+                    };
+                  }
+                  next[fileEditingCell.columnId] = files;
+                  return next;
+                });
+              } else {
+                handleSave(
+                  fileEditingCell.id,
+                  fileEditingCell.columnId,
+                  files,
+                  fileEditingCell.isVirtual,
+                  fileEditingCell.virtualKey,
+                );
+              }
+            }
+            setFileEditingCell(null);
+          }}
+          initialFiles={fileEditingCell.value}
+          title="Manage Files"
+          tableName={title?.toLowerCase().replace(/\s+/g, "-") || "general"}
+          recordId={fileEditingCell.id}
+        />
+      )}
     </div>
   );
 }

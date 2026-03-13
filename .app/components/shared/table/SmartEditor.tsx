@@ -17,7 +17,9 @@ import {
   defaultCurrencyOptions,
   findSelectOptionIndex,
   getSemanticOptionTone,
+  getTypeIcon,
 } from "@/utils/table-utils";
+import { Paperclip } from "lucide-react";
 
 export interface SmartEditorProps {
   value: any;
@@ -30,6 +32,7 @@ export interface SmartEditorProps {
   placeholder?: string;
   isAddMode?: boolean;
   inputRef?: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
+  onClick?: () => void;
 }
 
 export const parseDateTimeParts = (
@@ -77,6 +80,7 @@ export const SmartEditor = ({
   placeholder,
   isAddMode = false,
   inputRef,
+  onClick,
 }: SmartEditorProps) => {
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const amountInputRef = useRef<HTMLInputElement | null>(null);
@@ -307,6 +311,27 @@ export const SmartEditor = ({
           ))}
         </SelectContent>
       </Select>
+    );
+  }
+
+  if (type === "files") {
+    const files = Array.isArray(value) ? value : [];
+    const count = files.length;
+    return (
+      <div className="flex items-center h-full px-2">
+        <button
+          type="button"
+          className="flex items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50/50 px-2.5 py-1.5 hover:bg-indigo-50 transition-colors group"
+          onClick={() => {
+            onClick?.();
+          }}
+        >
+          <Paperclip className="w-3.5 h-3.5 text-indigo-500 group-hover:text-indigo-600" />
+          <span className="text-xs font-medium text-indigo-700">
+            {count > 0 ? `${count} file${count > 1 ? "s" : ""}` : "Add files"}
+          </span>
+        </button>
+      </div>
     );
   }
 

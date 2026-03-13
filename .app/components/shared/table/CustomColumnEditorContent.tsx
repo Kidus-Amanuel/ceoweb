@@ -17,7 +17,8 @@ export type ColumnFieldType =
   | "currency"
   | "status"
   | "phone"
-  | "email";
+  | "email"
+  | "files";
 
 export type ColumnFieldChoice = {
   key: string;

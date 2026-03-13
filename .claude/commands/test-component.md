@@ -11,6 +11,7 @@ Generate complete unit tests for the React component at: **{{file_path}}**
 Create tests using Vitest and @testing-library/react that comprehensively cover:
 
 ### 1. Happy Path Tests
+
 - Component renders successfully with default/required props
 - Component displays correct content and elements
 - Component behaves as expected with valid user interactions
@@ -18,6 +19,7 @@ Create tests using Vitest and @testing-library/react that comprehensively cover:
 - Data flows properly through the component
 
 ### 2. Edge Cases
+
 - Component with empty/null/undefined props
 - Component with minimum/maximum values
 - Component with very long strings or large datasets
@@ -26,6 +28,7 @@ Create tests using Vitest and @testing-library/react that comprehensively cover:
 - Different screen sizes or viewport conditions (if applicable)
 
 ### 3. Error Handling
+
 - Invalid prop types or values
 - Missing required props
 - API/async operation failures
@@ -34,6 +37,7 @@ Create tests using Vitest and @testing-library/react that comprehensively cover:
 - User input validation errors
 
 ### 4. Accessibility
+
 - Proper ARIA labels and roles
 - Keyboard navigation (Tab, Enter, Escape, Arrow keys)
 - Screen reader compatibility
@@ -42,6 +46,7 @@ Create tests using Vitest and @testing-library/react that comprehensively cover:
 - Semantic HTML structure
 
 ### 5. User Interactions
+
 - Click events on all interactive elements
 - Form submissions and validations
 - Input changes and updates
@@ -50,12 +55,14 @@ Create tests using Vitest and @testing-library/react that comprehensively cover:
 - Touch interactions (if applicable)
 
 ### 6. Conditional Rendering
+
 - Different UI states (loading, error, success, empty)
 - Visibility toggles and conditional content
 - Feature flags or permission-based rendering
 - Responsive behavior
 
 ### 7. Props and State Management
+
 - All prop combinations
 - Default props behavior
 - Prop changes and re-renders
@@ -113,47 +120,48 @@ Create tests using Vitest and @testing-library/react that comprehensively cover:
 ## Example Test Structure
 
 ```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { ComponentName } from './ComponentName'
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { ComponentName } from "./ComponentName";
 
-describe('ComponentName', () => {
-  describe('Happy Path', () => {
-    it('renders with required props', () => {
+describe("ComponentName", () => {
+  describe("Happy Path", () => {
+    it("renders with required props", () => {
       // Test implementation
-    })
+    });
 
-    it('handles user interaction correctly', async () => {
-      const user = userEvent.setup()
+    it("handles user interaction correctly", async () => {
+      const user = userEvent.setup();
       // Test implementation
-    })
-  })
+    });
+  });
 
-  describe('Edge Cases', () => {
-    it('handles empty data gracefully', () => {
+  describe("Edge Cases", () => {
+    it("handles empty data gracefully", () => {
       // Test implementation
-    })
-  })
+    });
+  });
 
-  describe('Error Handling', () => {
-    it('displays error message when API fails', async () => {
+  describe("Error Handling", () => {
+    it("displays error message when API fails", async () => {
       // Test implementation
-    })
-  })
+    });
+  });
 
-  describe('Accessibility', () => {
-    it('supports keyboard navigation', async () => {
-      const user = userEvent.setup()
+  describe("Accessibility", () => {
+    it("supports keyboard navigation", async () => {
+      const user = userEvent.setup();
       // Test implementation
-    })
-  })
-})
+    });
+  });
+});
 ```
 
 ## Output
 
 After creating the tests:
+
 1. Show the file path of the created test file
 2. Summarize the test coverage (number of tests per category)
 3. Suggest running: `pnpm test [test-file-path]` to execute the tests
