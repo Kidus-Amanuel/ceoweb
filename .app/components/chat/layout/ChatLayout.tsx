@@ -27,7 +27,7 @@ export function ChatLayout() {
     appendToMessage,
   } = useChatStore();
   const { rightSidebarWidth, toggleRightSidebar } = useLayoutStore();
-  
+
   // Create stable random seed and timestamp on mount
   const randomSeedRef = useRef<string | null>(null);
   const mountTimeRef = useRef<number | null>(null);
