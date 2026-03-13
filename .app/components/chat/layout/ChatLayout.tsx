@@ -28,10 +28,12 @@ export function ChatLayout() {
   } = useChatStore();
   const { rightSidebarWidth, toggleRightSidebar } = useLayoutStore();
   
-  // Create a stable random seed on mount
+  // Create stable random seed and timestamp on mount
   const randomSeedRef = useRef<string | null>(null);
+  const mountTimeRef = useRef<number | null>(null);
   useEffect(() => {
     randomSeedRef.current = Math.random().toString(36).substr(2, 9);
+    mountTimeRef.current = Date.now();
   }, []);
 
   const activeConv =
@@ -49,10 +51,10 @@ export function ChatLayout() {
       setInputValue("");
 
       // Create trace id for debugging
-      const traceId = `trace-${randomSeedRef.current}-${Date.now()}`;
+      const traceId = `trace-${randomSeedRef.current}-${mountTimeRef.current}`;
 
       // Create placeholder AI message
-      const aiId = `ai-msg-${randomSeedRef.current}-${Date.now()}`;
+      const aiId = `ai-msg-${randomSeedRef.current}-${mountTimeRef.current}`;
       const aiMessage: Message = {
         id: aiId,
         senderId: "ai",
