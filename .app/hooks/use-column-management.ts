@@ -133,6 +133,19 @@ export function useColumnManagement<
   }, []);
 
   /**
+   * Update label/options refs + state together (to satisfy immutability linting)
+   */
+  const setNewColLabel = useCallback((value: string) => {
+    newColLabel.current = value;
+    setNewColLabelValue(value);
+  }, []);
+
+  const setNewColOptions = useCallback((value: string) => {
+    newColOptions.current = value;
+    setNewColOptionsValue(value);
+  }, []);
+
+  /**
    * Opens column editor for existing column
    */
   const openColumnForEdit = useCallback((column: VirtualColumn) => {
@@ -204,7 +217,8 @@ export function useColumnManagement<
         ...baseColumns.map((col) =>
           String(
             col.id ??
-              (((col as { accessorKey?: unknown }).accessorKey as string) || ""),
+              (((col as { accessorKey?: unknown }).accessorKey as string) ||
+                ""),
           ),
         ),
         ...virtualColumns.map((col) => col.key),
@@ -305,6 +319,8 @@ export function useColumnManagement<
     setNewColOptionsValue,
     setTypeFilter,
     setColFormError,
+    setNewColLabel,
+    setNewColOptions,
 
     // Operations
     openColumnForEdit,

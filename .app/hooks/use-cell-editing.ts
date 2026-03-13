@@ -20,10 +20,7 @@ export interface UseCellEditingOptions<T> {
   /**
    * Callback when a cell value is saved
    */
-  onUpdate?: (
-    rowId: string,
-    data: Partial<T>,
-  ) => void | Promise<void>;
+  onUpdate?: (rowId: string, data: Partial<T>) => void | Promise<void>;
 
   /**
    * TanStack Table instance for navigation
@@ -41,9 +38,9 @@ export interface UseCellEditingOptions<T> {
  * - Keyboard navigation (Tab/Shift+Tab)
  * - Auto-focus on edit
  */
-export function useCellEditing<T extends { id: string; customValues?: Record<string, unknown> }>(
-  options: UseCellEditingOptions<T>,
-) {
+export function useCellEditing<
+  T extends { id: string; customValues?: Record<string, unknown> },
+>(options: UseCellEditingOptions<T>) {
   const { rowsById, leafColumnsById, onUpdate, table } = options;
 
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
@@ -54,13 +51,22 @@ export function useCellEditing<T extends { id: string; customValues?: Record<str
 
   /**
    * Auto-focus input when editing starts
+   * Match legacy behavior: focus and move caret to end.
    */
   useEffect(() => {
-    if (editingCell && inputRef.current) {
-      inputRef.current.focus();
-      if (typeof inputRef.current.select === "function") {
-        inputRef.current.select();
-      }
+    if (!editingCell || !inputRef.current) return;
+    const el = inputRef.current;
+    el.focus();
+    const len = String(
+      (el as HTMLInputElement | HTMLTextAreaElement).value ?? "",
+    ).length;
+    try {
+      (el as HTMLInputElement | HTMLTextAreaElement).setSelectionRange(
+        len,
+        len,
+      );
+    } catch {
+      // Ignore selection errors
     }
   }, [editingCell]);
 
@@ -88,9 +94,7 @@ export function useCellEditing<T extends { id: string; customValues?: Record<str
    */
   const isCellEditing = useCallback(
     (rowId: string, columnId: string): boolean => {
-      return (
-        editingCell?.id === rowId && editingCell?.columnId === columnId
-      );
+      return editingCell?.id === rowId && editingCell?.columnId === columnId;
     },
     [editingCell],
   );
@@ -119,44 +123,28 @@ export function useCellEditing<T extends { id: string; customValues?: Record<str
       try {
         let payload: Partial<T>;
 
-        if (isVirtual && virtualKey) {
-          // Virtual column: save to customValues
+        if (isVirtual) {
+          const resolvedKey =
+            virtualKey ??
+            leafColumnsById.get(columnId)?.columnDef.meta?.virtualKey ??
+            columnId;
           payload = {
             customValues: {
-              [virtualKey]: value,
+              ...(row.customValues || {}),
+              [resolvedKey]: value,
             },
           } as Partial<T>;
         } else {
-          // Standard column: save directly
-          const column = leafColumnsById.get(columnId);
-          const accessor = column?.columnDef.accessorKey;
-          if (!accessor) return;
-
-          payload = {
-            [accessor as string]: value,
-          } as Partial<T>;
-
-          // Handle dependent columns (e.g., changing customer clears contact)
-          const meta = column.columnDef.meta;
-          if (meta?.optionsByType && meta?.optionsSourceKey) {
-            const sourceKey = meta.optionsSourceKey as string;
-            const currentSourceValue = (row as any)[sourceKey];
-
-            // If source column value changes, clear dependent column
-            if (accessor === sourceKey) {
-              const dependentKey = Object.keys(payload).find(
-                (k) => k !== sourceKey,
-              );
-              if (dependentKey) {
-                (payload as any)[dependentKey] = null;
-              }
-            }
-          }
+          // Standard column: use columnId to match legacy payload shape
+          payload = { [columnId]: value } as Partial<T>;
         }
 
         // Execute update (may be async)
         const maybePromise = onUpdate(id, payload);
-        if (maybePromise && typeof (maybePromise as Promise<void>).then === "function") {
+        if (
+          maybePromise &&
+          typeof (maybePromise as Promise<void>).then === "function"
+        ) {
           await maybePromise;
         }
 

@@ -1,6 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { Table } from "@tanstack/react-table";
-import { resolveMetaForValues, defaultCurrencyOptions } from "@/utils/table-utils";
+import {
+  resolveMetaForValues,
+  defaultCurrencyOptions,
+} from "@/utils/table-utils";
 
 export interface UseRowOperationsOptions<T> {
   /**
@@ -40,7 +43,9 @@ export function useRowOperations<
 
   // Refs
   const addRowRef = useRef<HTMLTableRowElement | null>(null);
-  const addRowFirstInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const addRowFirstInputRef = useRef<
+    HTMLInputElement | HTMLTextAreaElement | null
+  >(null);
 
   /**
    * Auto-focus first cell when adding row
@@ -89,7 +94,9 @@ export function useRowOperations<
 
       table.getVisibleFlatColumns().forEach((column) => {
         const isVirtual = !!column.columnDef.meta?.isVirtual;
-        const virtualKey = String(column.columnDef.meta?.virtualKey ?? column.id);
+        const virtualKey = String(
+          column.columnDef.meta?.virtualKey ?? column.id,
+        );
         const meta = resolveMetaForValues(column.columnDef.meta, {});
 
         // Default value for select/status fields
