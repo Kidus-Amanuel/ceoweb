@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { FleetEntityType, FleetCustomFieldType } from "@/validators/fleet";
+import {
+  ensureNoCustomFieldValues,
+  findMatchingCustomFields,
+} from "@/services/custom-field-guards";
 
 export interface TraccarUserPayload {
   name: string;
@@ -1109,6 +1113,22 @@ export class FleetService {
     if (!company) return { data: null };
 
     const metadata = normalizeMetadata(company.settings);
+    const matchingFields = findMatchingCustomFields(
+      metadata,
+      ["vehicles", "drivers", "maintenance"] as const,
+      fieldId,
+    );
+    const inUseError = await ensureNoCustomFieldValues({
+      supabase,
+      companyId,
+      matches: matchingFields,
+      tableForEntity: (entityType) => FleetService.mapEntityToTable(entityType),
+      hasMeaningfulValue: (value) => hasMeaningfulValue(value),
+      errorMessage:
+        "Cannot remove options already used by existing rows. Add new options instead.",
+    });
+    if (inUseError) return { error: inUseError };
+
     for (const entityType of ["vehicles", "drivers", "maintenance"] as const) {
       const values = metadata[entityType] ?? [];
       metadata[entityType] = values.filter(
