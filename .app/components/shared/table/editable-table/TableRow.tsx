@@ -33,6 +33,13 @@ interface TableRowProps<T extends { id: string }> {
     isVirtual: boolean,
     virtualKey?: string,
   ) => void;
+  onOpenFilesEditor: (payload: {
+    id: string;
+    columnId: string;
+    isVirtual: boolean;
+    virtualKey?: string;
+    value: any;
+  }) => void;
   onDeleteClick: (target: DeleteTarget) => void;
   onRowResizeMouseDown?: (
     event: React.MouseEvent<HTMLTableRowElement>,
@@ -75,6 +82,7 @@ function TableRowComponent<
   onCancelEdit,
   onSave,
   onDeleteClick,
+  onOpenFilesEditor,
   onRowResizeMouseDown,
   onRegisterRef,
   getColumnSizeClasses,
@@ -123,6 +131,14 @@ function TableRowComponent<
         const isVirtual = !!cell.column.columnDef.meta?.isVirtual;
         const virtualKey = cell.column.columnDef.meta?.virtualKey;
         const dataFieldKey = String(virtualKey ?? cell.column.id);
+        const openFilesEditor = () =>
+          onOpenFilesEditor({
+            id: row.original.id,
+            columnId: cell.column.id,
+            isVirtual,
+            virtualKey,
+            value: val,
+          });
         const sizeClasses = getColumnSizeClasses(
           dataFieldKey,
           isVirtual,
@@ -205,6 +221,7 @@ function TableRowComponent<
                 dataFieldKey={dataFieldKey}
                 onEditValueChange={onEditValueChange}
                 onNavigate={onNavigate}
+                onOpenFilesEditor={openFilesEditor}
                 onCommit={(v) =>
                   onSave(
                     row.original.id,

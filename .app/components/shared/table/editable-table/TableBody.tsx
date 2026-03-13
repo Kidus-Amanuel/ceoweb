@@ -54,6 +54,13 @@ interface EditableTableBodyProps<T extends { id: string }> {
   onAddCommit: () => void;
   onAddCancel: () => void;
   onStartEditNewRow: (columnId: string) => void;
+  onOpenFilesEditor: (payload: {
+    id: string;
+    columnId: string;
+    isVirtual: boolean;
+    virtualKey?: string;
+    value: any;
+  }) => void;
 
   // Utility functions
   getColumnSizeClasses: (
@@ -102,6 +109,7 @@ export function EditableTableBody<
   onAddCommit,
   onAddCancel,
   onStartEditNewRow,
+  onOpenFilesEditor,
   getColumnSizeClasses,
   isEmailColumn,
   isPhoneColumn,
@@ -129,6 +137,7 @@ export function EditableTableBody<
             onDeleteClick={onDeleteClick}
             onRowResizeMouseDown={onRowResizeMouseDown}
             onRegisterRef={onRegisterRef}
+            onOpenFilesEditor={onOpenFilesEditor}
             getColumnSizeClasses={getColumnSizeClasses}
             isEmailColumn={isEmailColumn}
             isPhoneColumn={isPhoneColumn}
@@ -199,6 +208,20 @@ export function EditableTableBody<
                           ]
                         : newRowData[columnId]
                     }
+                    onClick={() => {
+                      if (meta?.type !== "files") return;
+                      onOpenFilesEditor({
+                        id: "new-row",
+                        columnId,
+                        isVirtual,
+                        virtualKey,
+                        value: isVirtual
+                          ? newRowData.customValues?.[
+                              String(virtualKey ?? columnId)
+                            ]
+                          : newRowData[columnId],
+                      });
+                    }}
                     onChange={(nextValue) => {
                       const next = { ...newRowData };
                       if (isVirtual) {

@@ -30,6 +30,10 @@ const DeleteConfirmationDialog = dynamic(
   () => import("./editable-table/DeleteConfirmationDialog"),
   { loading: () => null, ssr: false },
 );
+const FilesEditor = dynamic(() => import("./editable-table/FilesEditor"), {
+  loading: () => null,
+  ssr: false,
+});
 
 const useSafeTableInterop = <TData extends RowData>(
   options: Parameters<typeof useReactTable<TData>>[0],
@@ -69,6 +73,14 @@ interface EditableTableProps<
   isFetchingMoreRows?: boolean;
 }
 
+type FileEditingCell = {
+  id: string;
+  columnId: string;
+  isVirtual: boolean;
+  virtualKey?: string;
+  value: any;
+};
+
 export function EditableTable<
   T extends { id: string; customValues?: Record<string, any> },
 >({
@@ -104,6 +116,8 @@ export function EditableTable<
   const rowElementsRef = useRef<Record<string, HTMLTableRowElement | null>>({});
   const [rowHeights, setRowHeights] = useState<Record<string, number>>({});
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
+  const [fileEditingCell, setFileEditingCell] =
+    useState<FileEditingCell | null>(null);
 
   // Custom hooks
   const tableState = useTableState({
@@ -265,6 +279,10 @@ export function EditableTable<
     onAdd,
     onDelete,
   });
+
+  const openFilesEditor = useCallback((payload: FileEditingCell) => {
+    setFileEditingCell(payload);
+  }, []);
 
   // Utility functions
   const isEmailColumn = (columnId: string, type: unknown) =>
@@ -512,6 +530,7 @@ export function EditableTable<
               onStartEditNewRow={(columnId) =>
                 cellEditing.startEditing("new", columnId, "")
               }
+              onOpenFilesEditor={openFilesEditor}
               getColumnSizeClasses={getColumnSizeClasses}
               isEmailColumn={isEmailColumn}
               isPhoneColumn={isPhoneColumn}
@@ -609,13 +628,13 @@ export function EditableTable<
         onConfirmColumn={onColumnDelete}
       />
       {fileEditingCell && (
-        <EditorComponent
+        <FilesEditor
           open={!!fileEditingCell}
           onClose={() => setFileEditingCell(null)}
           onSave={(files: any[]) => {
             if (fileEditingCell) {
               if (fileEditingCell.id === "new-row") {
-                setNewRowData((prev) => {
+                rowOperations.setNewRowData((prev) => {
                   const next = { ...prev };
                   if (fileEditingCell.isVirtual) {
                     return {
@@ -631,7 +650,7 @@ export function EditableTable<
                   return next;
                 });
               } else {
-                handleSave(
+                cellEditing.handleSave(
                   fileEditingCell.id,
                   fileEditingCell.columnId,
                   files,

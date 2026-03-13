@@ -24,6 +24,7 @@ interface CellRendererProps<T> {
   dataFieldKey: string;
   onEditValueChange: (value: any) => void;
   onNavigate: (direction: "next" | "prev") => void;
+  onOpenFilesEditor?: () => void;
   onCommit: (value?: any) => void;
   onCancel: () => void;
   onSave: (
@@ -57,6 +58,7 @@ export function CellRenderer<T extends { id: string }>({
   dataFieldKey,
   onEditValueChange,
   onNavigate,
+  onOpenFilesEditor,
   onCommit,
   onCancel,
   onSave,
@@ -74,6 +76,7 @@ export function CellRenderer<T extends { id: string }>({
         value={editValue}
         onChange={onEditValueChange}
         onNavigate={onNavigate}
+        onClick={meta?.type === "files" ? onOpenFilesEditor : undefined}
         onCommit={onCommit}
         onCancel={onCancel}
       />
