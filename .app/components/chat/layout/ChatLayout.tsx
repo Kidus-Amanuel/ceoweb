@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Message } from "@/types/chat";
 // import { ChatSidebar } from "./ChatSidebar";
 import { ChatHeader } from "./ChatHeader";
@@ -27,6 +27,12 @@ export function ChatLayout() {
     appendToMessage,
   } = useChatStore();
   const { rightSidebarWidth, toggleRightSidebar } = useLayoutStore();
+  
+  // Create a stable random seed on mount
+  const randomSeedRef = useRef<string | null>(null);
+  useEffect(() => {
+    randomSeedRef.current = Math.random().toString(36).substr(2, 9);
+  }, []);
 
   const activeConv =
     conversations.find((c) => c.id === activeConversationId) ||
@@ -42,11 +48,11 @@ export function ChatLayout() {
       sendMessage(activeConv.id, inputValue);
       setInputValue("");
 
-      // Create trace id for debugging - use Math.random directly since it's a one-time call
-      const traceId = `trace-${Math.random().toString(36).substr(2, 9)}`;
+      // Create trace id for debugging
+      const traceId = `trace-${randomSeedRef.current}-${Date.now()}`;
 
-      // Create placeholder AI message - use Math.random directly since it's a one-time call
-      const aiId = `ai-msg-${Math.random().toString(36).substr(2, 9)}`;
+      // Create placeholder AI message
+      const aiId = `ai-msg-${randomSeedRef.current}-${Date.now()}`;
       const aiMessage: Message = {
         id: aiId,
         senderId: "ai",
