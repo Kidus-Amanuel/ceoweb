@@ -42,12 +42,11 @@ export function ChatLayout() {
       sendMessage(activeConv.id, inputValue);
       setInputValue("");
 
-      // Create trace id for debugging
-      // Use useState or useRef to generate stable ids if needed
-      const [traceId] = useState(`trace-${Math.random().toString(36).substr(2, 9)}`);
+      // Create trace id for debugging - use Math.random directly since it's a one-time call
+      const traceId = `trace-${Math.random().toString(36).substr(2, 9)}`;
 
-      // Create placeholder AI message
-      const [aiId] = useState(`ai-msg-${Math.random().toString(36).substr(2, 9)}`);
+      // Create placeholder AI message - use Math.random directly since it's a one-time call
+      const aiId = `ai-msg-${Math.random().toString(36).substr(2, 9)}`;
       const aiMessage: Message = {
         id: aiId,
         senderId: "ai",
