@@ -43,10 +43,11 @@ export function ChatLayout() {
       setInputValue("");
 
       // Create trace id for debugging
-      const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+      // Use useState or useRef to generate stable ids if needed
+      const [traceId] = useState(`trace-${Math.random().toString(36).substr(2, 9)}`);
 
       // Create placeholder AI message
-      const aiId = `ai-msg-${Date.now()}`;
+      const [aiId] = useState(`ai-msg-${Math.random().toString(36).substr(2, 9)}`);
       const aiMessage: Message = {
         id: aiId,
         senderId: "ai",
