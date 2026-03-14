@@ -205,6 +205,12 @@ export default function ActivitiesTab({
     () => toVirtualColumns(columnDefinitions),
     [columnDefinitions],
   );
+  const getColumnLabel = useCallback(
+    (columnId: string) =>
+      virtualColumns.find((column) => column.id === columnId)?.label ??
+      "Custom field",
+    [virtualColumns],
+  );
 
   const queryError =
     (rowsQuery.error instanceof Error && rowsQuery.error.message) ||
@@ -423,7 +429,7 @@ export default function ActivitiesTab({
         throw new Error(response.error || "Failed to create custom field.");
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, column) => {
       void queryClient.invalidateQueries({
         queryKey: crmKeys.columns({ companyId, table: TABLE }),
       });
@@ -431,14 +437,16 @@ export default function ActivitiesTab({
       showCrmToast({
         op: "columnCreate",
         tableLabel: "Activities",
+        subjectLabel: column.label,
         mode: "success",
         message: "Field added.",
       });
     },
-    onError: (mutationError) => {
+    onError: (mutationError, column) => {
       showCrmToast({
         op: "columnCreate",
         tableLabel: "Activities",
+        subjectLabel: column.label,
         mode: "error",
         message:
           mutationError instanceof Error
@@ -478,7 +486,7 @@ export default function ActivitiesTab({
         throw new Error(response.error || "Failed to update custom field.");
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({
         queryKey: crmKeys.columns({ companyId, table: TABLE }),
       });
@@ -486,14 +494,16 @@ export default function ActivitiesTab({
       showCrmToast({
         op: "columnUpdate",
         tableLabel: "Activities",
+        subjectLabel: variables.column.label,
         mode: "success",
         message: "Field updated.",
       });
     },
-    onError: (mutationError) => {
+    onError: (mutationError, variables) => {
       showCrmToast({
         op: "columnUpdate",
         tableLabel: "Activities",
+        subjectLabel: variables.column.label,
         mode: "error",
         message:
           mutationError instanceof Error
@@ -513,7 +523,7 @@ export default function ActivitiesTab({
         throw new Error(response.error || "Failed to delete custom field.");
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, columnId) => {
       void queryClient.invalidateQueries({
         queryKey: crmKeys.columns({ companyId, table: TABLE }),
       });
@@ -521,14 +531,16 @@ export default function ActivitiesTab({
       showCrmToast({
         op: "columnDelete",
         tableLabel: "Activities",
+        subjectLabel: getColumnLabel(columnId),
         mode: "success",
         message: "Field deleted.",
       });
     },
-    onError: (mutationError) => {
+    onError: (mutationError, columnId) => {
       showCrmToast({
         op: "columnDelete",
         tableLabel: "Activities",
+        subjectLabel: getColumnLabel(columnId),
         mode: "error",
         message:
           mutationError instanceof Error
@@ -595,7 +607,11 @@ export default function ActivitiesTab({
   );
   const handleDeleteColumn = useCallback(
     async (columnId: string) => {
-      await deleteColumnMutation.mutateAsync(columnId);
+      try {
+        await deleteColumnMutation.mutateAsync(columnId);
+      } catch {
+        // Error toast handled by mutation onError; prevent runtime overlay
+      }
     },
     [deleteColumnMutation],
   );
