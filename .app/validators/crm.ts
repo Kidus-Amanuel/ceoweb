@@ -1,9 +1,18 @@
-import { z } from "zod";
+import * as z from "zod";
 import {
   CRM_TABLE_PAGE_SIZE_DEFAULT,
   CRM_TABLE_PAGE_SIZE_MAX,
 } from "@/lib/constants/crm-pagination";
+import {
+  optionalInput,
+  companyScopeSchema,
+  customDataSchema,
+  createCustomFieldSchema,
+  deleteCustomFieldSchema,
+  customFieldTypeSchema,
+} from "./shared";
 
+// Activity Enums
 const crmActivityTypeSchema = z.enum([
   "call",
   "email",
@@ -15,10 +24,6 @@ const crmDateTimeSchema = z
   .string()
   .min(1)
   .refine((value) => !Number.isNaN(Date.parse(value)), "Invalid date/time");
-const emptyToUndefined = (value: unknown) =>
-  value === "" || value === null ? undefined : value;
-const optionalInput = <T extends z.ZodTypeAny>(schema: T) =>
-  z.preprocess(emptyToUndefined, schema.optional());
 
 const internationalPhoneSchema = z
   .string()
@@ -33,6 +38,7 @@ const internationalPhoneSchema = z
       message: "Please enter a valid international phone number.",
     },
   );
+
 const dealContactInputSchema = z
   .string()
   .trim()
@@ -45,48 +51,24 @@ const dealContactInputSchema = z
       message: "Contact must be a valid UUID, email, or phone number.",
     },
   );
+
 const optionalNullableDateTimeInput = z.preprocess(
   (value) => (value === "" ? undefined : value),
   z.union([crmDateTimeSchema, z.null()]).optional(),
 );
 
+// Table & Entity Types
 export const crmTableSchema = z.enum(["customers", "deals", "activities"]);
-export const crmEntityTypeSchema = z.enum(["customers", "deals", "activities"]);
-export const crmCustomFieldTypeSchema = z.enum([
-  "text",
-  "number",
-  "date",
-  "datetime",
-  "select",
-  "boolean",
-  "currency",
-  "phone",
-  "email",
-]);
+export const crmEntityTypeSchema = crmTableSchema;
 
-export const crmCompanyScopeSchema = z.object({
-  companyId: z.string().uuid("Invalid company id"),
-});
+// Custom Field Types (Re-exporting shared)
+export const crmCustomFieldTypeSchema = customFieldTypeSchema;
 
-const jsonPrimitiveSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-]);
+// Row Management Input Schemas
+export const crmCompanyScopeSchema = companyScopeSchema;
+export const crmCustomDataSchema = customDataSchema;
 
-const jsonValueSchema: z.ZodTypeAny = z.lazy(() =>
-  z.union([
-    jsonPrimitiveSchema,
-    z.array(jsonValueSchema),
-    z.record(z.string(), jsonValueSchema),
-  ]),
-);
-
-export const crmCustomDataSchema = z
-  .record(z.string(), jsonValueSchema)
-  .default({});
-
+// Standard Record Schemas
 export const crmCustomerStandardSchema = z.object({
   name: optionalInput(z.string().min(1).max(255)),
   email: optionalInput(z.string().email()),
@@ -151,29 +133,18 @@ export const crmTableViewInputSchema = crmCompanyScopeSchema.extend({
   search: optionalInput(z.string().max(120)),
 });
 
-export const crmCreateCustomFieldInputSchema = crmCompanyScopeSchema.extend({
-  entityType: crmEntityTypeSchema,
-  fieldLabel: z.string().min(1).max(120),
-  fieldName: z
-    .string()
-    .min(1)
-    .max(120)
-    .regex(/^[a-zA-Z][a-zA-Z0-9_]*$/)
-    .optional(),
-  fieldType: crmCustomFieldTypeSchema,
-  fieldOptions: z.array(z.string().min(1)).optional(),
-  isRequired: z.boolean().optional(),
-});
+// Custom Field Definition Input Schemas
+export const crmCreateCustomFieldInputSchema =
+  createCustomFieldSchema(crmEntityTypeSchema);
 
 export const crmUpdateCustomFieldInputSchema =
   crmCreateCustomFieldInputSchema.extend({
     fieldId: z.string().min(1, "Invalid custom field id"),
   });
 
-export const crmDeleteCustomFieldInputSchema = crmCompanyScopeSchema.extend({
-  fieldId: z.string().min(1, "Invalid custom field id"),
-});
+export const crmDeleteCustomFieldInputSchema = deleteCustomFieldSchema;
 
+// Row CRUD Input Schemas
 export const crmCreateRowInputSchema = z.discriminatedUnion("table", [
   crmCompanyScopeSchema.extend({
     table: z.literal("customers"),
@@ -220,6 +191,7 @@ export const crmDeleteRowInputSchema = crmTableViewInputSchema.extend({
   rowId: z.string().uuid("Invalid row id"),
 });
 
+// Types
 export type CrmTable = z.infer<typeof crmTableSchema>;
 export type CrmEntityType = z.infer<typeof crmEntityTypeSchema>;
 export type CrmCustomFieldType = z.infer<typeof crmCustomFieldTypeSchema>;

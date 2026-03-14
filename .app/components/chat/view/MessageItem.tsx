@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { AIMarkupRenderer } from "./AIMarkupRenderer";
 import { cn } from "@/lib/utils";
 import {
   Sparkles,
@@ -97,11 +98,15 @@ export function MessageItem({ message, isLast }: MessageProps) {
               isMe
                 ? "bg-primary text-white rounded-tr-none font-medium"
                 : isAI
-                  ? "bg-muted/30 border border-primary/10 text-foreground rounded-tl-none font-medium italic"
+                  ? "bg-muted/30 border border-primary/10 text-foreground rounded-tl-none font-medium"
                   : "bg-background border border-border/20 text-foreground rounded-tl-none font-medium group-hover:border-primary/20",
             )}
           >
-            {message.content}
+            {isAI ? (
+              <AIMarkupRenderer content={message.content} />
+            ) : (
+              message.content
+            )}
           </div>
         )}
 

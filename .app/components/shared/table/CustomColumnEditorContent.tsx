@@ -17,7 +17,8 @@ export type ColumnFieldType =
   | "currency"
   | "status"
   | "phone"
-  | "email";
+  | "email"
+  | "files";
 
 export type ColumnFieldChoice = {
   key: string;
@@ -138,7 +139,7 @@ export function CustomColumnEditorContent({
               key={`col-options-${seed}`}
               placeholder={
                 currentType === "currency"
-                  ? "e.g. USD, EUR, ETB"
+                  ? "e.g. ETB, USD, EUR, JPY"
                   : currentType === "status"
                     ? "e.g. Pending, In Progress, Done, Cancelled"
                     : "e.g. High, Medium, Low"

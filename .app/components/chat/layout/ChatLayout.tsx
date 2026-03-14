@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChatSidebar } from "./ChatSidebar";
+import { Message } from "@/types/chat";
+// import { ChatSidebar } from "./ChatSidebar";
 import { ChatHeader } from "./ChatHeader";
 import { ChatMessages } from "../view/ChatMessages";
 import { ChatInput } from "../input/ChatInput";
@@ -17,8 +18,14 @@ export function ChatLayout() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"chat" | "ai" | "calls">("chat");
   const [inputValue, setInputValue] = useState("");
-  const { activeConversationId, conversations, messages, sendMessage } =
-    useChatStore();
+  const {
+    activeConversationId,
+    conversations,
+    messages,
+    sendMessage,
+    addMessage,
+    appendToMessage,
+  } = useChatStore();
   const { rightSidebarWidth, toggleRightSidebar } = useLayoutStore();
 
   const activeConv =
@@ -26,15 +33,91 @@ export function ChatLayout() {
     conversations.find((c) => c.type === "ai");
   const currentMessages = messages[activeConv?.id || ""] || [];
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputValue.trim() || !activeConv) return;
-    sendMessage(activeConv.id, inputValue);
-    setInputValue("");
+
+    // For AI conversations, we need to call the AI agent API
+    if (activeTab === "ai" || activeConv.type === "ai") {
+      // Add user message to chat store
+      sendMessage(activeConv.id, inputValue);
+      setInputValue("");
+
+      // Create trace id for debugging
+      const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+      // Create placeholder AI message
+      const aiId = `ai-msg-${Date.now()}`;
+      const aiMessage: Message = {
+        id: aiId,
+        senderId: "ai",
+        content: "",
+        createdAt: new Date().toISOString(),
+        type: "text",
+      };
+
+      // Add placeholder message to chat
+      addMessage(activeConv.id, aiMessage);
+
+      try {
+        // Prepare history for API - include the new user message
+        const history = [
+          ...currentMessages.map((m) => ({
+            role: m.senderId === "ai" ? "assistant" : "user",
+            content: m.content,
+          })),
+          {
+            role: "user",
+            content: inputValue,
+          },
+        ];
+
+        console.debug(
+          "[ChatLayout] invoking /api/ai/agent with history length",
+          history.length,
+          "traceId",
+          traceId,
+        );
+        const res = await fetch("/api/ai/agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: history, traceId }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          console.error(
+            "[ChatLayout] /api/ai/agent returned non-ok",
+            res.status,
+            text,
+          );
+          appendToMessage(
+            activeConv.id,
+            aiId,
+            ` [error: ${res.status}] ${text}`,
+          );
+          return;
+        }
+
+        const data = await res.json();
+        if (data.content) {
+          appendToMessage(activeConv.id, aiId, data.content);
+        } else {
+          appendToMessage(activeConv.id, aiId, "No response received");
+        }
+      } catch (err) {
+        appendToMessage(activeConv.id, aiId, " [error fetching response]");
+        console.error("AI stream error", err);
+      }
+    } else {
+      // For regular conversations, use existing behavior
+      sendMessage(activeConv.id, inputValue);
+      setInputValue("");
+    }
   };
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-background">
-      <ChatSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      {/* <ChatSidebar activeTab={activeTab} setActiveTab={setActiveTab} /> */}
 
       <div className="flex-1 flex flex-col min-w-0 bg-background/50">
         <AnimatePresence mode="wait">

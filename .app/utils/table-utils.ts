@@ -62,8 +62,8 @@ export const allowedTypes: VirtualColumn["type"][] = [
   "json",
   "currency",
   "status",
-  "phone",
   "email",
+  "files",
 ];
 export const asColumnType = (v: unknown): VirtualColumn["type"] =>
   allowedTypes.includes(v as VirtualColumn["type"])
@@ -286,7 +286,9 @@ export const getTypeIcon = (type: unknown) => {
                     ? Mail
                     : t === "json"
                       ? Braces
-                      : AlignLeft;
+                      : t === "files"
+                        ? Paperclip
+                        : AlignLeft;
 };
 
 export const getTypeIconTone = (type: unknown) => {
@@ -311,7 +313,9 @@ export const getTypeIconTone = (type: unknown) => {
                     ? "text-blue-700 bg-blue-50 border-blue-200"
                     : t === "json"
                       ? "text-slate-700 bg-slate-100 border-slate-200"
-                      : "text-blue-700 bg-blue-50 border-blue-200";
+                      : t === "files"
+                        ? "text-indigo-700 bg-indigo-50 border-indigo-200"
+                        : "text-blue-700 bg-blue-50 border-blue-200";
 };
 
 export const fieldTypeChoices: ColumnFieldChoice[] = [
@@ -372,27 +376,6 @@ export const fieldTypeChoices: ColumnFieldChoice[] = [
     enabled: true,
   },
   {
-    key: "person",
-    label: "Person",
-    icon: SquareUserRound,
-    tone: "text-teal-700 bg-teal-50 border-teal-200",
-    enabled: false,
-  },
-  {
-    key: "files",
-    label: "Files & media",
-    icon: Paperclip,
-    tone: "text-indigo-700 bg-indigo-50 border-indigo-200",
-    enabled: false,
-  },
-  {
-    key: "url",
-    label: "URL",
-    icon: Link2,
-    tone: "text-sky-700 bg-sky-50 border-sky-200",
-    enabled: false,
-  },
-  {
     key: "phone",
     label: "Phone",
     icon: Phone,
@@ -407,45 +390,66 @@ export const fieldTypeChoices: ColumnFieldChoice[] = [
     enabled: true,
   },
   {
-    key: "relation",
-    label: "Relation",
-    icon: GitBranch,
-    tone: "text-slate-700 bg-slate-100 border-slate-200",
-    enabled: false,
+    key: "files",
+    label: "Files & media",
+    icon: Paperclip,
+    tone: "text-indigo-700 bg-indigo-50 border-indigo-200",
+    enabled: true,
   },
-  {
-    key: "rollup",
-    label: "Rollup",
-    icon: Sigma,
-    tone: "text-slate-700 bg-slate-100 border-slate-200",
-    enabled: false,
-  },
-  {
-    key: "formula",
-    label: "Formula",
-    icon: Braces,
-    tone: "text-orange-700 bg-orange-50 border-orange-200",
-    enabled: false,
-  },
-  {
-    key: "id",
-    label: "ID",
-    icon: Fingerprint,
-    tone: "text-zinc-700 bg-zinc-100 border-zinc-200",
-    enabled: false,
-  },
-  {
-    key: "button",
-    label: "Button",
-    icon: MousePointerSquareDashed,
-    tone: "text-blue-700 bg-blue-50 border-blue-200",
-    enabled: false,
-  },
-  {
-    key: "place",
-    label: "Place",
-    icon: MapPin,
-    tone: "text-rose-700 bg-rose-50 border-rose-200",
-    enabled: false,
-  },
+  // {
+  //   key: "person",
+  //   label: "Person",
+  //   icon: SquareUserRound,
+  //   tone: "text-teal-700 bg-teal-50 border-teal-200",
+  //   enabled: false,
+  // },
+  // {
+  //   key: "url",
+  //   label: "URL",
+  //   icon: Link2,
+  //   tone: "text-sky-700 bg-sky-50 border-sky-200",
+  //   enabled: false,
+  // },
+  // {
+  //   key: "relation",
+  //   label: "Relation",
+  //   icon: GitBranch,
+  //   tone: "text-slate-700 bg-slate-100 border-slate-200",
+  //   enabled: false,
+  // },
+  // {
+  //   key: "rollup",
+  //   label: "Rollup",
+  //   icon: Sigma,
+  //   tone: "text-slate-700 bg-slate-100 border-slate-200",
+  //   enabled: false,
+  // },
+  // {
+  //   key: "formula",
+  //   label: "Formula",
+  //   icon: Braces,
+  //   tone: "text-orange-700 bg-orange-50 border-orange-200",
+  //   enabled: false,
+  // },
+  // {
+  //   key: "id",
+  //   label: "ID",
+  //   icon: Fingerprint,
+  //   tone: "text-zinc-700 bg-zinc-100 border-zinc-200",
+  //   enabled: false,
+  // },
+  // {
+  //   key: "button",
+  //   label: "Button",
+  //   icon: MousePointerSquareDashed,
+  //   tone: "text-blue-700 bg-blue-50 border-blue-200",
+  //   enabled: false,
+  // },
+  // {
+  //   key: "place",
+  //   label: "Place",
+  //   icon: MapPin,
+  //   tone: "text-rose-700 bg-rose-50 border-rose-200",
+  //   enabled: false,
+  // },
 ];
