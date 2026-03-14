@@ -12,6 +12,10 @@ import {
   CrmTable,
   CrmUpdateRowInput,
 } from "@/validators/crm";
+import {
+  ensureNoCustomFieldValues,
+  findMatchingCustomFields,
+} from "@/services/custom-field-guards";
 
 type ServiceResult<T> = {
   data?: T;
@@ -1756,6 +1760,23 @@ export const crmService = {
     }
 
     const metadata = normalizeMetadata(company.settings);
+    const matchingFields = findMatchingCustomFields(
+      metadata,
+      ["customers", "deals", "activities"] as const,
+      fieldId,
+    );
+    const inUseError = await ensureNoCustomFieldValues({
+      supabase,
+      companyId,
+      matches: matchingFields,
+      hasMeaningfulValue: (value) => hasMeaningfulValue(value),
+      errorMessage:
+        "Cannot remove options already used by existing rows. Add new options instead.",
+    });
+    if (inUseError) {
+      return { error: inUseError };
+    }
+
     for (const entityType of ["customers", "deals", "activities"] as const) {
       const values = metadata[entityType] ?? [];
       metadata[entityType] = values.filter(

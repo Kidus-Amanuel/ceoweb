@@ -837,7 +837,11 @@ export function useCrmEntityTab({
   );
   const handleDeleteColumn = useCallback(
     async (columnId: string) => {
-      await deleteColumnMutation.mutateAsync(columnId);
+      try {
+        await deleteColumnMutation.mutateAsync(columnId);
+      } catch {
+        // error toast handled in mutation onError
+      }
     },
     [deleteColumnMutation],
   );

@@ -14,6 +14,7 @@ type CrmToastOp =
 type CrmToastArgs = {
   op: CrmToastOp;
   tableLabel: string;
+  subjectLabel?: string;
   mode: "success" | "error";
   message?: string;
 };
@@ -41,10 +42,11 @@ const shouldEmit = (key: string) => {
 export const showCrmToast = ({
   op,
   tableLabel,
+  subjectLabel,
   mode,
   message,
 }: CrmToastArgs) => {
-  const title = `${labels[op]} - ${tableLabel}`;
+  const title = `${labels[op]} - ${subjectLabel || tableLabel}`;
   const normalizedMessage = toFriendlyCrmError(
     message ||
       (mode === "success"
