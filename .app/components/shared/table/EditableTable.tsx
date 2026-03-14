@@ -521,7 +521,7 @@ export function EditableTable<
               onNavigate={cellEditing.moveToNeighborCell}
               onCancelEdit={cellEditing.cancelEditing}
               onSave={cellEditing.handleSave}
-              onDeleteClick={setDeleteTarget}
+              onDeleteClick={(target) => setDeleteTarget(target)}
               onRowResizeMouseDown={handleRowResizeMouseDown}
               onRegisterRef={registerRowRef}
               onNewRowDataChange={rowOperations.setNewRowData}

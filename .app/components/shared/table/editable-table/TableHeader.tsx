@@ -16,7 +16,10 @@ import {
 import { CustomColumnEditorContent } from "../CustomColumnEditorContent";
 import { getTypeIcon, getTypeIconTone } from "@/utils/table-utils";
 import type { VirtualColumn } from "@/utils/table-utils";
-import type { ColumnFieldType } from "../CustomColumnEditorContent";
+import type {
+  ColumnFieldChoice,
+  ColumnFieldType,
+} from "../CustomColumnEditorContent";
 
 interface EditableTableHeaderProps<T extends { id: string }> {
   headerGroups: HeaderGroup<T>[];
@@ -32,7 +35,7 @@ interface EditableTableHeaderProps<T extends { id: string }> {
   newColLabelValue: string;
   newColOptionsValue: string;
   typeFilter: string;
-  filteredTypeChoices: { label: string; key: string; icon: any }[];
+  filteredTypeChoices: ColumnFieldChoice[];
   editingColumn: VirtualColumn | null;
   editingColumnHasValues: boolean;
 

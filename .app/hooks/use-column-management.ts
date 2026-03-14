@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { VirtualColumn } from "@/utils/table-utils";
+import type { ColumnFieldChoice } from "@/components/shared/table/CustomColumnEditorContent";
 import {
   asColumnType,
   hasMeaningfulCustomValue,
@@ -108,7 +109,7 @@ export function useColumnManagement<
   /**
    * Filters field type choices based on search query
    */
-  const filteredTypeChoices = useMemo(() => {
+  const filteredTypeChoices = useMemo<ColumnFieldChoice[]>(() => {
     const q = norm(typeFilter);
     if (!q) return fieldTypeChoices;
     return fieldTypeChoices.filter(

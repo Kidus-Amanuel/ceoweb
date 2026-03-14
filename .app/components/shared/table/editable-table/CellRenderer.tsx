@@ -20,7 +20,7 @@ interface CellRendererProps<T> {
   meta: any;
   isVirtual: boolean;
   virtualKey?: string;
-  inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement>;
+  inputRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
   dataFieldKey: string;
   onEditValueChange: (value: any) => void;
   onNavigate: (direction: "next" | "prev") => void;
@@ -124,6 +124,28 @@ export function CellRenderer<T extends { id: string }>({
         }
         onClick={(event) => event.stopPropagation()}
       />
+    );
+  }
+
+  // Files field: show add/manage button in read mode
+  if (meta?.type === "files") {
+    const files = Array.isArray(val) ? val : [];
+    const count = files.length;
+    return (
+      <button
+        type="button"
+        className={cn(
+          "inline-flex items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50/50 px-2.5 py-1.5 hover:bg-indigo-50 transition-colors",
+        )}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenFilesEditor?.();
+        }}
+      >
+        <span className="text-xs font-medium text-indigo-700">
+          {count > 0 ? `${count} file${count > 1 ? "s" : ""}` : "Add files"}
+        </span>
+      </button>
     );
   }
 

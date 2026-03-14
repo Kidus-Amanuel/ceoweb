@@ -3,17 +3,23 @@ import {
   CRM_TABLE_PAGE_SIZE_DEFAULT,
   CRM_TABLE_PAGE_SIZE_MAX,
 } from "@/lib/constants/crm-pagination";
-import { 
-  optionalInput, 
-  companyScopeSchema, 
-  customDataSchema, 
+import {
+  optionalInput,
+  companyScopeSchema,
+  customDataSchema,
   createCustomFieldSchema,
   deleteCustomFieldSchema,
-  customFieldTypeSchema
+  customFieldTypeSchema,
 } from "./shared";
 
 // Activity Enums
-const crmActivityTypeSchema = z.enum(["call", "email", "meeting", "note", "task"]);
+const crmActivityTypeSchema = z.enum([
+  "call",
+  "email",
+  "meeting",
+  "note",
+  "task",
+]);
 const crmDateTimeSchema = z
   .string()
   .min(1)
@@ -128,7 +134,8 @@ export const crmTableViewInputSchema = crmCompanyScopeSchema.extend({
 });
 
 // Custom Field Definition Input Schemas
-export const crmCreateCustomFieldInputSchema = createCustomFieldSchema(crmEntityTypeSchema);
+export const crmCreateCustomFieldInputSchema =
+  createCustomFieldSchema(crmEntityTypeSchema);
 
 export const crmUpdateCustomFieldInputSchema =
   crmCreateCustomFieldInputSchema.extend({

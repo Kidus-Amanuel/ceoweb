@@ -11,6 +11,8 @@ import { resolveMetaForValues } from "@/utils/table-utils";
 import type { DeleteTarget } from "./DeleteConfirmationDialog";
 import type { EditingCell } from "@/hooks/use-cell-editing";
 
+type DeleteRowTarget = Exclude<DeleteTarget, null>;
+
 interface TableRowProps<T extends { id: string }> {
   row: Row<T>;
   columnsSignature: string;
@@ -40,7 +42,7 @@ interface TableRowProps<T extends { id: string }> {
     virtualKey?: string;
     value: any;
   }) => void;
-  onDeleteClick: (target: DeleteTarget) => void;
+  onDeleteClick: (target: DeleteRowTarget) => void;
   onRowResizeMouseDown?: (
     event: React.MouseEvent<HTMLTableRowElement>,
     rowId: string,

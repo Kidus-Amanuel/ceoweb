@@ -12,6 +12,9 @@ import { SmartEditor } from "@/components/shared/table/SmartEditor";
 import { EditableTableRow } from "./TableRow";
 import { resolveMetaForValues, prettifyColumnKey } from "@/utils/table-utils";
 import type { EditingCell } from "@/hooks/use-cell-editing";
+import type { DeleteTarget } from "./DeleteConfirmationDialog";
+
+type DeleteRowTarget = Exclude<DeleteTarget, null>;
 
 interface EditableTableBodyProps<T extends { id: string }> {
   table: Table<T>;
@@ -44,7 +47,7 @@ interface EditableTableBodyProps<T extends { id: string }> {
     isVirtual: boolean,
     virtualKey?: string,
   ) => void;
-  onDeleteClick: (target: { kind: "row"; id: string; label: string }) => void;
+  onDeleteClick: (target: DeleteRowTarget) => void;
   onRowResizeMouseDown?: (
     event: React.MouseEvent<HTMLTableRowElement>,
     rowId: string,

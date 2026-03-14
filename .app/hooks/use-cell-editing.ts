@@ -47,7 +47,7 @@ export function useCellEditing<
   const [editValue, setEditValue] = useState<any>("");
 
   // Ref for auto-focusing the input when editing starts
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
   /**
    * Auto-focus input when editing starts

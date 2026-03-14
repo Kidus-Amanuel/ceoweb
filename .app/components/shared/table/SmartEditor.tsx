@@ -236,12 +236,7 @@ export const SmartEditor = ({
       normalizedValue.length > 0 && !hasOptionMatch
         ? [{ label: normalizedValue, value: normalizedValue }, ...options]
         : options;
-    const selectedValue =
-      normalizedValue.length > 0
-        ? normalizedValue
-        : defaultOption
-          ? String(defaultOption.value)
-          : "";
+    const selectedValue = normalizedValue.length > 0 ? normalizedValue : "";
     const selectedOption = effectiveOptions.find(
       (o: any) => String(o.value).toLowerCase() === selectedValue.toLowerCase(),
     );
@@ -257,7 +252,10 @@ export const SmartEditor = ({
           if (!isAddMode) onCommit?.(next);
         }}
         onOpenChange={(open) => {
-          if (open) return;
+          if (open) {
+            initialSelectValueRef.current = normalizedSelectValue;
+            return;
+          }
           if (isAddMode) return;
           const initialValue = initialSelectValueRef.current ?? "";
           if (normalizedSelectValue === initialValue) {
