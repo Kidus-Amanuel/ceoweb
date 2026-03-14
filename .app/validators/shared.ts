@@ -47,8 +47,11 @@ const jsonValueSchema: z.ZodType<any> = z.lazy(() =>
     z.boolean(),
     z.null(),
     z.array(z.lazy(() => jsonValueSchema)),
-    z.record(z.string(), z.lazy(() => jsonValueSchema)),
-  ])
+    z.record(
+      z.string(),
+      z.lazy(() => jsonValueSchema),
+    ),
+  ]),
 );
 
 export const customDataSchema = z
@@ -59,7 +62,7 @@ export const customDataSchema = z
  * Generic Custom Field Definition schemas
  */
 export function createCustomFieldSchema<T extends z.ZodTypeAny>(
-  entityTypeSchema: T
+  entityTypeSchema: T,
 ) {
   return z.object({
     companyId: z.string().uuid("Invalid company id"),

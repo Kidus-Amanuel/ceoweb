@@ -107,8 +107,8 @@ const toStringSafe = (value: unknown) =>
 const normalizeSelectValue = (value: unknown) => {
   const raw =
     value && typeof value === "object" && !Array.isArray(value)
-      ? (value as { value?: unknown; label?: unknown }).value ??
-        (value as { label?: unknown }).label
+      ? ((value as { value?: unknown; label?: unknown }).value ??
+        (value as { label?: unknown }).label)
       : value;
   const trimmed = toStringSafe(normalizeNil(raw)).trim();
   return trimmed ? trimmed.toLowerCase() : null;
@@ -138,7 +138,8 @@ const normalizePhone = (value: unknown) => {
 const normalizeNumber = (value: unknown) => {
   const normalized = normalizeNil(value);
   if (normalized === null) return null;
-  const parsed = typeof normalized === "number" ? normalized : Number(normalized);
+  const parsed =
+    typeof normalized === "number" ? normalized : Number(normalized);
   return Number.isFinite(parsed) ? parsed : toStringSafe(normalized).trim();
 };
 
@@ -150,7 +151,7 @@ const normalizeCurrency = (value: unknown) => {
     const amount = normalizeNumber(record.amount ?? null);
     const currency = normalizeText(record.currency ?? null);
     return JSON.stringify({
-      amount: typeof amount === "number" ? amount : amount ?? null,
+      amount: typeof amount === "number" ? amount : (amount ?? null),
       currency: currency ? currency.toUpperCase() : null,
     });
   }
@@ -313,9 +314,7 @@ const buildRelations = (
       ? relationsQuery.customers
       : ([] as SelectOption[]);
   const deals =
-    table === "activities"
-      ? relationsQuery.deals
-      : ([] as SelectOption[]);
+    table === "activities" ? relationsQuery.deals : ([] as SelectOption[]);
   return { users, customers, deals };
 };
 
@@ -396,7 +395,10 @@ export function useCrmEntityTab({
     onRefreshStateChange,
   ]);
 
-  const rows = useMemo(() => rowsQuery.data?.rows ?? [], [rowsQuery.data?.rows]);
+  const rows = useMemo(
+    () => rowsQuery.data?.rows ?? [],
+    [rowsQuery.data?.rows],
+  );
   const totalRows = rowsQuery.data?.totalRows ?? 0;
   const columnDefinitions = useMemo(
     () => columnsQuery.data ?? [],
@@ -413,19 +415,16 @@ export function useCrmEntityTab({
   );
   const standardTypeByKey = useMemo(() => {
     const map = new Map<string, VirtualColumn["type"]>();
-    crmViewHelpers
-      .getStandardColumns(table, relations)
-      .forEach((column) => {
-        const key = String(
-          (column as { accessorKey?: unknown }).accessorKey ??
-            (column as { id?: unknown }).id ??
-            "",
-        );
-        if (!key) return;
-        const meta = (column as { meta?: { type?: VirtualColumn["type"] } })
-          .meta;
-        map.set(key, meta?.type ?? "text");
-      });
+    crmViewHelpers.getStandardColumns(table, relations).forEach((column) => {
+      const key = String(
+        (column as { accessorKey?: unknown }).accessorKey ??
+          (column as { id?: unknown }).id ??
+          "",
+      );
+      if (!key) return;
+      const meta = (column as { meta?: { type?: VirtualColumn["type"] } }).meta;
+      map.set(key, meta?.type ?? "text");
+    });
     return map;
   }, [relations, table]);
   const gridData = useMemo(
@@ -549,7 +548,8 @@ export function useCrmEntityTab({
     },
     onMutate: async ({ rowId, payload }) => {
       await queryClient.cancelQueries({ queryKey: currentRowsKey });
-      const previous = queryClient.getQueryData<CrmRowsQueryData>(currentRowsKey);
+      const previous =
+        queryClient.getQueryData<CrmRowsQueryData>(currentRowsKey);
       if (previous) {
         queryClient.setQueryData<CrmRowsQueryData>(currentRowsKey, {
           ...previous,
@@ -602,7 +602,8 @@ export function useCrmEntityTab({
     },
     onMutate: async (rowId) => {
       await queryClient.cancelQueries({ queryKey: currentRowsKey });
-      const previous = queryClient.getQueryData<CrmRowsQueryData>(currentRowsKey);
+      const previous =
+        queryClient.getQueryData<CrmRowsQueryData>(currentRowsKey);
       if (previous) {
         queryClient.setQueryData<CrmRowsQueryData>(currentRowsKey, {
           rows: previous.rows.filter((row) => row.id !== rowId),
@@ -802,7 +803,8 @@ export function useCrmEntityTab({
         )
       )
         return;
-      const previous = rowUpdateQueueRef.current.get(rowId) ?? Promise.resolve();
+      const previous =
+        rowUpdateQueueRef.current.get(rowId) ?? Promise.resolve();
       const run: Promise<void> = previous
         .catch(() => undefined)
         .then(() => updateRowMutation.mutateAsync({ rowId, payload }))

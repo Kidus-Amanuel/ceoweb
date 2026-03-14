@@ -1,11 +1,11 @@
 import * as z from "zod";
-import { 
-  optionalInput, 
-  companyScopeSchema, 
-  customDataSchema, 
+import {
+  optionalInput,
+  companyScopeSchema,
+  customDataSchema,
   createCustomFieldSchema,
   deleteCustomFieldSchema,
-  customFieldTypeSchema
+  customFieldTypeSchema,
 } from "./shared";
 
 // Table & Entity Types
@@ -62,7 +62,9 @@ export const fleetTableViewInputSchema = fleetCompanyScopeSchema.extend({
 });
 
 // Custom Field Definition Input Schemas
-export const fleetCreateCustomFieldInputSchema = createCustomFieldSchema(fleetEntityTypeSchema);
+export const fleetCreateCustomFieldInputSchema = createCustomFieldSchema(
+  fleetEntityTypeSchema,
+);
 
 export const fleetUpdateCustomFieldInputSchema =
   fleetCreateCustomFieldInputSchema.extend({

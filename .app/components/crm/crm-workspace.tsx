@@ -26,9 +26,7 @@ type TabBoundaryProps = {
 };
 
 const TabBoundary = ({ tabKey, children }: TabBoundaryProps) => (
-  <CrmWorkspaceErrorBoundary key={tabKey}>
-    {children}
-  </CrmWorkspaceErrorBoundary>
+  <CrmWorkspaceErrorBoundary key={tabKey}>{children}</CrmWorkspaceErrorBoundary>
 );
 
 export function CrmWorkspace({
