@@ -35,15 +35,24 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
     const text = input.trim();
     if (!text) return;
 
+    // create a trace id for this exchange (visible in client + server logs)
+    const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+    // prepare history including current message (before sending to ensure consistency)
+    const history = [
+      ...messages.map((m) => ({
+        role: m.senderId === "ai" ? "assistant" : "user",
+        content: m.content,
+      })),
+      { role: "user", content: text },
+    ];
+
     // add user message
     sendMessage(conversationId, text);
     setInput("");
 
-    // create a trace id for this exchange (visible in client + server logs)
-    const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-
-    // create placeholder AI message
-    const aiId = `ai-msg-${Date.now()}`;
+    // create placeholder AI message with unique id
+    const aiId = `ai-msg-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
     const aiMessage: Message = {
       id: aiId,
       senderId: "ai",
@@ -54,12 +63,6 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
     addMessage(conversationId, aiMessage);
     // mark as streaming so UI can show typing indicator
     setStreamingIds((s) => ({ ...s, [aiId]: true }));
-
-    // prepare history for API
-    const history = messages.map((m) => ({
-      role: m.senderId === "ai" ? "assistant" : "user",
-      content: m.content,
-    }));
 
     try {
       console.debug(

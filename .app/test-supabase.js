@@ -99,7 +99,7 @@ async function testInventoryModule() {
   try {
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, category, stock_quantity")
+      .select("id, name, category_id, is_active")
       .limit(5);
 
     if (error) {
@@ -111,13 +111,43 @@ async function testInventoryModule() {
     console.log(`✅ Found ${data.length} products in Inventory:`);
     data.forEach((product, index) => {
       console.log(
-        `${index + 1}. ${product.name} (${product.category}) - ${product.stock_quantity} units`,
+        `${index + 1}. ${product.name} (Category ID: ${product.category_id}) - Status: ${product.is_active ? 'Active' : 'Inactive'}`,
       );
     });
 
     return true;
   } catch (err) {
     console.error("❌ Exception fetching Inventory products:", err);
+    return false;
+  }
+}
+
+// Test function to fetch data from HR module
+async function testHrModule() {
+  console.log("\nTesting HR module...");
+
+  try {
+    const { data, error } = await supabase
+      .from("employees")
+      .select("id, first_name, last_name, email, job_title, status")
+      .limit(5);
+
+    if (error) {
+      console.error("❌ Error fetching HR employees:", error.message);
+      console.error("Error details:", error);
+      return false;
+    }
+
+    console.log(`✅ Found ${data.length} employees in HR:`);
+    data.forEach((employee, index) => {
+      console.log(
+        `${index + 1}. ${employee.first_name} ${employee.last_name} (${employee.email}) - ${employee.job_title} - ${employee.status}`,
+      );
+    });
+
+    return true;
+  } catch (err) {
+    console.error("❌ Exception fetching HR employees:", err);
     return false;
   }
 }
@@ -149,6 +179,7 @@ async function main() {
   const crmSuccess = await testCrmModule();
   const fleetSuccess = await testFleetModule();
   const inventorySuccess = await testInventoryModule();
+  const hrSuccess = await testHrModule();
 
   console.log("\n=== Test Results ===");
   console.log(`CRM Module: ${crmSuccess ? "✅ Success" : "❌ Failed"}`);
@@ -156,6 +187,7 @@ async function main() {
   console.log(
     `Inventory Module: ${inventorySuccess ? "✅ Success" : "❌ Failed"}`,
   );
+  console.log(`HR Module: ${hrSuccess ? "✅ Success" : "❌ Failed"}`);
 
   const overallSuccess = crmSuccess || fleetSuccess || inventorySuccess;
   console.log(

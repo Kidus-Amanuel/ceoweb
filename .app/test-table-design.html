@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion-Inspired Table Design</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .table-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .table-header {
+            background: #f7f6f3;
+            border-bottom: 1px solid #e5e5e0;
+        }
+        
+        .table-cell {
+            border-right: 1px solid #e5e5e0;
+        }
+        
+        .table-cell:last-child {
+            border-right: none;
+        }
+        
+        .table-row:hover {
+            background: #f7f6f3;
+        }
+        
+        .table-row {
+            transition: background-color 0.15s ease-in-out;
+        }
+        
+        .header-cell {
+            font-weight: 600;
+            font-size: 0.75rem;
+            letter-spacing: 0.025em;
+            color: #37352f;
+            text-transform: uppercase;
+        }
+        
+        .data-cell {
+            font-size: 0.875rem;
+            color: #37352f;
+        }
+        
+        .email-cell {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+        }
+    </style>
+</head>
+<body class="bg-white min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+    <div class="table-container">
+        <h1 class="text-2xl font-bold text-gray-900 mb-8">Notion-Inspired Table Design</h1>
+        
+        <div class="border border-gray-200 rounded-sm overflow-hidden">
+            <table class="w-full caption-bottom text-sm border-collapse border border-gray-200 rounded-none">
+                <thead class="table-header [&_tr]:border-b bg-gray-50 text-gray-900">
+                    <tr>
+                        <th class="h-8 px-3 py-1 text-left align-middle font-semibold text-xs uppercase tracking-wider whitespace-nowrap border-r border-gray-200 last:border-r-0">Name</th>
+                        <th class="h-8 px-3 py-1 text-left align-middle font-semibold text-xs uppercase tracking-wider whitespace-nowrap border-r border-gray-200 last:border-r-0">Email</th>
+                        <th class="h-8 px-3 py-1 text-left align-middle font-semibold text-xs uppercase tracking-wider whitespace-nowrap border-r border-gray-200 last:border-r-0">Phone</th>
+                        <th class="h-8 px-3 py-1 text-left align-middle font-semibold text-xs uppercase tracking-wider whitespace-nowrap border-r border-gray-200 last:border-r-0">Status</th>
+                        <th class="h-8 px-3 py-1 text-left align-middle font-semibold text-xs uppercase tracking-wider whitespace-nowrap border-r border-gray-200 last:border-r-0">Created</th>
+                    </tr>
+                </thead>
+                <tbody class="table-body [&_tr:last-child]:border-0 bg-white">
+                    <tr class="table-row hover:bg-gray-50 transition-all duration-200 ease-in-out border-b border-gray-200">
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">Hagos</td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell email-cell">hagos@gmail.com</td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">0909080806</td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Active</span>
+                        </td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">2024-01-15</td>
+                    </tr>
+                    <tr class="table-row hover:bg-gray-50 transition-all duration-200 ease-in-out border-b border-gray-200">
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">Abel</td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell email-cell">abel@example.com</td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">0909090909</td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Inactive</span>
+                        </td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">2024-02-20</td>
+                    </tr>
+                    <tr class="table-row hover:bg-gray-50 transition-all duration-200 ease-in-out border-b border-gray-200">
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">Tewodros</td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell email-cell">tewodros@example.com</td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">0909070707</td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Active</span>
+                        </td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">2024-03-10</td>
+                    </tr>
+                    <tr class="table-row hover:bg-gray-50 transition-all duration-200 ease-in-out border-b border-gray-200">
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">Meron</td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell email-cell">meron@example.com</td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">0909060606</td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Active</span>
+                        </td>
+                        <td class="table-cell px-3 py-1 align-middle whitespace-nowrap text-sm border-r border-gray-200 last:border-r-0 data-cell">2024-03-15</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="mt-6 space-y-4">
+            <div class="text-sm text-gray-600">
+                <p><strong>Design Features:</strong></p>
+                <ul class="list-disc pl-5 mt-2 space-y-1">
+                    <li>Black-on-white minimalist design</li>
+                    <li>Clean borders and subtle hover effects</li>
+                    <li>Compact dimensions optimized for chat interfaces</li>
+                    <li>Consistent typography and spacing</li>
+                    <li>Status indicators using color coding</li>
+                    <li>Email addresses in monospace font for readability</li>
+                    <li>Responsive design with overflow handling</li>
+                </ul>
+            </div>
+            
+            <div class="text-sm text-gray-600">
+                <p><strong>Code Structure:</strong></p>
+                <pre class="mt-2 bg-gray-50 p-3 rounded text-xs overflow-x-auto">
+{`// Table component definition
+interface TableProps extends React.HTMLAttributes<HTMLTableElement> {}
+
+function Table({ className, ...props }: TableProps) {
+  return (
+    <table
+      className={cn(
+        "w-full caption-bottom text-sm border-collapse border border-gray-200 rounded-none",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
+// Enhanced insights generation
+const insights = {
+  activeCount: data.filter(item => item.status === "active").length,
+  recentCount: data.filter(item => 
+    new Date(item.created_at) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  ).length,
+  averageNameLength: Math.round(
+    data.reduce((sum, item) => sum + (item.name || "").length, 0) / data.length
+  )
+}`}
+                </pre>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

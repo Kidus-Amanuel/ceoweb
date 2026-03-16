@@ -180,6 +180,7 @@ export const AIMarkupRenderer: React.FC<{
         }
 
         // Validate columns against allowed fields for each module (case-insensitive)
+        // Allow custom columns to be passed through
         const allowedColumns = {
           crm: ["Id", "Name", "Email", "Phone", "Status", "Type", "Created At"],
           fleet: ["Id", "Name", "Type", "Status", "Created At"],
@@ -213,12 +214,21 @@ export const AIMarkupRenderer: React.FC<{
         )
           moduleType = "finance";
 
-        // Filter out invalid columns (case-insensitive)
-        const validColumns = columns.filter((col) =>
-          allowedColumns[moduleType].some(
+        // Filter out invalid columns (case-insensitive) - allow custom columns to pass through
+        const validColumns = columns.filter((col) => {
+          // Check if column is in the allowed list for the current module
+          const isStandardColumn = allowedColumns[moduleType].some(
             (allowedCol) => allowedCol.toLowerCase() === col.toLowerCase(),
-          ),
-        );
+          );
+          
+          // If not a standard column, consider it a custom column and allow it
+          if (!isStandardColumn) {
+            console.log(`Allowing custom column: ${col}`);
+            return true;
+          }
+          
+          return isStandardColumn;
+        });
         const validRows = rows.map((row: any[]) => {
           return row.filter((_: any, idx: number) =>
             validColumns.includes(columns[idx]),
@@ -238,40 +248,47 @@ export const AIMarkupRenderer: React.FC<{
           );
         }
 
-        // Render modern table with hyperlinked entity names
+        // Render Notion-inspired table with clean, minimalist design and horizontal scroll
         parts.push(
-          <div key={`table-${match.index}`} className="mb-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {validColumns
-                    .filter((col) => col !== "Id")
-                    .map((col, idx) => (
-                      <TableHead key={idx}>{col}</TableHead>
-                    ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {validRows.map((row: any[], rowIdx: number) => (
-                  <TableRow key={rowIdx}>
-                    {row
-                      .filter(
-                        (cell: any, cellIdx: number) =>
-                          validColumns[cellIdx] !== "Id",
-                      )
-                      .map((cell: any, cellIdx: number) => (
-                        <TableCell key={cellIdx}>
-                          {renderCellContent(
-                            validColumns.filter((col) => col !== "Id")[cellIdx],
-                            cell,
-                            row,
-                          )}
-                        </TableCell>
+          <div 
+            key={`table-${match.index}`} 
+            className="mb-4 border border-gray-200 rounded-sm overflow-hidden"
+          >
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {validColumns
+                      .filter((col) => col !== "Id")
+                      .map((col, idx) => (
+                        <TableHead key={idx}>
+                          {col}
+                        </TableHead>
                       ))}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {validRows.map((row: any[], rowIdx: number) => (
+                    <TableRow key={rowIdx}>
+                      {row
+                        .filter(
+                          (cell: any, cellIdx: number) =>
+                            validColumns[cellIdx] !== "Id",
+                        )
+                        .map((cell: any, cellIdx: number) => (
+                          <TableCell key={cellIdx}>
+                            {renderCellContent(
+                              validColumns.filter((col) => col !== "Id")[cellIdx],
+                              cell,
+                              row,
+                            )}
+                          </TableCell>
+                        ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>,
         );
       } catch (error) {
