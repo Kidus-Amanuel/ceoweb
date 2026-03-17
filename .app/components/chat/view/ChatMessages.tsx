@@ -9,7 +9,11 @@ interface ChatMessagesProps {
   thinkingPhase?: Record<string, string>;
 }
 
-export function ChatMessages({ messages, streamingIds = {}, thinkingPhase = {} }: ChatMessagesProps) {
+export function ChatMessages({
+  messages,
+  streamingIds = {},
+  thinkingPhase = {},
+}: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {

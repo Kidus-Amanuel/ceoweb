@@ -30,7 +30,9 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
   // track streaming message ids so we can show a typing/loading indicator
   const [streamingIds, setStreamingIds] = useState<Record<string, boolean>>({});
   // track thinking phases for animation
-  const [thinkingPhase, setThinkingPhase] = useState<Record<string, string>>({});
+  const [thinkingPhase, setThinkingPhase] = useState<Record<string, string>>(
+    {},
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,29 +55,29 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
     sendMessage(conversationId, text);
     setInput("");
 
-     // create placeholder AI message with unique id
-  const aiId = `ai-msg-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
-  const aiMessage: Message = {
-    id: aiId,
-    senderId: "ai",
-    content: "",
-    createdAt: new Date().toISOString(),
-    type: "text",
-  };
-  addMessage(conversationId, aiMessage);
-  // mark as streaming so UI can show typing indicator
-  setStreamingIds((s) => ({ ...s, [aiId]: true }));
-  
-  // Start thinking phase animation with true validation phases
-  let phaseIndex = 0;
-  const phases = ["Thinking", "Analyzing", "Finalizing"];
-  const phaseInterval = setInterval(() => {
-    phaseIndex = (phaseIndex + 1) % phases.length;
-    setThinkingPhase(prev => ({
-      ...prev,
-      [aiId]: phases[phaseIndex]
-    }));
-  }, 1500);
+    // create placeholder AI message with unique id
+    const aiId = `ai-msg-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+    const aiMessage: Message = {
+      id: aiId,
+      senderId: "ai",
+      content: "",
+      createdAt: new Date().toISOString(),
+      type: "text",
+    };
+    addMessage(conversationId, aiMessage);
+    // mark as streaming so UI can show typing indicator
+    setStreamingIds((s) => ({ ...s, [aiId]: true }));
+
+    // Start thinking phase animation with true validation phases
+    let phaseIndex = 0;
+    const phases = ["Thinking", "Analyzing", "Finalizing"];
+    const phaseInterval = setInterval(() => {
+      phaseIndex = (phaseIndex + 1) % phases.length;
+      setThinkingPhase((prev) => ({
+        ...prev,
+        [aiId]: phases[phaseIndex],
+      }));
+    }, 1500);
 
     try {
       console.debug(
@@ -110,7 +112,7 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
         return;
       }
 
-       const data = await res.json();
+      const data = await res.json();
       if (data.content) {
         appendToMessage(conversationId, aiId, data.content);
       } else {
@@ -123,7 +125,7 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
         delete copy[aiId];
         return copy;
       });
-      setThinkingPhase(prev => {
+      setThinkingPhase((prev) => {
         const copy = { ...prev };
         delete copy[aiId];
         return copy;
@@ -137,7 +139,7 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
         delete copy[aiId];
         return copy;
       });
-      setThinkingPhase(prev => {
+      setThinkingPhase((prev) => {
         const copy = { ...prev };
         delete copy[aiId];
         return copy;
@@ -182,7 +184,9 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
                   )}
                   {m.senderId === "ai" && streamingIds[m.id] ? (
                     <div className="inline-flex items-center ml-2 mt-2">
-                      <span className="text-gray-400 mr-2 text-base font-bold">{thinkingPhase[m.id] || "Thinking"}</span>
+                      <span className="text-gray-400 mr-2 text-base font-bold">
+                        {thinkingPhase[m.id] || "Thinking"}
+                      </span>
                       <span
                         className="w-2 h-2 rounded-full bg-gray-400 animate-bounce mr-1"
                         style={{ animationDelay: "0ms" }}

@@ -3,18 +3,21 @@
 ## Features Implemented
 
 ### 1. Amharic Language Support (Route.ts)
+
 - Updated system prompt to handle Amharic queries
 - Added language detection and response handling logic
 - Translated key module terms to Amharic for better user experience
 - Added instructions for AI to respond in the same language as the query
 
 ### 2. Thinking Phase Animation (ChatWindow.tsx)
+
 - Added thinking phase tracking state
 - Implemented 3-phase animation: "Thinking..." → "Analyzing..." → "Finalizing..."
 - Added interval timer to cycle through phases every 1.5 seconds
 - Display animated bouncing dots to indicate processing
 
 ### 3. Enhanced Message Item Component (MessageItem.tsx)
+
 - Updated interface to accept isStreaming and thinkingPhase props
 - Added logic to display thinking phase animation when message is streaming
 - Improved UI for better visual feedback during AI response generation
@@ -28,6 +31,7 @@
 ## Key Technical Changes
 
 ### Language Support
+
 ```typescript
 const SYSTEM_PROMPT = `You are ERP Co-Pilot — a super intelligent, proactive AI assistant...
 ...
@@ -41,6 +45,7 @@ const SYSTEM_PROMPT = `You are ERP Co-Pilot — a super intelligent, proactive A
 ```
 
 ### Thinking Phase Animation
+
 ```typescript
 // track thinking phases for animation
 const [thinkingPhase, setThinkingPhase] = useState<Record<string, string>>({});
@@ -50,9 +55,9 @@ let phaseIndex = 0;
 const phases = ["Thinking...", "Analyzing...", "Finalizing..."];
 const phaseInterval = setInterval(() => {
   phaseIndex = (phaseIndex + 1) % phases.length;
-  setThinkingPhase(prev => ({
+  setThinkingPhase((prev) => ({
     ...prev,
-    [aiId]: phases[phaseIndex]
+    [aiId]: phases[phaseIndex],
   }));
 }, 1500);
 
@@ -63,11 +68,13 @@ clearInterval(phaseInterval);
 ## Usage Instructions
 
 ### Testing Amharic Language Support
+
 1. Open the AI chat interface
 2. Type a query in Amharic, e.g., "አዳናዊ ደንበኛዎችን አሳይ" (Show recent deals)
 3. The AI should respond entirely in Amharic
 
 ### Testing Thinking Phase Animation
+
 1. Open the AI chat interface
 2. Type any query that will trigger a backend data retrieval
 3. Observe the animated thinking phase text (Thinking... → Analyzing... → Finalizing...) with bouncing dots

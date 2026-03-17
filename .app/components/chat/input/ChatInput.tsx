@@ -36,7 +36,10 @@ export function ChatInput({
         />
         <div className="flex items-center justify-between px-2 pb-2">
           <div className="flex items-center gap-1">
-            <button className="p-2 text-muted-foreground/60 hover:text-primary hover:bg-primary/5 rounded-lg transition-all" title="Voice chat">
+            <button
+              className="p-2 text-muted-foreground/60 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+              title="Voice chat"
+            >
               <Mic className="w-4 h-4" />
             </button>
             {/* <button className="p-2 text-muted-foreground/60 hover:text-primary hover:bg-primary/5 rounded-lg transition-all" title="Attach file">

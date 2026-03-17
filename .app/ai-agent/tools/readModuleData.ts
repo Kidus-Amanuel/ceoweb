@@ -75,7 +75,7 @@ const moduleConfig: Record<
           },
         },
       },
-       deals: {
+      deals: {
         fields: [
           "id",
           "title",
@@ -815,16 +815,20 @@ export async function readModuleData(
     // Always exclude deleted records
     query = query.is("deleted_at", null);
 
-     if (validFilters && Object.keys(validFilters).length > 0) {
+    if (validFilters && Object.keys(validFilters).length > 0) {
       Object.entries(validFilters).forEach(([key, value]) => {
         // Only allow valid fields from the fields array
         const lowerKey = key.toLowerCase();
-        const isValidField = fields.some(field => field.toLowerCase() === lowerKey);
-        
+        const isValidField = fields.some(
+          (field) => field.toLowerCase() === lowerKey,
+        );
+
         if (isValidField) {
           query = query.eq(lowerKey, value);
         } else {
-          console.warn(`Invalid filter field '${key}' for table '${table}', ignoring`);
+          console.warn(
+            `Invalid filter field '${key}' for table '${table}', ignoring`,
+          );
         }
       });
     }
@@ -871,7 +875,7 @@ export async function readModuleData(
     const hasMore = data.length > limit;
     const resultsToReturn = hasMore ? data.slice(0, limit) : data;
 
-     // Fetch related data if configured (always fetch for better user experience)
+    // Fetch related data if configured (always fetch for better user experience)
     const includeRelated = validFilters?.includeRelated !== false; // Default to true
     let processedData = [...resultsToReturn];
 
@@ -936,7 +940,7 @@ export async function readModuleData(
       processedData = resultsToReturn;
     }
 
-     // Clean up data to remove validation messages and ensure id is included
+    // Clean up data to remove validation messages and ensure id is included
     console.log("Cleaning up response data...");
     const cleanedData = processedData.map((item: any) => {
       const newItem = { ...item };

@@ -30,7 +30,9 @@ export function ChatLayout() {
   // track streaming message ids so we can show a typing/loading indicator
   const [streamingIds, setStreamingIds] = useState<Record<string, boolean>>({});
   // track thinking phases for animation
-  const [thinkingPhase, setThinkingPhase] = useState<Record<string, string>>({});
+  const [thinkingPhase, setThinkingPhase] = useState<Record<string, string>>(
+    {},
+  );
   const { rightSidebarWidth, toggleRightSidebar } = useLayoutStore();
 
   const activeConv =
@@ -52,7 +54,7 @@ export function ChatLayout() {
       const randomStr = Math.random().toString(36).substr(2, 9);
       const traceId = `trace-${randomStr}-${timestamp}`;
 
-       // Create placeholder AI message with unique id
+      // Create placeholder AI message with unique id
       const aiId = `ai-msg-${randomStr}-${timestamp}`;
       const aiMessage: Message = {
         id: aiId,
@@ -64,18 +66,18 @@ export function ChatLayout() {
 
       // Add placeholder message to chat
       addMessage(activeConv.id, aiMessage);
-      
+
       // Mark as streaming so UI can show typing indicator
       setStreamingIds((s) => ({ ...s, [aiId]: true }));
-      
+
       // Start thinking phase animation with true validation phases
       let phaseIndex = 0;
       const phases = ["Thinking", "Analyzing", "Finalizing"];
       const phaseInterval = setInterval(() => {
         phaseIndex = (phaseIndex + 1) % phases.length;
-        setThinkingPhase(prev => ({
+        setThinkingPhase((prev) => ({
           ...prev,
-          [aiId]: phases[phaseIndex]
+          [aiId]: phases[phaseIndex],
         }));
       }, 1500);
 
@@ -125,14 +127,14 @@ export function ChatLayout() {
         } else {
           appendToMessage(activeConv.id, aiId, "No response received");
         }
-        
+
         clearInterval(phaseInterval);
         setStreamingIds((s) => {
           const copy = { ...s };
           delete copy[aiId];
           return copy;
         });
-        setThinkingPhase(prev => {
+        setThinkingPhase((prev) => {
           const copy = { ...prev };
           delete copy[aiId];
           return copy;
@@ -140,14 +142,14 @@ export function ChatLayout() {
       } catch (err) {
         appendToMessage(activeConv.id, aiId, " [error fetching response]");
         console.error("AI stream error", err);
-        
+
         clearInterval(phaseInterval);
         setStreamingIds((s) => {
           const copy = { ...s };
           delete copy[aiId];
           return copy;
         });
-        setThinkingPhase(prev => {
+        setThinkingPhase((prev) => {
           const copy = { ...prev };
           delete copy[aiId];
           return copy;
@@ -202,10 +204,10 @@ export function ChatLayout() {
                 <div className="flex-1 flex flex-col overflow-hidden bg-background">
                   {activeTab === "ai" && <AIDashboardCard />}
 
-                  <ChatMessages 
-                    messages={currentMessages} 
-                    streamingIds={streamingIds} 
-                    thinkingPhase={thinkingPhase} 
+                  <ChatMessages
+                    messages={currentMessages}
+                    streamingIds={streamingIds}
+                    thinkingPhase={thinkingPhase}
                   />
 
                   <ChatInput
