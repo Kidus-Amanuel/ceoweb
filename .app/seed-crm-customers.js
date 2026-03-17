@@ -1,4 +1,3 @@
-
 const { createClient } = require("@supabase/supabase-js");
 const dotenv = require("dotenv");
 const fs = require("fs");
@@ -53,11 +52,13 @@ async function seedCrmCustomers() {
       console.log("Creating a new company...");
       const { data: newCompany, error: newCompanyError } = await supabase
         .from("companies")
-        .insert([{
-          name: "Test Company",
-          slug: "test-company",
-          status: "active"
-        }])
+        .insert([
+          {
+            name: "Test Company",
+            slug: "test-company",
+            status: "active",
+          },
+        ])
         .select("id")
         .single();
 
@@ -83,9 +84,9 @@ async function seedCrmCustomers() {
         status: "active",
         custom_fields: JSON.stringify({
           "Value Bought": "15000",
-          "Industry": "Technology",
-          "Source": "Website"
-        })
+          Industry: "Technology",
+          Source: "Website",
+        }),
       },
       {
         company_id: companyId,
@@ -96,9 +97,9 @@ async function seedCrmCustomers() {
         status: "active",
         custom_fields: JSON.stringify({
           "Value Bought": "8000",
-          "Industry": "Marketing",
-          "Source": "Referral"
-        })
+          Industry: "Marketing",
+          Source: "Referral",
+        }),
       },
       {
         company_id: companyId,
@@ -109,9 +110,9 @@ async function seedCrmCustomers() {
         status: "inactive",
         custom_fields: JSON.stringify({
           "Value Bought": "0",
-          "Industry": "Healthcare",
-          "Source": "Trade Show"
-        })
+          Industry: "Healthcare",
+          Source: "Trade Show",
+        }),
       },
       {
         company_id: companyId,
@@ -122,10 +123,10 @@ async function seedCrmCustomers() {
         status: "active",
         custom_fields: JSON.stringify({
           "Value Bought": "25000",
-          "Industry": "Manufacturing",
-          "Source": "Partner"
-        })
-      }
+          Industry: "Manufacturing",
+          Source: "Partner",
+        }),
+      },
     ];
 
     // Insert customers

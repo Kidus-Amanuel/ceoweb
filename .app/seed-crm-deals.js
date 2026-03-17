@@ -1,4 +1,3 @@
-
 const { createClient } = require("@supabase/supabase-js");
 const dotenv = require("dotenv");
 const fs = require("fs");
@@ -58,50 +57,47 @@ async function seedCrmDeals() {
       {
         customer_id: customers[0].id,
         title: "Enterprise Software License",
-        value: 15000.00,
+        value: 15000.0,
         stage: "negotiation",
         probability: 75,
-        expected_close_date: new Date("2026-03-30").toISOString().split('T')[0],
+        expected_close_date: new Date("2026-03-30").toISOString().split("T")[0],
       },
       {
         customer_id: customers[0].id,
         title: "Cloud Migration Project",
-        value: 25000.00,
+        value: 25000.0,
         stage: "proposal",
         probability: 50,
-        expected_close_date: new Date("2026-04-15").toISOString().split('T')[0],
+        expected_close_date: new Date("2026-04-15").toISOString().split("T")[0],
       },
       {
         customer_id: customers[1]?.id || customers[0].id,
         title: "Website Redesign",
-        value: 8000.00,
+        value: 8000.0,
         stage: "closed_won",
         probability: 100,
-        expected_close_date: new Date("2026-03-20").toISOString().split('T')[0],
+        expected_close_date: new Date("2026-03-20").toISOString().split("T")[0],
       },
       {
         customer_id: customers[2]?.id || customers[0].id,
         title: "Marketing Automation Platform",
-        value: 12000.00,
+        value: 12000.0,
         stage: "qualified",
         probability: 30,
-        expected_close_date: new Date("2026-04-30").toISOString().split('T')[0],
+        expected_close_date: new Date("2026-04-30").toISOString().split("T")[0],
       },
       {
         customer_id: customers[3]?.id || customers[0].id,
         title: "Data Analytics Dashboard",
-        value: 18000.00,
+        value: 18000.0,
         stage: "closed_lost",
         probability: 0,
-        expected_close_date: new Date("2026-03-15").toISOString().split('T')[0],
+        expected_close_date: new Date("2026-03-15").toISOString().split("T")[0],
       },
     ];
 
     // Insert deals
-    const { data, error } = await supabase
-      .from("deals")
-      .insert(deals)
-      .select();
+    const { data, error } = await supabase.from("deals").insert(deals).select();
 
     if (error) {
       console.error("❌ Error inserting deals:", error.message);

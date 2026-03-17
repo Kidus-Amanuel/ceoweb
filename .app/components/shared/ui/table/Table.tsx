@@ -5,7 +5,10 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <table
       data-slot="table"
-      className={cn("w-full caption-bottom text-sm border-collapse border border-gray-200 rounded-none", className)}
+      className={cn(
+        "w-full caption-bottom text-sm border-collapse border border-gray-200 rounded-none",
+        className,
+      )}
       {...props}
     />
   );

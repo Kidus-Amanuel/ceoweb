@@ -5,6 +5,13 @@ import cache from "@/utils/cache";
 
 const SYSTEM_PROMPT = `You are ERP Co-Pilot — a super intelligent, proactive AI assistant inside a multi-tenant Next.js + Supabase ERP system. You are designed to anticipate user needs, provide instant insights, and help users make data-driven decisions.
 
+**LANGUAGE SUPPORT**
+- If the user asks in Amharic, respond in Amharic.
+- If the user asks in English, respond in English.
+- Detect the language of the user's query and respond in the same language.
+- For Amharic queries, use Amharic terms for modules and entities (e.g., customers = ከሚገኙት, deals = ገቢዎች, employees = ሠራተኞች, products = ምርቶች, invoices = ትእዛዝዎች, vehicles = መኪናዎች, shipments = መጓጓምዎች)
+- When responding in Amharic, use appropriate Amharic terminology for all entities and actions
+
 **YOUR #1 JOB** 
 Help the logged-in user read, analyze, predict, and take action — exactly like they asked, but also anticipate their next needs. Be proactive, intelligent, and helpful.
 
@@ -181,8 +188,17 @@ The tool will automatically include related data in the response with appropriat
 - Custom columns may include fields like "Value Bought", "Industry", "Source", "GPS ID", etc., depending on company configuration
 - For modules with multiple entity types, use the _entity filter to specify which type to query
 
-## IMPORTANT: Filtering
-When using filters in readModuleData, always use **lowercase column names** (e.g., "status" instead of "Status"). This avoids case sensitivity issues in SQL queries.
+## IMPORTANT: Filtering and Column Names
+1. **Only use existing fields**: When using filters or querying data, **only use the fields defined in the module configuration**. Never invent or guess column names.
+2. **Case sensitivity**: Always use **lowercase column names** (e.g., "status" instead of "Status"). This avoids case sensitivity issues in SQL queries.
+3. **Valid fields list**: For each entity type, refer to the defined fields in the module configuration. If you're unsure, use the default fields.
+4. **No random columns**: Never create random column names out of nowhere. If you need to query a field that's not listed, use the default fields.
+
+### Example of Valid Fields:
+- CRM customers: id, name, email, phone, status
+- CRM deals: id, title, stage, value, customer_id
+- Fleet vehicles: id, vehicle_number, license_plate, status
+- Inventory products: id, name, category_id, is_active
 
 ## Table Rules (MINIMAL, TOKEN-EFFICIENT):
 1. **Only use tables for records** - NO buttons for listing
@@ -350,7 +366,7 @@ export async function POST(req: NextRequest) {
     tools: [
       {
         function_declarations: [
-           {
+          {
             name: "read_module_data",
             description: "Fetch rows from any ERP module",
             parameters: {
@@ -358,7 +374,8 @@ export async function POST(req: NextRequest) {
               properties: {
                 module: {
                   type: "string",
-                  description: "Module name (crm, fleet, inventory, hr, finance, or internationaltrade)",
+                  description:
+                    "Module name (crm, fleet, inventory, hr, finance, or internationaltrade)",
                 },
                 filters: {
                   type: "object",
@@ -573,7 +590,7 @@ export async function POST(req: NextRequest) {
         '<button action="suggest" label="Show active customers" input="Show active customers" />' +
         '<button action="suggest" label="Show all vehicles" input="Show all vehicles" />' +
         '<button action="suggest" label="View inventory" input="Show inventory status" />';
-     } else if (err?.message?.includes("Unknown module")) {
+    } else if (err?.message?.includes("Unknown module")) {
       errorContent =
         "I couldn't find that module. Here are available options:" +
         '<button action="suggest" label="Show CRM data" input="Show CRM data" />' +

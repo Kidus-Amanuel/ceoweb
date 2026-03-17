@@ -65,11 +65,12 @@ async function testAIAgent() {
     // Now test the AI agent with the session
     console.log("\n=== Testing AI Agent ===");
 
-     const aiAgentBody = JSON.stringify({
+    const aiAgentBody = JSON.stringify({
       messages: [
         {
           role: "user",
-          content: "Show me customers with their associated deals and activities. Use includeRelated: true to fetch related data.",
+          content:
+            "Show me customers with their associated deals and activities. Use includeRelated: true to fetch related data.",
         },
       ],
       traceId: "test-trace-" + Date.now(),

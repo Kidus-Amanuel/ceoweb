@@ -5,9 +5,11 @@ import { MessageItem } from "./MessageItem";
 
 interface ChatMessagesProps {
   messages: any[];
+  streamingIds?: Record<string, boolean>;
+  thinkingPhase?: Record<string, string>;
 }
 
-export function ChatMessages({ messages }: ChatMessagesProps) {
+export function ChatMessages({ messages, streamingIds = {}, thinkingPhase = {} }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -25,6 +27,8 @@ export function ChatMessages({ messages }: ChatMessagesProps) {
           key={msg.id}
           message={msg}
           isLast={i === messages.length - 1}
+          isStreaming={streamingIds[msg.id]}
+          thinkingPhase={thinkingPhase[msg.id]}
         />
       ))}
       <div ref={messagesEndRef} />

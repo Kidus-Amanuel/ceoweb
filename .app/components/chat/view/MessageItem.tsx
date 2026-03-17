@@ -14,9 +14,11 @@ import {
 interface MessageProps {
   message: any;
   isLast?: boolean;
+  isStreaming?: boolean;
+  thinkingPhase?: string;
 }
 
-export function MessageItem({ message, isLast }: MessageProps) {
+export function MessageItem({ message, isLast, isStreaming, thinkingPhase }: MessageProps) {
   const isMe = message.senderId === "me";
   const isAI = message.senderId === "ai";
   const isERP = message.type === "erp_record";
@@ -103,7 +105,26 @@ export function MessageItem({ message, isLast }: MessageProps) {
             )}
           >
             {isAI ? (
-              <AIMarkupRenderer content={message.content} />
+              <>
+                <AIMarkupRenderer content={message.content} />
+                {isStreaming ? (
+                  <div className="inline-flex items-center ml-2 mt-2">
+                    <span className="text-gray-400 mr-2 text-base font-bold">{thinkingPhase || "Thinking"}</span>
+                    <span
+                      className="w-2 h-2 rounded-full bg-gray-400 animate-bounce mr-1"
+                      style={{ animationDelay: "0ms" }}
+                    />
+                    <span
+                      className="w-2 h-2 rounded-full bg-gray-400 animate-bounce mr-1"
+                      style={{ animationDelay: "150ms" }}
+                    />
+                    <span
+                      className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                      style={{ animationDelay: "300ms" }}
+                    />
+                  </div>
+                ) : null}
+              </>
             ) : (
               message.content
             )}

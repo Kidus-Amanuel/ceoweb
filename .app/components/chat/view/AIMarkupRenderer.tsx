@@ -220,13 +220,13 @@ export const AIMarkupRenderer: React.FC<{
           const isStandardColumn = allowedColumns[moduleType].some(
             (allowedCol) => allowedCol.toLowerCase() === col.toLowerCase(),
           );
-          
+
           // If not a standard column, consider it a custom column and allow it
           if (!isStandardColumn) {
             console.log(`Allowing custom column: ${col}`);
             return true;
           }
-          
+
           return isStandardColumn;
         });
         const validRows = rows.map((row: any[]) => {
@@ -250,8 +250,8 @@ export const AIMarkupRenderer: React.FC<{
 
         // Render Notion-inspired table with clean, minimalist design and horizontal scroll
         parts.push(
-          <div 
-            key={`table-${match.index}`} 
+          <div
+            key={`table-${match.index}`}
             className="mb-4 border border-gray-200 rounded-sm overflow-hidden"
           >
             <div className="overflow-x-auto">
@@ -261,9 +261,7 @@ export const AIMarkupRenderer: React.FC<{
                     {validColumns
                       .filter((col) => col !== "Id")
                       .map((col, idx) => (
-                        <TableHead key={idx}>
-                          {col}
-                        </TableHead>
+                        <TableHead key={idx}>{col}</TableHead>
                       ))}
                   </TableRow>
                 </TableHeader>
@@ -278,7 +276,9 @@ export const AIMarkupRenderer: React.FC<{
                         .map((cell: any, cellIdx: number) => (
                           <TableCell key={cellIdx}>
                             {renderCellContent(
-                              validColumns.filter((col) => col !== "Id")[cellIdx],
+                              validColumns.filter((col) => col !== "Id")[
+                                cellIdx
+                              ],
                               cell,
                               row,
                             )}

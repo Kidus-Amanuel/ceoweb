@@ -26,15 +26,12 @@ export function ChatLayout() {
     addMessage,
     appendToMessage,
   } = useChatStore();
-  const { rightSidebarWidth, toggleRightSidebar } = useLayoutStore();
 
-  // Create stable random seed and timestamp on mount
-  const randomSeedRef = useRef<string | null>(null);
-  const mountTimeRef = useRef<number | null>(null);
-  useEffect(() => {
-    randomSeedRef.current = Math.random().toString(36).substr(2, 9);
-    mountTimeRef.current = Date.now();
-  }, []);
+  // track streaming message ids so we can show a typing/loading indicator
+  const [streamingIds, setStreamingIds] = useState<Record<string, boolean>>({});
+  // track thinking phases for animation
+  const [thinkingPhase, setThinkingPhase] = useState<Record<string, string>>({});
+  const { rightSidebarWidth, toggleRightSidebar } = useLayoutStore();
 
   const activeConv =
     conversations.find((c) => c.id === activeConversationId) ||
@@ -50,11 +47,13 @@ export function ChatLayout() {
       sendMessage(activeConv.id, inputValue);
       setInputValue("");
 
-      // Create trace id for debugging
-      const traceId = `trace-${randomSeedRef.current}-${mountTimeRef.current}`;
+      // Create unique ids for this interaction
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substr(2, 9);
+      const traceId = `trace-${randomStr}-${timestamp}`;
 
-      // Create placeholder AI message
-      const aiId = `ai-msg-${randomSeedRef.current}-${mountTimeRef.current}`;
+       // Create placeholder AI message with unique id
+      const aiId = `ai-msg-${randomStr}-${timestamp}`;
       const aiMessage: Message = {
         id: aiId,
         senderId: "ai",
@@ -65,6 +64,20 @@ export function ChatLayout() {
 
       // Add placeholder message to chat
       addMessage(activeConv.id, aiMessage);
+      
+      // Mark as streaming so UI can show typing indicator
+      setStreamingIds((s) => ({ ...s, [aiId]: true }));
+      
+      // Start thinking phase animation with true validation phases
+      let phaseIndex = 0;
+      const phases = ["Thinking", "Analyzing", "Finalizing"];
+      const phaseInterval = setInterval(() => {
+        phaseIndex = (phaseIndex + 1) % phases.length;
+        setThinkingPhase(prev => ({
+          ...prev,
+          [aiId]: phases[phaseIndex]
+        }));
+      }, 1500);
 
       try {
         // Prepare history for API - include the new user message
@@ -112,9 +125,33 @@ export function ChatLayout() {
         } else {
           appendToMessage(activeConv.id, aiId, "No response received");
         }
+        
+        clearInterval(phaseInterval);
+        setStreamingIds((s) => {
+          const copy = { ...s };
+          delete copy[aiId];
+          return copy;
+        });
+        setThinkingPhase(prev => {
+          const copy = { ...prev };
+          delete copy[aiId];
+          return copy;
+        });
       } catch (err) {
         appendToMessage(activeConv.id, aiId, " [error fetching response]");
         console.error("AI stream error", err);
+        
+        clearInterval(phaseInterval);
+        setStreamingIds((s) => {
+          const copy = { ...s };
+          delete copy[aiId];
+          return copy;
+        });
+        setThinkingPhase(prev => {
+          const copy = { ...prev };
+          delete copy[aiId];
+          return copy;
+        });
       }
     } else {
       // For regular conversations, use existing behavior
@@ -165,7 +202,11 @@ export function ChatLayout() {
                 <div className="flex-1 flex flex-col overflow-hidden bg-background">
                   {activeTab === "ai" && <AIDashboardCard />}
 
-                  <ChatMessages messages={currentMessages} />
+                  <ChatMessages 
+                    messages={currentMessages} 
+                    streamingIds={streamingIds} 
+                    thinkingPhase={thinkingPhase} 
+                  />
 
                   <ChatInput
                     value={inputValue}

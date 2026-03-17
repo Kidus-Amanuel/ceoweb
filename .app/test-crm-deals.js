@@ -1,4 +1,3 @@
-
 const { createClient } = require("@supabase/supabase-js");
 const dotenv = require("dotenv");
 const fs = require("fs");
@@ -51,9 +50,9 @@ async function testCrmDeals() {
 
     console.log(`✅ Found ${data.length} deals in CRM:`);
     data.forEach((deal, index) => {
-     console.log(
-         `${index + 1}. ${deal.title} - ${deal.stage} - ${deal.value} - Customer ID: ${deal.customer_id}`,
-       );
+      console.log(
+        `${index + 1}. ${deal.title} - ${deal.stage} - ${deal.value} - Customer ID: ${deal.customer_id}`,
+      );
     });
 
     return true;

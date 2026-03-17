@@ -111,7 +111,7 @@ async function testInventoryModule() {
     console.log(`✅ Found ${data.length} products in Inventory:`);
     data.forEach((product, index) => {
       console.log(
-        `${index + 1}. ${product.name} (Category ID: ${product.category_id}) - Status: ${product.is_active ? 'Active' : 'Inactive'}`,
+        `${index + 1}. ${product.name} (Category ID: ${product.category_id}) - Status: ${product.is_active ? "Active" : "Inactive"}`,
       );
     });
 
