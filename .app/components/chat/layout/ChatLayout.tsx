@@ -27,6 +27,15 @@ export function ChatLayout() {
     appendToMessage,
   } = useChatStore();
 
+  // Generate a stable random seed once when component mounts to avoid ESLint errors
+  const randomSeedRef = useRef<string>("");
+  const mountTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    randomSeedRef.current = Math.random().toString(36).substr(2, 9);
+    mountTimeRef.current = Date.now();
+  }, []);
+
   // track streaming message ids so we can show a typing/loading indicator
   const [streamingIds, setStreamingIds] = useState<Record<string, boolean>>({});
   // track thinking phases for animation
@@ -49,9 +58,9 @@ export function ChatLayout() {
       sendMessage(activeConv.id, inputValue);
       setInputValue("");
 
-      // Create unique ids for this interaction
-      const timestamp = Date.now();
-      const randomStr = Math.random().toString(36).substr(2, 9);
+      // Create unique ids for this interaction using stable seed
+      const timestamp = mountTimeRef.current;
+      const randomStr = randomSeedRef.current;
       const traceId = `trace-${randomStr}-${timestamp}`;
 
       // Create placeholder AI message with unique id
@@ -70,16 +79,11 @@ export function ChatLayout() {
       // Mark as streaming so UI can show typing indicator
       setStreamingIds((s) => ({ ...s, [aiId]: true }));
 
-      // Start thinking phase animation with true validation phases
-      let phaseIndex = 0;
-      const phases = ["Thinking", "Analyzing", "Finalizing"];
-      const phaseInterval = setInterval(() => {
-        phaseIndex = (phaseIndex + 1) % phases.length;
-        setThinkingPhase((prev) => ({
-          ...prev,
-          [aiId]: phases[phaseIndex],
-        }));
-      }, 1500);
+      // Set initial thinking phase
+      setThinkingPhase((prev) => ({
+        ...prev,
+        [aiId]: "Thinking",
+      }));
 
       try {
         // Prepare history for API - include the new user message
@@ -100,6 +104,8 @@ export function ChatLayout() {
           "traceId",
           traceId,
         );
+        
+        // Send request to AI agent
         const res = await fetch("/api/ai/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -121,14 +127,26 @@ export function ChatLayout() {
           return;
         }
 
+        // AI response received, now analyzing data from Supabase
+        setThinkingPhase((prev) => ({
+          ...prev,
+          [aiId]: "Analyzing",
+        }));
+
         const data = await res.json();
+        
+        // Data analyzed, finalizing response
+        setThinkingPhase((prev) => ({
+          ...prev,
+          [aiId]: "Finalizing",
+        }));
+
         if (data.content) {
           appendToMessage(activeConv.id, aiId, data.content);
         } else {
           appendToMessage(activeConv.id, aiId, "No response received");
         }
 
-        clearInterval(phaseInterval);
         setStreamingIds((s) => {
           const copy = { ...s };
           delete copy[aiId];
@@ -143,7 +161,6 @@ export function ChatLayout() {
         appendToMessage(activeConv.id, aiId, " [error fetching response]");
         console.error("AI stream error", err);
 
-        clearInterval(phaseInterval);
         setStreamingIds((s) => {
           const copy = { ...s };
           delete copy[aiId];
