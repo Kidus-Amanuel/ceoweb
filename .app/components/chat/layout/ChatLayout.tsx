@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Message } from "@/types/chat";
 // import { ChatSidebar } from "./ChatSidebar";
 import { ChatHeader } from "./ChatHeader";
@@ -26,6 +26,22 @@ export function ChatLayout() {
     addMessage,
     appendToMessage,
   } = useChatStore();
+
+  // Generate a stable random seed once when component mounts to avoid ESLint errors
+  const randomSeedRef = useRef<string>("");
+  const mountTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    randomSeedRef.current = Math.random().toString(36).substr(2, 9);
+    mountTimeRef.current = Date.now();
+  }, []);
+
+  // track streaming message ids so we can show a typing/loading indicator
+  const [streamingIds, setStreamingIds] = useState<Record<string, boolean>>({});
+  // track thinking phases for animation
+  const [thinkingPhase, setThinkingPhase] = useState<Record<string, string>>(
+    {},
+  );
   const { rightSidebarWidth, toggleRightSidebar } = useLayoutStore();
 
   const activeConv =
@@ -42,11 +58,13 @@ export function ChatLayout() {
       sendMessage(activeConv.id, inputValue);
       setInputValue("");
 
-      // Create trace id for debugging
-      const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+      // Create unique ids for this interaction using dynamic values
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substr(2, 9);
+      const traceId = `trace-${randomStr}-${timestamp}`;
 
-      // Create placeholder AI message
-      const aiId = `ai-msg-${Date.now()}`;
+      // Create placeholder AI message with unique id
+      const aiId = `ai-msg-${randomStr}-${timestamp}`;
       const aiMessage: Message = {
         id: aiId,
         senderId: "ai",
@@ -57,6 +75,15 @@ export function ChatLayout() {
 
       // Add placeholder message to chat
       addMessage(activeConv.id, aiMessage);
+
+      // Mark as streaming so UI can show typing indicator
+      setStreamingIds((s) => ({ ...s, [aiId]: true }));
+
+      // Set initial thinking phase
+      setThinkingPhase((prev) => ({
+        ...prev,
+        [aiId]: "Thinking",
+      }));
 
       try {
         // Prepare history for API - include the new user message
@@ -77,6 +104,8 @@ export function ChatLayout() {
           "traceId",
           traceId,
         );
+
+        // Send request to AI agent
         const res = await fetch("/api/ai/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -98,15 +127,50 @@ export function ChatLayout() {
           return;
         }
 
+        // AI response received, now analyzing data from Supabase
+        setThinkingPhase((prev) => ({
+          ...prev,
+          [aiId]: "Analyzing",
+        }));
+
         const data = await res.json();
+
+        // Data analyzed, finalizing response
+        setThinkingPhase((prev) => ({
+          ...prev,
+          [aiId]: "Finalizing",
+        }));
+
         if (data.content) {
           appendToMessage(activeConv.id, aiId, data.content);
         } else {
           appendToMessage(activeConv.id, aiId, "No response received");
         }
+
+        setStreamingIds((s) => {
+          const copy = { ...s };
+          delete copy[aiId];
+          return copy;
+        });
+        setThinkingPhase((prev) => {
+          const copy = { ...prev };
+          delete copy[aiId];
+          return copy;
+        });
       } catch (err) {
         appendToMessage(activeConv.id, aiId, " [error fetching response]");
         console.error("AI stream error", err);
+
+        setStreamingIds((s) => {
+          const copy = { ...s };
+          delete copy[aiId];
+          return copy;
+        });
+        setThinkingPhase((prev) => {
+          const copy = { ...prev };
+          delete copy[aiId];
+          return copy;
+        });
       }
     } else {
       // For regular conversations, use existing behavior
@@ -157,7 +221,11 @@ export function ChatLayout() {
                 <div className="flex-1 flex flex-col overflow-hidden bg-background">
                   {activeTab === "ai" && <AIDashboardCard />}
 
-                  <ChatMessages messages={currentMessages} />
+                  <ChatMessages
+                    messages={currentMessages}
+                    streamingIds={streamingIds}
+                    thinkingPhase={thinkingPhase}
+                  />
 
                   <ChatInput
                     value={inputValue}
