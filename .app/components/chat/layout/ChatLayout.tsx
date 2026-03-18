@@ -58,9 +58,9 @@ export function ChatLayout() {
       sendMessage(activeConv.id, inputValue);
       setInputValue("");
 
-      // Create unique ids for this interaction using stable seed
-      const timestamp = mountTimeRef.current;
-      const randomStr = randomSeedRef.current;
+      // Create unique ids for this interaction using dynamic values
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substr(2, 9);
       const traceId = `trace-${randomStr}-${timestamp}`;
 
       // Create placeholder AI message with unique id
@@ -104,7 +104,7 @@ export function ChatLayout() {
           "traceId",
           traceId,
         );
-        
+
         // Send request to AI agent
         const res = await fetch("/api/ai/agent", {
           method: "POST",
@@ -134,7 +134,7 @@ export function ChatLayout() {
         }));
 
         const data = await res.json();
-        
+
         // Data analyzed, finalizing response
         setThinkingPhase((prev) => ({
           ...prev,
