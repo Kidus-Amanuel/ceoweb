@@ -2,24 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
 import { useCompanies } from "@/hooks/use-companies";
-import {
-  useCrmCountsQuery,
-  useCrmTrendQuery,
-  getCrmFiltersHash,
-  useCrmRowsQuery,
-} from "../workspace/queries/crm-workspace.queries";
+import { useCrmOverviewQuery } from "../workspace/queries/crm-workspace.queries";
 
 type OverviewsTabProps = {
   refreshNonce?: number;
@@ -41,101 +26,72 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const NOW_TS = Date.now();
+
+const OverviewsCharts = dynamic(() => import("./OverviewsCharts"), {
+  ssr: false,
+  loading: () => (
+    <>
+      <div
+        className={`${CARD_CLASS} lg:col-span-8 animate-pulse`}
+        aria-hidden="true"
+      >
+        <div className="mb-4 h-4 w-40 rounded bg-[#EFEFED]" />
+        <div className="mb-3 flex gap-2">
+          <div className="h-7 w-28 rounded-full bg-[#F3F3F2]" />
+          <div className="h-7 w-24 rounded-full bg-[#F3F3F2]" />
+          <div className="h-7 w-28 rounded-full bg-[#F3F3F2]" />
+        </div>
+        <div className="h-[280px] rounded-lg bg-[#F8F8F7]" />
+      </div>
+      <div
+        className={`${CARD_CLASS} lg:col-span-4 animate-pulse`}
+        aria-hidden="true"
+      >
+        <div className="mb-4 h-4 w-28 rounded bg-[#EFEFED]" />
+        <div className="mx-auto h-[220px] w-[220px] rounded-full bg-[#F8F8F7]" />
+        <div className="mt-4 space-y-2">
+          <div className="h-4 w-36 rounded bg-[#F3F3F2]" />
+          <div className="h-4 w-28 rounded bg-[#F3F3F2]" />
+        </div>
+      </div>
+    </>
+  ),
+});
+
 export function OverviewsTab({
   refreshNonce = 0,
   onRefreshStateChange,
 }: OverviewsTabProps) {
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id ?? null;
-  const filtersHash = useMemo(() => getCrmFiltersHash({ search: "" }), []);
 
-  const countsQuery = useCrmCountsQuery(companyId, true);
-  const trendQuery = useCrmTrendQuery(companyId, true);
-  const customersQuery = useCrmRowsQuery(
-    companyId
-      ? {
-          companyId,
-          table: "customers",
-          page: 1,
-          pageSize: 50,
-          search: "",
-          filtersHash,
-        }
-      : null,
-  );
-  const dealsQuery = useCrmRowsQuery(
-    companyId
-      ? {
-          companyId,
-          table: "deals",
-          page: 1,
-          pageSize: 50,
-          search: "",
-          filtersHash,
-        }
-      : null,
-  );
-  const activitiesQuery = useCrmRowsQuery(
-    companyId
-      ? {
-          companyId,
-          table: "activities",
-          page: 1,
-          pageSize: 50,
-          search: "",
-          filtersHash,
-        }
-      : null,
-  );
+  // Single aggregated query replaces 5 separate queries
+  const overviewQuery = useCrmOverviewQuery(companyId, true);
 
-  const isPending =
-    countsQuery.isPending ||
-    trendQuery.isPending ||
-    customersQuery.isPending ||
-    dealsQuery.isPending ||
-    activitiesQuery.isPending;
-
+  const isPending = overviewQuery.isPending;
   const error =
-    (countsQuery.error instanceof Error && countsQuery.error.message) ||
-    (trendQuery.error instanceof Error && trendQuery.error.message) ||
-    (customersQuery.error instanceof Error && customersQuery.error.message) ||
-    (dealsQuery.error instanceof Error && dealsQuery.error.message) ||
-    (activitiesQuery.error instanceof Error && activitiesQuery.error.message) ||
+    (overviewQuery.error instanceof Error && overviewQuery.error.message) ||
     null;
 
+  // Refresh handler - simplified to single query
+  const overviewRefetch = overviewQuery.refetch;
   useEffect(() => {
     if (!refreshNonce) return;
     onRefreshStateChange?.(true);
-    void Promise.all([
-      countsQuery.refetch(),
-      trendQuery.refetch(),
-      customersQuery.refetch(),
-      dealsQuery.refetch(),
-      activitiesQuery.refetch(),
-    ]).finally(() => onRefreshStateChange?.(false));
-  }, [
-    activitiesQuery,
-    countsQuery,
-    trendQuery,
-    customersQuery,
-    dealsQuery,
-    onRefreshStateChange,
-    refreshNonce,
-  ]);
+    void overviewRefetch().finally(() => onRefreshStateChange?.(false));
+  }, [overviewRefetch, onRefreshStateChange, refreshNonce]);
 
-  const customers = useMemo(
-    () => customersQuery.data?.rows ?? [],
-    [customersQuery.data?.rows],
+  // Extract data from aggregated response
+  const tableCounts = overviewQuery.data?.counts;
+  const activities = useMemo(
+    () => overviewQuery.data?.topActivities ?? [],
+    [overviewQuery.data?.topActivities],
   );
   const deals = useMemo(
-    () => dealsQuery.data?.rows ?? [],
-    [dealsQuery.data?.rows],
+    () => overviewQuery.data?.recentDeals ?? [],
+    [overviewQuery.data?.recentDeals],
   );
-  const activities = useMemo(
-    () => activitiesQuery.data?.rows ?? [],
-    [activitiesQuery.data?.rows],
-  );
-  const tableCounts = countsQuery.data;
   const chartCardRef = useRef<HTMLDivElement | null>(null);
   const [selectedSeries, setSelectedSeries] = useState<
     "customers" | "deals" | "activities" | null
@@ -153,72 +109,46 @@ export function OverviewsTab({
       document.removeEventListener("mousedown", onDocumentPointerDown);
   }, [selectedSeries]);
 
-  const now = useMemo(() => new Date(), []);
+  const now = useMemo(() => new Date(NOW_TS), []);
   const pipelineSeries = useMemo(
-    () => trendQuery.data ?? [],
-    [trendQuery.data],
+    () => overviewQuery.data?.trend ?? [],
+    [overviewQuery.data?.trend],
   );
 
+  // Customer mix comes pre-calculated from server
   const customerTypeSeries = useMemo(() => {
-    let company = 0;
-    let person = 0;
-    for (const row of customers) {
-      const type = String(row.type ?? "").toLowerCase();
-      if (type === "company") company += 1;
-      else person += 1;
-    }
+    const mix = overviewQuery.data?.customerMix ?? { company: 0, person: 0 };
     return [
-      { name: "Company", value: company },
-      { name: "Person", value: person },
+      { name: "Company", value: mix.company },
+      { name: "Person", value: mix.person },
     ];
-  }, [customers]);
+  }, [overviewQuery.data?.customerMix]);
 
+  // Activities are already sorted by due_date from server (top 8)
+  // Split into overdue vs upcoming based on current time
   const overdueActivities = useMemo(
     () =>
-      activities
-        .filter((row) => {
-          if (row.completed_at) return false;
-          const due = new Date(String(row.due_date ?? ""));
-          return !Number.isNaN(due.getTime()) && due.getTime() < now.getTime();
-        })
-        .slice(0, 6),
+      activities.filter((row) => {
+        const due = new Date(String(row.due_date ?? ""));
+        return !Number.isNaN(due.getTime()) && due.getTime() < now.getTime();
+      }),
     [activities, now],
   );
 
   const upcomingActivities = useMemo(
     () =>
-      activities
-        .filter((row) => {
-          if (row.completed_at) return false;
-          const due = new Date(String(row.due_date ?? ""));
-          return !Number.isNaN(due.getTime()) && due.getTime() >= now.getTime();
-        })
-        .sort(
-          (a, b) =>
-            new Date(String(a.due_date ?? "")).getTime() -
-            new Date(String(b.due_date ?? "")).getTime(),
-        )
-        .slice(0, 6),
+      activities.filter((row) => {
+        const due = new Date(String(row.due_date ?? ""));
+        return !Number.isNaN(due.getTime()) && due.getTime() >= now.getTime();
+      }),
     [activities, now],
   );
 
-  const recentlyClosedDeals = useMemo(
-    () =>
-      deals
-        .filter((row) => {
-          const stage = String(row.stage ?? "").toLowerCase();
-          return stage === "closed_won" || stage === "closed_lost";
-        })
-        .sort(
-          (a, b) =>
-            new Date(String(b.updated_at ?? b.created_at ?? "")).getTime() -
-            new Date(String(a.updated_at ?? a.created_at ?? "")).getTime(),
-        )
-        .slice(0, 6),
-    [deals],
-  );
+  // Deals are already filtered and sorted server-side (top 6 closed deals)
+  const recentlyClosedDeals = deals;
 
-  const totalCustomers = tableCounts?.customers ?? customers.length;
+  const totalCustomers = tableCounts?.customers ?? 0;
+  const totalDeals = tableCounts?.deals ?? 0;
   const newCustomersCount = useMemo(
     () =>
       pipelineSeries.length
@@ -229,29 +159,22 @@ export function OverviewsTab({
   const newCustomersPercent =
     totalCustomers > 0 ? (newCustomersCount / totalCustomers) * 100 : 0;
 
+  // Calculate win rate from recently closed deals
   const wonDeals = useMemo(
     () =>
-      deals.filter(
+      recentlyClosedDeals.filter(
         (row) => String(row.stage ?? "").toLowerCase() === "closed_won",
       ).length,
-    [deals],
+    [recentlyClosedDeals],
   );
 
-  const closedDeals = useMemo(
-    () =>
-      deals.filter((row) => {
-        const stage = String(row.stage ?? "").toLowerCase();
-        return stage === "closed_won" || stage === "closed_lost";
-      }).length,
-    [deals],
-  );
-
+  const closedDeals = recentlyClosedDeals.length;
   const winRate = closedDeals > 0 ? (wonDeals / closedDeals) * 100 : 0;
 
   const kpis = [
     {
       label: "Total Active Deals",
-      value: String(tableCounts?.deals ?? deals.length),
+      value: String(totalDeals),
       delta: "+8% vs last month",
       deltaTone: "text-emerald-600",
     },
@@ -301,140 +224,16 @@ export function OverviewsTab({
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <div ref={chartCardRef} className={`${CARD_CLASS} lg:col-span-8`}>
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-[#787774]">
-              CRM Trend (6 months)
-            </h3>
-          </div>
-          <div className="mb-3 flex flex-wrap items-center gap-3">
-            {SERIES.map((series) => {
-              const active = selectedSeries === series.key;
-              const dimmed = selectedSeries !== null && !active;
-              return (
-                <button
-                  key={series.key}
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setSelectedSeries(active ? null : series.key);
-                  }}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${
-                    active
-                      ? "border-[#CBD5E1] bg-[#F8FAFC] font-bold text-[#1F2937]"
-                      : "border-[#E5E7EB] bg-white text-[#4B5563]"
-                  } ${dimmed ? "opacity-40" : ""}`}
-                >
-                  <span
-                    className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: series.color }}
-                  />
-                  {series.label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={pipelineSeries}
-                margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
-                onClick={() => setSelectedSeries(null)}
-              >
-                <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                <YAxis
-                  allowDecimals={false}
-                  tickLine={false}
-                  axisLine={false}
-                  width={32}
-                />
-                <Tooltip cursor={{ fill: "#f8fafc" }} />
-                <Line
-                  type="monotone"
-                  dataKey="customers"
-                  name="Customers"
-                  stroke={PIPELINE_COLORS[0]}
-                  strokeWidth={selectedSeries === "customers" ? 3.5 : 2.5}
-                  strokeOpacity={
-                    selectedSeries && selectedSeries !== "customers" ? 0.2 : 1
-                  }
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="deals"
-                  name="Deals"
-                  stroke={PIPELINE_COLORS[1]}
-                  strokeWidth={selectedSeries === "deals" ? 3.5 : 2.5}
-                  strokeOpacity={
-                    selectedSeries && selectedSeries !== "deals" ? 0.2 : 1
-                  }
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="activities"
-                  name="Activities"
-                  stroke={PIPELINE_COLORS[2]}
-                  strokeWidth={selectedSeries === "activities" ? 3.5 : 2.5}
-                  strokeOpacity={
-                    selectedSeries && selectedSeries !== "activities" ? 0.2 : 1
-                  }
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className={`${CARD_CLASS} lg:col-span-4`}>
-          <h3 className="mb-4 text-sm font-bold uppercase tracking-widest text-[#787774]">
-            Customer Mix
-          </h3>
-          <div className="flex h-[220px] items-center justify-center">
-            <PieChart width={220} height={220}>
-              <Pie
-                data={customerTypeSeries}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={58}
-                outerRadius={84}
-                paddingAngle={2}
-              >
-                {customerTypeSeries.map((entry, index) => (
-                  <Cell
-                    key={entry.name}
-                    fill={DONUT_COLORS[index % DONUT_COLORS.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </div>
-          <div className="mt-2 space-y-2">
-            {customerTypeSeries.map((entry, index) => (
-              <div
-                key={entry.name}
-                className="flex items-center justify-between text-xs font-semibold text-[#37352F]"
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{
-                      backgroundColor:
-                        DONUT_COLORS[index % DONUT_COLORS.length],
-                    }}
-                  />
-                  <span>{entry.name}</span>
-                </div>
-                <span>{entry.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <OverviewsCharts
+          cardClass={CARD_CLASS}
+          chartCardRef={chartCardRef}
+          pipelineSeries={pipelineSeries}
+          customerTypeSeries={customerTypeSeries}
+          donutColors={DONUT_COLORS}
+          series={SERIES}
+          selectedSeries={selectedSeries}
+          onSelectSeries={setSelectedSeries}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

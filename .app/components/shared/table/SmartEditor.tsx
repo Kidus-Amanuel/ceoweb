@@ -17,7 +17,9 @@ import {
   defaultCurrencyOptions,
   findSelectOptionIndex,
   getSemanticOptionTone,
+  getTypeIcon,
 } from "@/utils/table-utils";
+import { Paperclip } from "lucide-react";
 
 export interface SmartEditorProps {
   value: any;
@@ -30,6 +32,7 @@ export interface SmartEditorProps {
   placeholder?: string;
   isAddMode?: boolean;
   inputRef?: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
+  onClick?: () => void;
 }
 
 export const parseDateTimeParts = (
@@ -77,6 +80,7 @@ export const SmartEditor = ({
   placeholder,
   isAddMode = false,
   inputRef,
+  onClick,
 }: SmartEditorProps) => {
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const amountInputRef = useRef<HTMLInputElement | null>(null);
@@ -85,7 +89,12 @@ export const SmartEditor = ({
   const timeInputRef = useRef<HTMLInputElement | null>(null);
   const currencyEditorRef = useRef<HTMLDivElement | null>(null);
   const isCurrencyMenuOpenRef = useRef(false);
+  const currencyPointerDownRef = useRef(false);
   const datetimeEditorRef = useRef<HTMLDivElement | null>(null);
+  const initialSelectValueRef = useRef<string | null>(null);
+  const lastCurrencySeedRef = useRef<{ type: string; value: unknown } | null>(
+    null,
+  );
   const currencyAmountDraftRef = useRef<string>("");
   const currencyCodeDraftRef = useRef<string>("ETB");
   const datetimeDateDraftRef = useRef<string>("");
@@ -102,9 +111,9 @@ export const SmartEditor = ({
   const normalizedSelectValue = String(value ?? "").trim();
   const selectDefaultOption = selectOptions[0];
   const baseInputClass =
-    "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm shadow-none ring-0 focus-visible:ring-0";
+    "h-full min-h-[32px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm shadow-none ring-0 focus-visible:ring-0";
   const baseSelectTriggerClass =
-    "h-full min-h-[40px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 justify-center shadow-none ring-0 focus:ring-0";
+    "h-full min-h-[32px] w-full max-w-full rounded-none border-0 bg-transparent px-2 py-0 justify-start shadow-none ring-0 focus:ring-0 [&_svg]:opacity-100";
   const selectContentClass =
     "z-[120] rounded-md border border-border bg-background p-1 shadow-xl";
   const selectItemClass =
@@ -137,6 +146,10 @@ export const SmartEditor = ({
 
   useEffect(() => {
     if (type !== "currency") return;
+    const lastSeed = lastCurrencySeedRef.current;
+    if (lastSeed && lastSeed.type === type && Object.is(lastSeed.value, value))
+      return;
+    lastCurrencySeedRef.current = { type, value };
     const options =
       Array.isArray(meta?.options) && meta.options.length > 0
         ? meta.options
@@ -171,7 +184,7 @@ export const SmartEditor = ({
     currencyCodeDraftRef.current = String(
       current.currency ?? options[0]?.value ?? "ETB",
     );
-  }, [meta?.options, type, value]);
+  }, [type, value, meta?.options]);
 
   useEffect(() => {
     if (type !== "datetime") return;
@@ -206,16 +219,31 @@ export const SmartEditor = ({
     const options = selectOptions;
     const normalizedValue = normalizedSelectValue;
     const defaultOption = selectDefaultOption;
-    const selectedValue =
-      normalizedValue.length > 0
-        ? normalizedValue
-        : defaultOption
-          ? String(defaultOption.value)
-          : "";
-    const selectedOption = options.find(
+    const shouldAutoSelectSingle =
+      !isAddMode && normalizedValue.length === 0 && options.length === 1;
+    const singleOptionValue = shouldAutoSelectSingle
+      ? String(options[0]?.value ?? "")
+      : "";
+    if (initialSelectValueRef.current === null) {
+      initialSelectValueRef.current = normalizedValue;
+    }
+    const hasOptionMatch = options.some(
+      (o: any) =>
+        String(o.value).toLowerCase() === normalizedValue.toLowerCase() ||
+        String(o.label).toLowerCase() === normalizedValue.toLowerCase(),
+    );
+    const effectiveOptions =
+      normalizedValue.length > 0 && !hasOptionMatch
+        ? [{ label: normalizedValue, value: normalizedValue }, ...options]
+        : options;
+    const selectedValue = normalizedValue.length > 0 ? normalizedValue : "";
+    const selectedOption = effectiveOptions.find(
       (o: any) => String(o.value).toLowerCase() === selectedValue.toLowerCase(),
     );
-    const selectedIndex = findSelectOptionIndex(options, selectedValue);
+    const selectedIndex = findSelectOptionIndex(
+      effectiveOptions,
+      selectedValue,
+    );
     return (
       <Select
         value={selectedValue}
@@ -223,9 +251,25 @@ export const SmartEditor = ({
           onChange(next);
           if (!isAddMode) onCommit?.(next);
         }}
+        onOpenChange={(open) => {
+          if (open) {
+            initialSelectValueRef.current = normalizedSelectValue;
+            return;
+          }
+          if (isAddMode) return;
+          const initialValue = initialSelectValueRef.current ?? "";
+          if (normalizedSelectValue === initialValue) {
+            onCancel?.();
+          }
+        }}
       >
         <SelectTrigger
           className={baseSelectTriggerClass}
+          onPointerDown={() => {
+            if (!shouldAutoSelectSingle) return;
+            onChange(singleOptionValue);
+            onCommit?.(singleOptionValue);
+          }}
           onKeyDown={(e) => {
             handleGridNavigation(e);
           }}
@@ -233,18 +277,18 @@ export const SmartEditor = ({
           {selectedOption ? (
             <span
               className={cn(
-                "inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold",
+                "inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ",
                 getSemanticOptionTone(selectedOption.label, selectedIndex),
               )}
             >
               {selectedOption.label}
             </span>
           ) : (
-            <SelectValue placeholder={placeholder || "Select..."} />
+            <SelectValue placeholder={placeholder || "Unassigned"} />
           )}
         </SelectTrigger>
         <SelectContent className={selectContentClass}>
-          {options.map((o: any) => (
+          {effectiveOptions.map((o: any) => (
             <SelectItem
               className={selectItemClass}
               key={String(o.value)}
@@ -255,7 +299,7 @@ export const SmartEditor = ({
                   "inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold",
                   getSemanticOptionTone(
                     o.label,
-                    findSelectOptionIndex(options, o.value),
+                    findSelectOptionIndex(effectiveOptions, o.value),
                   ),
                 )}
               >
@@ -265,6 +309,27 @@ export const SmartEditor = ({
           ))}
         </SelectContent>
       </Select>
+    );
+  }
+
+  if (type === "files") {
+    const files = Array.isArray(value) ? value : [];
+    const count = files.length;
+    return (
+      <div className="flex items-center h-full px-2">
+        <button
+          type="button"
+          className="flex items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50/50 px-2.5 py-1.5 hover:bg-indigo-50 transition-colors group"
+          onClick={() => {
+            onClick?.();
+          }}
+        >
+          <Paperclip className="w-3.5 h-3.5 text-indigo-500 group-hover:text-indigo-600" />
+          <span className="text-xs font-medium text-indigo-700">
+            {count > 0 ? `${count} file${count > 1 ? "s" : ""}` : "Add files"}
+          </span>
+        </button>
+      </div>
     );
   }
 
@@ -315,6 +380,16 @@ export const SmartEditor = ({
     const currentCurrency = String(
       current.currency ?? options[0]?.value ?? "ETB",
     );
+    const normalizedCurrency = currentCurrency.trim().toLowerCase();
+    const hasCurrencyMatch = options.some(
+      (option: { label: string; value: string | number }) =>
+        String(option.value).toLowerCase() === normalizedCurrency ||
+        String(option.label).toLowerCase() === normalizedCurrency,
+    );
+    const effectiveOptions =
+      normalizedCurrency && !hasCurrencyMatch
+        ? [{ label: currentCurrency, value: currentCurrency }, ...options]
+        : options;
     const parsedCurrentAmount = Number(
       current.amount === null ||
         current.amount === undefined ||
@@ -348,9 +423,11 @@ export const SmartEditor = ({
     const commitCurrencyOnBlurIfOutside = (
       relatedTarget: EventTarget | null,
     ) => {
+      if (currencyPointerDownRef.current) return;
       if (isCurrencyMenuOpenRef.current) return;
       if (isCurrencyInteractionTarget(relatedTarget)) return;
       requestAnimationFrame(() => {
+        if (currencyPointerDownRef.current) return;
         if (isCurrencyMenuOpenRef.current) return;
         const active = document.activeElement;
         if (isCurrencyInteractionTarget(active)) return;
@@ -361,6 +438,12 @@ export const SmartEditor = ({
     return (
       <div
         ref={currencyEditorRef}
+        onPointerDownCapture={() => {
+          currencyPointerDownRef.current = true;
+          requestAnimationFrame(() => {
+            currencyPointerDownRef.current = false;
+          });
+        }}
         className={cn(
           "grid w-full min-w-[220px] grid-cols-[minmax(90px,1fr)_120px] gap-2",
           !isAddMode && "items-center",
@@ -438,7 +521,7 @@ export const SmartEditor = ({
                 "inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold",
                 getSemanticOptionTone(
                   currentCurrency,
-                  findSelectOptionIndex(options, currentCurrency),
+                  findSelectOptionIndex(effectiveOptions, currentCurrency),
                 ),
               )}
             >
@@ -446,7 +529,7 @@ export const SmartEditor = ({
             </span>
           </SelectTrigger>
           <SelectContent className={selectContentClass}>
-            {options.map((o: any) => (
+            {effectiveOptions.map((o: any) => (
               <SelectItem
                 className={selectItemClass}
                 key={String(o.value)}
@@ -457,7 +540,7 @@ export const SmartEditor = ({
                     "inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold",
                     getSemanticOptionTone(
                       o.label,
-                      findSelectOptionIndex(options, o.value),
+                      findSelectOptionIndex(effectiveOptions, o.value),
                     ),
                   )}
                 >
@@ -666,7 +749,7 @@ export const SmartEditor = ({
           }
           if (e.key === "Escape") onCancel?.();
         }}
-        className="h-full min-h-[40px] w-full max-w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm leading-5 shadow-none focus:outline-none focus:ring-0"
+        className="h-full min-h-[4px] w-full max-w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px- py-0 text-left text-sm leading-5 shadow-none focus:outline-none focus:ring-0 justify-center t"
       />
     );
   if (type === "text")
@@ -689,7 +772,7 @@ export const SmartEditor = ({
           }
           if (e.key === "Escape") onCancel?.();
         }}
-        className="h-full min-h-[40px] w-full max-w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm leading-5 shadow-none focus:outline-none focus:ring-0"
+        className="h-full min-h-[0px] w-full max-w-full resize-none overflow-hidden rounded-none border-0 bg-transparent px-2 py-0 text-left text-sm leading-5 shadow-none focus:outline-none focus:ring-0"
       />
     );
 

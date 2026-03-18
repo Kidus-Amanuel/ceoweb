@@ -59,6 +59,10 @@ export const mapFieldType = (value: string): VirtualColumn["type"] => {
   if (value === "date") return "date";
   if (value === "datetime") return "datetime";
   if (value === "currency") return "currency";
+  if (value === "files") return "files";
+  if (value === "phone") return "phone";
+  if (value === "email") return "email";
+  if (value === "json") return "json";
   return "text";
 };
 

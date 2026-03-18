@@ -12,6 +12,10 @@ import {
   CrmTable,
   CrmUpdateRowInput,
 } from "@/validators/crm";
+import {
+  ensureNoCustomFieldValues,
+  findMatchingCustomFields,
+} from "@/services/custom-field-guards";
 
 type ServiceResult<T> = {
   data?: T;
@@ -75,7 +79,10 @@ type CustomFieldPayload = {
     | "boolean"
     | "currency"
     | "phone"
-    | "email";
+    | "email"
+    | "files"
+    | "json"
+    | "status";
   fieldOptions?: string[];
   isRequired?: boolean;
 };
@@ -794,6 +801,111 @@ export const crmService = {
     return { data: monthBuckets };
   },
 
+  async getOverviewDashboard({
+    supabase,
+    companyId,
+  }: {
+    supabase: SupabaseClient;
+    companyId: string;
+  }): Promise<
+    ServiceResult<{
+      counts: { customers: number; deals: number; activities: number };
+      trend: MonthlyTrendPoint[];
+      topActivities: Record<string, unknown>[];
+      recentDeals: Record<string, unknown>[];
+      customerMix: { company: number; person: number };
+    }>
+  > {
+    const now = new Date().toISOString();
+
+    // Aggregate all required data in parallel
+    const [
+      countsResult,
+      trendResult,
+      activitiesResult,
+      dealsResult,
+      companyCountResult,
+      personCountResult,
+    ] = await Promise.all([
+      // 1. Table counts
+      this.getTableCounts({ supabase, companyId }),
+
+      // 2. Monthly trend (6 months)
+      this.getMonthlyTrend({ supabase, companyId, months: 6 }),
+
+      // 3. Top 6 activities (overdue + upcoming)
+      supabase
+        .from("activities")
+        .select("id,subject,due_date,activity_type")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .is("completed_at", null)
+        .not("due_date", "is", null)
+        .order("due_date", { ascending: true })
+        .limit(6),
+
+      // 4. Top 6 recently closed deals
+      supabase
+        .from("deals")
+        .select("id,title,value,stage,updated_at")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("stage", ["closed_won", "closed_lost"])
+        .order("updated_at", { ascending: false })
+        .limit(6),
+
+      // 5. Customer mix counts (company/person) without full row payload
+      supabase
+        .from("customers")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("type", "company")
+        .is("deleted_at", null),
+      supabase
+        .from("customers")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("type", "person")
+        .is("deleted_at", null),
+    ]);
+
+    // Check for errors
+    if (countsResult.error) {
+      return { error: countsResult.error };
+    }
+    if (trendResult.error) {
+      return { error: trendResult.error };
+    }
+    if (activitiesResult.error) {
+      return { error: activitiesResult.error.message };
+    }
+    if (dealsResult.error) {
+      return { error: dealsResult.error.message };
+    }
+    if (companyCountResult.error) {
+      return { error: companyCountResult.error.message };
+    }
+    if (personCountResult.error) {
+      return { error: personCountResult.error.message };
+    }
+
+    const companyCount = companyCountResult.count ?? 0;
+    const personCount = personCountResult.count ?? 0;
+
+    return {
+      data: {
+        counts: countsResult.data!,
+        trend: trendResult.data ?? [],
+        topActivities: activitiesResult.data ?? [],
+        recentDeals: dealsResult.data ?? [],
+        customerMix: {
+          company: companyCount,
+          person: personCount,
+        },
+      },
+    };
+  },
+
   async listRows({
     supabase,
     table,
@@ -1480,7 +1592,9 @@ export const crmService = {
     payload: CustomFieldPayload;
   }): Promise<ServiceResult<Record<string, unknown>>> {
     const optionBasedType =
-      payload.fieldType === "select" || payload.fieldType === "currency";
+      payload.fieldType === "select" ||
+      payload.fieldType === "currency" ||
+      payload.fieldType === "status";
     const normalizedOptions = optionBasedType
       ? normalizeOptionValues(payload.fieldType, payload.fieldOptions ?? [])
       : [];
@@ -1542,7 +1656,9 @@ export const crmService = {
 
     const isTypeChange = existing.field_type !== payload.fieldType;
     const optionBasedType =
-      payload.fieldType === "select" || payload.fieldType === "currency";
+      payload.fieldType === "select" ||
+      payload.fieldType === "currency" ||
+      payload.fieldType === "status";
     const incomingOptions = optionBasedType
       ? normalizeOptionValues(payload.fieldType, payload.fieldOptions ?? [])
       : [];
@@ -1644,6 +1760,23 @@ export const crmService = {
     }
 
     const metadata = normalizeMetadata(company.settings);
+    const matchingFields = findMatchingCustomFields(
+      metadata,
+      ["customers", "deals", "activities"] as const,
+      fieldId,
+    );
+    const inUseError = await ensureNoCustomFieldValues({
+      supabase,
+      companyId,
+      matches: matchingFields,
+      hasMeaningfulValue: (value) => hasMeaningfulValue(value),
+      errorMessage:
+        "Cannot remove options already used by existing rows. Add new options instead.",
+    });
+    if (inUseError) {
+      return { error: inUseError };
+    }
+
     for (const entityType of ["customers", "deals", "activities"] as const) {
       const values = metadata[entityType] ?? [];
       metadata[entityType] = values.filter(

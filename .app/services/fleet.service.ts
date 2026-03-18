@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { FleetEntityType, FleetCustomFieldType } from "@/validators/fleet";
+import {
+  ensureNoCustomFieldValues,
+  findMatchingCustomFields,
+} from "@/services/custom-field-guards";
 
 export interface TraccarUserPayload {
   name: string;
@@ -718,8 +722,14 @@ export class FleetService {
       .is("deleted_at", null)
       .maybeSingle();
 
-    if (error) return { error: error.message };
-    if (!company) return { error: "Company settings not found." };
+    if (error) {
+      console.error("[FleetService] Fetch Company Failed:", error);
+      return { error: error.message };
+    }
+    if (!company) {
+      console.error("[FleetService] Company Not Found:", companyId);
+      return { error: "Company settings not found." };
+    }
 
     const fieldName =
       column.field_name || toSnakeCase(column.field_label || "");
@@ -731,6 +741,12 @@ export class FleetService {
       ...column,
       entity_type: entityType,
       field_name: fieldName,
+    });
+
+    console.log("[FleetService] Saving Column Definition:", {
+      entityType,
+      fieldName,
+      type: next.field_type,
     });
 
     metadata[entityType] = [
@@ -747,8 +763,15 @@ export class FleetService {
       .eq("id", companyId)
       .is("deleted_at", null);
 
-    if (updateError) return { error: updateError.message };
+    if (updateError) {
+      console.error(
+        "[FleetService] Update Company Settings Failed:",
+        updateError,
+      );
+      return { error: updateError.message };
+    }
 
+    console.log("[FleetService] Column Definition Saved Successfully");
     return { data: next };
   }
 
@@ -1109,6 +1132,22 @@ export class FleetService {
     if (!company) return { data: null };
 
     const metadata = normalizeMetadata(company.settings);
+    const matchingFields = findMatchingCustomFields(
+      metadata,
+      ["vehicles", "drivers", "maintenance"] as const,
+      fieldId,
+    );
+    const inUseError = await ensureNoCustomFieldValues({
+      supabase,
+      companyId,
+      matches: matchingFields,
+      tableForEntity: (entityType) => FleetService.mapEntityToTable(entityType),
+      hasMeaningfulValue: (value) => hasMeaningfulValue(value),
+      errorMessage:
+        "Cannot remove options already used by existing rows. Add new options instead.",
+    });
+    if (inUseError) return { error: inUseError };
+
     for (const entityType of ["vehicles", "drivers", "maintenance"] as const) {
       const values = metadata[entityType] ?? [];
       metadata[entityType] = values.filter(
