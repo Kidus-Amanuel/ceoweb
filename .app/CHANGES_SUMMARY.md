@@ -1,80 +1,86 @@
-# AI Agent Integration Summary
+# Changes Summary for ERP AI Assistant
 
-## Overview
+## Features Implemented
 
-This PR completes the AI agent integration for the ERP system. The AI agent allows users to interact with the system using natural language, providing responses with interactive buttons and tables.
+### 1. Amharic Language Support (Route.ts)
 
-## Key Changes
+- Updated system prompt to handle Amharic queries
+- Added language detection and response handling logic
+- Translated key module terms to Amharic for better user experience
+- Added instructions for AI to respond in the same language as the query
 
-### 1. Enhanced AI Agent Core
+### 2. Thinking Phase Animation (ChatWindow.tsx)
 
-- **Improved Response Formatting**: Added support for tables and better button styling
-- **String Truncation**: Added text truncation for long fields with "..."
-- **Button Styling**: Fixed button boldness and dark color issues
-- **Thinking Animation**: Added "thinking..." indicator for better UX
+- Added thinking phase tracking state
+- Implemented 3-phase animation: "Thinking..." → "Analyzing..." → "Finalizing..."
+- Added interval timer to cycle through phases every 1.5 seconds
+- Display animated bouncing dots to indicate processing
 
-### 2. Caching Mechanism
+### 3. Enhanced Message Item Component (MessageItem.tsx)
 
-- **Response Caching**: Implemented caching for AI responses and tool results
-- **TTL Support**: Added configurable time-to-live (TTL) for cache entries
-- **Auto-Cleanup**: Added auto-cleanup for expired cache entries
-
-### 3. Permission and Validation Fixes
-
-- **Multi-Tenancy**: Fixed data filtering to respect company ID
-- **Role-Based Access**: Added proper role and permission checking
-- **Permission Validation**: Enhanced permissions validation for module access
-
-### 4. Navigation and Linking
-
-- **Module Links**: Added proper navigation links to CRM, HR, Fleet, and Inventory modules
-- **Customer Links**: Fixed customer view links in responses
-- **Employee Links**: Fixed employee view links in responses
-
-### 5. Error Handling and Suggestions
-
-- **Improved Errors**: Enhanced error handling to show user-friendly suggestions
-- **Fallbacks**: Added fallback behavior for invalid module names or missing permissions
-
-### 6. Performance Optimization
-
-- **Caching**: Reduced API calls with response caching
-- **Session Handling**: Fixed login session handling in tests
-- **Query Optimization**: Improved query performance with proper indexes
+- Updated interface to accept isStreaming and thinkingPhase props
+- Added logic to display thinking phase animation when message is streaming
+- Improved UI for better visual feedback during AI response generation
 
 ## Files Modified
 
-### Core AI Agent Files
+1. `.app/app/api/ai/agent/route.ts` - Added Amharic language support
+2. `.app/components/ai-agent/ChatWindow.tsx` - Added thinking phase animation logic
+3. `.app/components/chat/view/MessageItem.tsx` - Enhanced message item to display streaming animation
 
-- `.app/ai-agent/tools/readModuleData.ts`: Updated tool to support dynamic table filtering
-- `.app/app/api/ai/agent/route.ts`: Enhanced route with caching and error handling
-- `.app/components/chat/view/AIMarkupRenderer.tsx`: Updated markup parser with table support
-- `.app/components/chat/view/MessageItem.tsx`: Added "thinking..." animation
-- `.app/store/chat-store.ts`: Added session management
+## Key Technical Changes
 
-### Tests
+### Language Support
 
-- `.app/test-ai-agent.js`: Updated test to include login and session handling
+```typescript
+const SYSTEM_PROMPT = `You are ERP Co-Pilot — a super intelligent, proactive AI assistant...
+...
+**LANGUAGE SUPPORT**
+- If the user asks in Amharic, respond in Amharic.
+- If the user asks in English, respond in English.
+- Detect the language of the user's query and respond in the same language.
+- For Amharic queries, use Amharic terms for modules and entities (e.g., customers = ከሚገኙት, deals = ገቢዎች, employees = ሠራተኞች, products = ምርቶች, invoices = ትእዛዝዎች, vehicles = መኪናዎች, shipments = መጓጓምዎች)
+- When responding in Amharic, use appropriate Amharic terminology for all entities and actions
+`;
+```
 
-### Configuration
+### Thinking Phase Animation
 
-- `instrictions.md`: Added documentation for AI agent usage
+```typescript
+// track thinking phases for animation
+const [thinkingPhase, setThinkingPhase] = useState<Record<string, string>>({});
 
-## Verification
+// Start thinking phase animation
+let phaseIndex = 0;
+const phases = ["Thinking...", "Analyzing...", "Finalizing..."];
+const phaseInterval = setInterval(() => {
+  phaseIndex = (phaseIndex + 1) % phases.length;
+  setThinkingPhase((prev) => ({
+    ...prev,
+    [aiId]: phases[phaseIndex],
+  }));
+}, 1500);
 
-All tests pass, and the AI agent is now working correctly. To verify:
+// Clear interval when response received
+clearInterval(phaseInterval);
+```
 
-1. Run `npm run test` to ensure all tests pass
-2. Start the development server with `npm run dev`
-3. Login with valid credentials
-4. Navigate to the AI agent and test various queries like:
-   - "Show me all active customers in CRM"
-   - "Show me all employees"
-   - "Show me all vehicles"
+## Usage Instructions
 
-## Future Enhancements
+### Testing Amharic Language Support
 
-1. Add support for more complex queries and operations
-2. Improve AI response formatting for complex data structures
-3. Add more detailed logging and error reporting
-4. Implement rate limiting and API quota management
+1. Open the AI chat interface
+2. Type a query in Amharic, e.g., "አዳናዊ ደንበኛዎችን አሳይ" (Show recent deals)
+3. The AI should respond entirely in Amharic
+
+### Testing Thinking Phase Animation
+
+1. Open the AI chat interface
+2. Type any query that will trigger a backend data retrieval
+3. Observe the animated thinking phase text (Thinking... → Analyzing... → Finalizing...) with bouncing dots
+
+## Notes
+
+- The language detection is based on the presence of Amharic characters in the query
+- If a query contains both Amharic and English, it will respond in Amharic
+- The thinking phase animation starts when the AI begins processing and ends when the response is received

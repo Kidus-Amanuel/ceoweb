@@ -29,21 +29,34 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
 
   // track streaming message ids so we can show a typing/loading indicator
   const [streamingIds, setStreamingIds] = useState<Record<string, boolean>>({});
+  // track thinking phases for animation
+  const [thinkingPhase, setThinkingPhase] = useState<Record<string, string>>(
+    {},
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
     if (!text) return;
 
+    // create a trace id for this exchange (visible in client + server logs)
+    const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+    // prepare history including current message (before sending to ensure consistency)
+    const history = [
+      ...messages.map((m) => ({
+        role: m.senderId === "ai" ? "assistant" : "user",
+        content: m.content,
+      })),
+      { role: "user", content: text },
+    ];
+
     // add user message
     sendMessage(conversationId, text);
     setInput("");
 
-    // create a trace id for this exchange (visible in client + server logs)
-    const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-
-    // create placeholder AI message
-    const aiId = `ai-msg-${Date.now()}`;
+    // create placeholder AI message with unique id
+    const aiId = `ai-msg-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
     const aiMessage: Message = {
       id: aiId,
       senderId: "ai",
@@ -55,11 +68,16 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
     // mark as streaming so UI can show typing indicator
     setStreamingIds((s) => ({ ...s, [aiId]: true }));
 
-    // prepare history for API
-    const history = messages.map((m) => ({
-      role: m.senderId === "ai" ? "assistant" : "user",
-      content: m.content,
-    }));
+    // Start thinking phase animation with true validation phases
+    let phaseIndex = 0;
+    const phases = ["Thinking", "Analyzing", "Finalizing"];
+    const phaseInterval = setInterval(() => {
+      phaseIndex = (phaseIndex + 1) % phases.length;
+      setThinkingPhase((prev) => ({
+        ...prev,
+        [aiId]: phases[phaseIndex],
+      }));
+    }, 1500);
 
     try {
       console.debug(
@@ -101,16 +119,28 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
         appendToMessage(conversationId, aiId, "No response received");
       }
 
+      clearInterval(phaseInterval);
       setStreamingIds((s) => {
         const copy = { ...s };
+        delete copy[aiId];
+        return copy;
+      });
+      setThinkingPhase((prev) => {
+        const copy = { ...prev };
         delete copy[aiId];
         return copy;
       });
     } catch (err) {
       appendToMessage(conversationId, aiId, " [error fetching response]");
       console.error("AI stream error", err);
+      clearInterval(phaseInterval);
       setStreamingIds((s) => {
         const copy = { ...s };
+        delete copy[aiId];
+        return copy;
+      });
+      setThinkingPhase((prev) => {
+        const copy = { ...prev };
         delete copy[aiId];
         return copy;
       });
@@ -154,7 +184,9 @@ export default function ChatWindow({ conversationId }: ChatWindowProps) {
                   )}
                   {m.senderId === "ai" && streamingIds[m.id] ? (
                     <div className="inline-flex items-center ml-2 mt-2">
-                      <span className="text-gray-500 mr-1">Thinking</span>
+                      <span className="text-gray-400 mr-2 text-base font-bold">
+                        {thinkingPhase[m.id] || "Thinking"}
+                      </span>
                       <span
                         className="w-2 h-2 rounded-full bg-gray-400 animate-bounce mr-1"
                         style={{ animationDelay: "0ms" }}

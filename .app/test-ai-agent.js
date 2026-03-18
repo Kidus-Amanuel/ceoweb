@@ -69,10 +69,11 @@ async function testAIAgent() {
       messages: [
         {
           role: "user",
-          content: "Show me all active customers in CRM",
+          content:
+            "Show me customers with their associated deals and activities. Use includeRelated: true to fetch related data.",
         },
       ],
-      traceId: "test-trace-123",
+      traceId: "test-trace-" + Date.now(),
     });
 
     const aiAgentOptions = {
