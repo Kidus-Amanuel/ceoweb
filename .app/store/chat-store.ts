@@ -204,7 +204,7 @@ export const useChatStore = create<ChatState & ChatActions>()(
           type: "text" | "image" | "file" | "audio" = "text",
         ) => {
           const newMessage: Message = {
-            id: `msg-${Date.now()}`,
+            id: `msg-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
             senderId: "me", // Current user
             content,
             createdAt: new Date().toISOString(),
