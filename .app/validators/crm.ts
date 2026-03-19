@@ -142,7 +142,8 @@ export const crmUpdateCustomFieldInputSchema =
     fieldId: z.string().min(1, "Invalid custom field id"),
   });
 
-export const crmDeleteCustomFieldInputSchema = deleteCustomFieldSchema;
+export const crmDeleteCustomFieldInputSchema =
+  deleteCustomFieldSchema(crmEntityTypeSchema);
 
 // Row CRUD Input Schemas
 export const crmCreateRowInputSchema = z.discriminatedUnion("table", [

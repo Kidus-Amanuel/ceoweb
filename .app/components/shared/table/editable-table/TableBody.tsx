@@ -10,7 +10,11 @@ import {
 } from "@/components/shared/ui/table";
 import { SmartEditor } from "@/components/shared/table/SmartEditor";
 import { EditableTableRow } from "./TableRow";
-import { resolveMetaForValues, prettifyColumnKey } from "@/utils/table-utils";
+import {
+  resolveMetaForValues,
+  prettifyColumnKey,
+  calculateDays,
+} from "@/utils/table-utils";
 import type { EditingCell } from "@/hooks/use-cell-editing";
 import type { DeleteTarget } from "./DeleteConfirmationDialog";
 
@@ -195,58 +199,85 @@ export function EditableTableBody<
                     isActiveNewCell &&
                       "ring-2 ring-amber-300 ring-inset shadow-sm",
                   )}
-                  onClick={() => onStartEditNewRow(columnId)}
-                  onFocusCapture={() => onStartEditNewRow(columnId)}
+                  onClick={() =>
+                    !meta?.excludeFromForm && onStartEditNewRow(columnId)
+                  }
+                  onFocusCapture={() =>
+                    !meta?.excludeFromForm && onStartEditNewRow(columnId)
+                  }
                 >
-                  <SmartEditor
-                    isAddMode
-                    inputRef={i === 0 ? addRowFirstInputRef : undefined}
-                    meta={meta}
-                    fieldKey={String(virtualKey ?? columnId)}
-                    placeholder={`Set ${placeholderLabel}...`}
-                    value={
-                      isVirtual
-                        ? newRowData.customValues?.[
-                            String(virtualKey ?? columnId)
-                          ]
-                        : newRowData[columnId]
-                    }
-                    onClick={() => {
-                      if (meta?.type !== "files") return;
-                      onOpenFilesEditor({
-                        id: "new-row",
-                        columnId,
-                        isVirtual,
-                        virtualKey,
-                        value: isVirtual
+                  {meta?.excludeFromForm ? (
+                    <div className="h-full w-full bg-slate-50/10" />
+                  ) : (
+                    <SmartEditor
+                      isAddMode
+                      inputRef={i === 0 ? addRowFirstInputRef : undefined}
+                      meta={meta}
+                      fieldKey={String(virtualKey ?? columnId)}
+                      placeholder={`Set ${placeholderLabel}...`}
+                      value={
+                        isVirtual
                           ? newRowData.customValues?.[
                               String(virtualKey ?? columnId)
                             ]
-                          : newRowData[columnId],
-                      });
-                    }}
-                    onChange={(nextValue) => {
-                      const next = { ...newRowData };
-                      if (isVirtual) {
-                        onNewRowDataChange({
-                          ...next,
-                          customValues: {
-                            ...(newRowData.customValues || {}),
-                            [String(virtualKey ?? columnId)]: nextValue,
-                          },
-                        });
-                      } else {
-                        next[columnId] = nextValue;
-                        // Clear dependent columns when source changes
-                        (dependentColumnsBySource[columnId] || []).forEach(
-                          (dep) => {
-                            if (dep !== columnId) next[dep] = undefined;
-                          },
-                        );
-                        onNewRowDataChange(next);
+                          : newRowData[columnId]
                       }
-                    }}
-                  />
+                      onClick={() => {
+                        if (meta?.type !== "files") return;
+                        onOpenFilesEditor({
+                          id: "new-row",
+                          columnId,
+                          isVirtual,
+                          virtualKey,
+                          value: isVirtual
+                            ? newRowData.customValues?.[
+                                String(virtualKey ?? columnId)
+                              ]
+                            : newRowData[columnId],
+                        });
+                      }}
+                      onChange={(nextValue) => {
+                        const next = { ...newRowData };
+                        if (isVirtual) {
+                          onNewRowDataChange({
+                            ...next,
+                            customValues: {
+                              ...(newRowData.customValues || {}),
+                              [String(virtualKey ?? columnId)]: nextValue,
+                            },
+                          });
+                        } else {
+                          next[columnId] = nextValue;
+                          // Clear dependent columns when source changes
+                          (dependentColumnsBySource[columnId] || []).forEach(
+                            (dep) => {
+                              if (dep !== columnId) next[dep] = undefined;
+                            },
+                          );
+
+                          // Auto-calculate days for leave ranges
+                          if (
+                            columnId === "start_date" ||
+                            columnId === "end_date"
+                          ) {
+                            const s =
+                              columnId === "start_date"
+                                ? nextValue
+                                : next.start_date;
+                            const e =
+                              columnId === "end_date"
+                                ? nextValue
+                                : next.end_date;
+                            if (s && e) {
+                              next.days = calculateDays(s, e);
+                            }
+                          }
+
+                          onNewRowDataChange(next);
+                        }
+                      }}
+                    />
+                  )}
                 </TableCell>
               );
             })}

@@ -15,6 +15,8 @@ import {
   Ship,
   Anchor,
   Globe,
+  Briefcase,
+  Palmtree,
 } from "lucide-react";
 import { LucideIcon } from "lucide-react";
 
@@ -192,6 +194,20 @@ export const NAV_CONFIG: NavItem[] = [
         href: "/hr/employees",
         icon: Users,
         iconClassName: "text-pink-500",
+      },
+      {
+        id: "hr-leave",
+        label: "Leave Records",
+        href: "/hr/leave",
+        icon: Palmtree,
+        iconClassName: "text-emerald-500",
+      },
+      {
+        id: "hr-positions",
+        label: "Positions",
+        href: "/hr/positions",
+        icon: Briefcase,
+        iconClassName: "text-green-500",
       },
       {
         id: "hr-payroll",

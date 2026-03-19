@@ -71,6 +71,7 @@ interface EditableTableProps<
   onReachBottom?: () => void;
   hasMoreRows?: boolean;
   isFetchingMoreRows?: boolean;
+  multiSelect?: boolean;
 }
 
 type FileEditingCell = {
@@ -109,6 +110,7 @@ export function EditableTable<
   onReachBottom,
   hasMoreRows = false,
   isFetchingMoreRows = false,
+  multiSelect = true,
 }: EditableTableProps<T>) {
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -236,6 +238,7 @@ export function EditableTable<
     getFilteredRowModel: getFilteredRowModel(),
     enableGlobalFilter: true,
     enableRowSelection: true,
+    enableMultiRowSelection: multiSelect,
     globalFilterFn: "auto",
   });
 
@@ -501,6 +504,7 @@ export function EditableTable<
               canAddColumns={!!onColumnAdd}
               canEditColumns={!!onColumnUpdate}
               canDeleteColumns={!!onColumnDelete}
+              multiSelect={multiSelect}
             />
             <EditableTableBody
               table={table}
@@ -577,6 +581,7 @@ export function EditableTable<
                 <Button
                   type="button"
                   variant="outline"
+                  aria-label="Previous"
                   disabled={currentPage <= 1}
                   onClick={() => onPageChange(currentPage - 1)}
                   className="h-8 px-3 border-slate-300 bg-white text-[12px] font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150"
@@ -586,6 +591,7 @@ export function EditableTable<
                 <Button
                   type="button"
                   variant="outline"
+                  aria-label="Next"
                   disabled={currentPage >= totalPages}
                   onClick={() => onPageChange(currentPage + 1)}
                   className="h-8 px-3 border-slate-300 bg-white text-[12px] font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150"

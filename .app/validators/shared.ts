@@ -80,9 +80,14 @@ export function createCustomFieldSchema<T extends z.ZodTypeAny>(
   });
 }
 
-export const deleteCustomFieldSchema = z.object({
-  companyId: z.string().uuid("Invalid company id"),
-  fieldId: z.string().min(1, "Invalid custom field id"),
-});
+export function deleteCustomFieldSchema<T extends z.ZodTypeAny>(
+  entityTypeSchema: T,
+) {
+  return z.object({
+    companyId: z.string().uuid("Invalid company id"),
+    entityType: entityTypeSchema,
+    fieldId: z.string().min(1, "Invalid custom field id"),
+  });
+}
 
 export type CustomFieldType = z.infer<typeof customFieldTypeSchema>;

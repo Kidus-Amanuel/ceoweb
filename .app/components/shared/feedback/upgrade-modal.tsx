@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ export function UpgradeModal({
   currentPlan = "Starter",
 }: UpgradeModalProps) {
   const { t } = useTranslation();
+  const router = useRouter();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -81,8 +83,8 @@ export function UpgradeModal({
           </Button>
           <Button
             onClick={() => {
-              // Redirect to billing or contact sales
-              window.open("/billing", "_blank");
+              // Redirect to billing
+              router.push("/billing");
               onClose();
             }}
             className="w-full sm:flex-1 gap-2 font-bold shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90"

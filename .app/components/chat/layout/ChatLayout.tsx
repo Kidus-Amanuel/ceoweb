@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Message } from "@/types/chat";
 // import { ChatSidebar } from "./ChatSidebar";
 import { ChatHeader } from "./ChatHeader";
@@ -47,24 +47,27 @@ export function ChatLayout() {
   const activeConv =
     conversations.find((c) => c.id === activeConversationId) ||
     conversations.find((c) => c.type === "ai");
-  const currentMessages = messages[activeConv?.id || ""] || [];
+  const currentMessages = useMemo(
+    () => messages[activeConv?.id || ""] || [],
+    [messages, activeConv],
+  );
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!inputValue.trim() || !activeConv) return;
 
     // For AI conversations, we need to call the AI agent API
     if (activeTab === "ai" || activeConv.type === "ai") {
       // Add user message to chat store
       sendMessage(activeConv.id, inputValue);
+      const userText = inputValue; // Capture value before clearing
       setInputValue("");
 
-      // Create unique ids for this interaction using dynamic values
+      // Create unique ids for this interaction using the stable refs to avoid purity errors
       const timestamp = Date.now();
-      const randomStr = Math.random().toString(36).substr(2, 9);
-      const traceId = `trace-${randomStr}-${timestamp}`;
+      const traceId = `trace-${randomSeedRef.current}-${timestamp}`;
+      const aiId = `ai-msg-${randomSeedRef.current}-${timestamp}`;
 
       // Create placeholder AI message with unique id
-      const aiId = `ai-msg-${randomStr}-${timestamp}`;
       const aiMessage: Message = {
         id: aiId,
         senderId: "ai",
@@ -177,7 +180,15 @@ export function ChatLayout() {
       sendMessage(activeConv.id, inputValue);
       setInputValue("");
     }
-  };
+  }, [
+    inputValue,
+    activeConv,
+    activeTab,
+    sendMessage,
+    addMessage,
+    appendToMessage,
+    currentMessages,
+  ]);
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-background">

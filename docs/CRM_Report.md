@@ -369,8 +369,8 @@ const filtersHash = useMemo(() => getCrmFiltersHash({ search: "" }), []);
 // Empty search is default - extract to DEFAULT_FILTERS
 
 Improve to:
-const MAX_OVERVIEW_ITEMS = 6;
-const COLUMN_CACHE_TTL = 10 _ 60 _ 1000;
+const MAX*OVERVIEW_ITEMS = 6;
+const COLUMN_CACHE_TTL = 10 * 60 \_ 1000;
 const DEFAULT_FILTERS = { search: "" };
 
 3. Consistent Error Handling Pattern
