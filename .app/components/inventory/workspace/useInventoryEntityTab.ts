@@ -1,49 +1,51 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import type { VirtualColumn } from "@/components/shared/table/EditableTable";
+import { useSearchParams } from "next/navigation";
 import { useWorkspaceManager } from "@/hooks/use-workspace-manager";
-import { CRM_TABLE_PAGE_SIZE_DEFAULT } from "@/lib/constants/crm-pagination";
 import { type TableFieldType } from "@/utils/table-helpers";
 import {
   asRecord,
-  crmViewHelpers,
+  inventoryViewHelpers,
   mapFieldType,
   normalizeFieldOptions,
   normalizeRowForGrid,
-  tableToEntity,
-  toFriendlyCrmError,
-  type CrmDataTable,
-  type RelationalSets,
-  type SelectOption,
-} from "./crm-workspace.shared";
+  toFriendlyInventoryError,
+  type InventoryDataTable,
+  type InventoryRelationalSets,
+} from "./inventory-workspace.shared";
+import type { InventoryWorkspaceTableProps } from "./InventoryWorkspaceTable";
 import {
-  createCrmCustomFieldAction,
-  createCrmRowAction,
-  deleteCrmCustomFieldAction,
-  deleteCrmRowAction,
-  updateCrmCustomFieldAction,
-  updateCrmRowAction,
-} from "./queries/crm-workspace.query-actions";
+  createInventoryCustomFieldAction,
+  createInventoryRowAction,
+  deleteInventoryCustomFieldAction,
+  deleteInventoryRowAction,
+  updateInventoryCustomFieldAction,
+  updateInventoryRowAction,
+} from "./queries/inventory-workspace.query-actions";
 import {
-  crmKeys,
-  getCrmFiltersHash,
-  normalizeCrmWorkspaceFilters,
-  useCrmColumnsQuery,
-  useCrmRelationsQueries,
-  useCrmRowsQuery,
-} from "./queries/crm-workspace.queries";
-import type { CrmWorkspaceTableProps } from "./CrmWorkspaceTable";
+  getInventoryFiltersHash,
+  inventoryKeys,
+  normalizeInventoryWorkspaceFilters,
+  useInventoryColumnsQuery,
+  useInventoryRelationsQueries,
+  useInventoryRowsQuery,
+} from "./queries/inventory-workspace.queries";
 
-type CrmEntityTabConfig = {
+type InventoryEntityTabConfig = {
   companyId: string;
   searchQuery: string;
-  table: CrmDataTable;
+  table: InventoryDataTable;
   tableLabel: string;
   refreshNonce?: number;
   onRefreshStateChange?: (refreshing: boolean) => void;
   onMutationStateChange?: (mutating: boolean) => void;
+};
+
+const toStandardData = (payload: Record<string, unknown>) => {
+  const { customValues, ...standard } = payload;
+  return standard;
 };
 
 const toVirtualColumns = (fields: Record<string, unknown>[]): VirtualColumn[] =>
@@ -75,21 +77,7 @@ const toVirtualColumns = (fields: Record<string, unknown>[]): VirtualColumn[] =>
     };
   });
 
-const buildRelations = (
-  table: CrmDataTable,
-  relationsQuery: ReturnType<typeof useCrmRelationsQueries>,
-): RelationalSets => {
-  const users = relationsQuery.users;
-  const customers =
-    table === "activities" || table === "deals"
-      ? relationsQuery.customers
-      : ([] as SelectOption[]);
-  const deals =
-    table === "activities" ? relationsQuery.deals : ([] as SelectOption[]);
-  return { users, customers, deals };
-};
-
-export function useCrmEntityTab({
+export function useInventoryEntityTab({
   companyId,
   searchQuery,
   table,
@@ -97,19 +85,19 @@ export function useCrmEntityTab({
   refreshNonce = 0,
   onRefreshStateChange,
   onMutationStateChange,
-}: CrmEntityTabConfig) {
+}: InventoryEntityTabConfig) {
   const searchParams = useSearchParams();
   const selectedRowId = searchParams.get("rowId");
   const [pageState, setPageState] = useState({ page: 1, search: "" });
   const lastRefreshNonceRef = useRef(0);
-  const pageSize = CRM_TABLE_PAGE_SIZE_DEFAULT;
+  const pageSize = 50;
 
   const normalizedSearch = useMemo(
-    () => normalizeCrmWorkspaceFilters({ search: searchQuery }).search,
+    () => normalizeInventoryWorkspaceFilters({ search: searchQuery }).search,
     [searchQuery],
   );
   const filtersHash = useMemo(
-    () => getCrmFiltersHash({ search: normalizedSearch }),
+    () => getInventoryFiltersHash({ search: normalizedSearch }),
     [normalizedSearch],
   );
   const currentPage =
@@ -132,9 +120,9 @@ export function useCrmEntityTab({
     }),
     [currentPage, rowsRootParams],
   );
-  const rowsQuery = useCrmRowsQuery(rowsParams);
-  const columnsQuery = useCrmColumnsQuery({ companyId, table });
-  const relationsQuery = useCrmRelationsQueries({ companyId, table });
+  const rowsQuery = useInventoryRowsQuery(rowsParams);
+  const columnsQuery = useInventoryColumnsQuery({ companyId, table });
+  const relationsQuery = useInventoryRelationsQueries({ companyId, table });
 
   useEffect(() => {
     if (!refreshNonce) return;
@@ -164,28 +152,31 @@ export function useCrmEntityTab({
     () => new Map(rows.map((row) => [row.id, row] as const)),
     [rows],
   );
-  const relations = useMemo(
-    () => buildRelations(table, relationsQuery),
-    [relationsQuery, table],
+  const relations = useMemo<InventoryRelationalSets>(
+    () => ({
+      products: relationsQuery.products,
+      warehouses: relationsQuery.warehouses,
+    }),
+    [relationsQuery.products, relationsQuery.warehouses],
   );
+
   const standardTypeByKey = useMemo(() => {
     const map = new Map<string, TableFieldType>();
-    crmViewHelpers.getStandardColumns(table, relations).forEach((column) => {
-      const key = String(
-        (column as { accessorKey?: unknown }).accessorKey ??
-          (column as { id?: unknown }).id ??
-          "",
-      );
-      if (!key) return;
-      const meta = (column as { meta?: { type?: TableFieldType } }).meta;
-      map.set(key, meta?.type ?? "text");
-    });
+    inventoryViewHelpers
+      .getStandardColumns(table, relations)
+      .forEach((column) => {
+        const key = String(
+          (column as { accessorKey?: unknown }).accessorKey ??
+            (column as { id?: unknown }).id ??
+            "",
+        );
+        if (!key) return;
+        const meta = (column as { meta?: { type?: TableFieldType } }).meta;
+        map.set(key, meta?.type ?? "text");
+      });
     return map;
   }, [relations, table]);
-  const gridData = useMemo(
-    () => rows.map((row) => normalizeRowForGrid(table, row)),
-    [rows, table],
-  );
+
   const virtualColumns = useMemo(
     () => toVirtualColumns(columnDefinitions),
     [columnDefinitions],
@@ -199,25 +190,26 @@ export function useCrmEntityTab({
       ),
     [virtualColumns],
   );
+  const gridData = useMemo(
+    () => rows.map((row) => normalizeRowForGrid(row)),
+    [rows],
+  );
 
   const manager = useWorkspaceManager({
-    featureName: "CRM",
+    featureName: "Inventory",
     tableLabel,
-    rowsRootKey: crmKeys.rowsRoot(rowsRootParams),
-    extraInvalidateKeys: [
-      crmKeys.columns({ companyId, table }),
-      crmKeys.counts({ companyId }),
-    ],
+    rowsRootKey: inventoryKeys.rowsRoot(rowsRootParams),
+    extraInvalidateKeys: [inventoryKeys.columns({ companyId, table })],
     rowsById: rowsById as Map<string, Record<string, unknown>>,
     standardTypeByKey,
     customTypeByKey,
     onMutationStateChange,
-    normalizeError: toFriendlyCrmError,
+    normalizeError: toFriendlyInventoryError,
     createRowAction: async (payload) =>
-      createCrmRowAction({
+      createInventoryRowAction({
         companyId,
         table,
-        standardData: crmViewHelpers.serializeStandardData(table, payload),
+        standardData: toStandardData(payload),
         customData: asRecord(payload.customValues),
       }),
     updateRowAction: async ({ rowId, payload }) => {
@@ -226,29 +218,25 @@ export function useCrmEntityTab({
         payload.customValues !== undefined
           ? asRecord(payload.customValues)
           : asRecord(existingRow?.custom_data ?? existingRow?.custom_fields);
-      return updateCrmRowAction({
+      return updateInventoryRowAction({
         companyId,
         table,
         rowId,
-        standardData: crmViewHelpers.serializeStandardData(
-          table,
-          payload,
-          existingRow,
-        ),
+        standardData: toStandardData(payload),
         customData: nextCustomValues,
       });
     },
     deleteRowAction: async (rowId) =>
-      deleteCrmRowAction({
+      deleteInventoryRowAction({
         companyId,
         table,
         rowId,
       }),
     createColumnAction: async (payload) => {
       const column = payload as unknown as Omit<VirtualColumn, "id">;
-      return createCrmCustomFieldAction({
+      return createInventoryCustomFieldAction({
         companyId,
-        entityType: tableToEntity(table),
+        entityType: table,
         fieldLabel: column.label,
         fieldName: column.key,
         fieldType: column.type === "status" ? "select" : column.type,
@@ -263,10 +251,10 @@ export function useCrmEntityTab({
     },
     updateColumnAction: async ({ columnId, payload }) => {
       const column = payload as unknown as Omit<VirtualColumn, "id">;
-      return updateCrmCustomFieldAction({
+      return updateInventoryCustomFieldAction({
         companyId,
         fieldId: columnId,
-        entityType: tableToEntity(table),
+        entityType: table,
         fieldLabel: column.label,
         fieldName: column.key,
         fieldType: column.type === "status" ? "select" : column.type,
@@ -280,17 +268,11 @@ export function useCrmEntityTab({
       });
     },
     deleteColumnAction: async (columnId) =>
-      deleteCrmCustomFieldAction({
+      deleteInventoryCustomFieldAction({
         companyId,
         fieldId: columnId,
       }),
   });
-
-  const queryError =
-    (rowsQuery.error instanceof Error && rowsQuery.error.message) ||
-    (columnsQuery.error instanceof Error && columnsQuery.error.message) ||
-    relationsQuery.error ||
-    null;
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -304,8 +286,13 @@ export function useCrmEntityTab({
       columnsQuery.isPending ||
       relationsQuery.isPending) &&
     rows.length === 0;
+  const queryError =
+    (rowsQuery.error instanceof Error && rowsQuery.error.message) ||
+    (columnsQuery.error instanceof Error && columnsQuery.error.message) ||
+    relationsQuery.error ||
+    null;
 
-  const tableProps: CrmWorkspaceTableProps = {
+  const tableProps: InventoryWorkspaceTableProps = {
     table,
     gridData,
     relations,
