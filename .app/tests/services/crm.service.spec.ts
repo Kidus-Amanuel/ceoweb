@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { crmService } from "@/services/crm.service";
+import { crmService } from "@/services/crm/crm.service";
 
 type MockQueryBuilder = {
   select: ReturnType<typeof vi.fn>;
