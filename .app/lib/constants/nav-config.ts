@@ -15,6 +15,7 @@ import {
   Ship,
   Anchor,
   Globe,
+  History,
 } from "lucide-react";
 import { LucideIcon } from "lucide-react";
 
@@ -150,23 +151,16 @@ export const NAV_CONFIG: NavItem[] = [
     label: "Inventory",
     icon: Package,
     iconClassName: "text-orange-500",
-    href: "/inventory",
+    href: "/inventory/products",
     module: "Inventory",
     roles: ["super_admin", "company_user"],
     subItems: [
       {
-        id: "inv-stock",
-        label: "Stock Level",
-        href: "/inventory/stock",
+        id: "inv-products",
+        label: "Products",
+        href: "/inventory/products",
         icon: Package,
         iconClassName: "text-orange-500",
-      },
-      {
-        id: "inv-warehouses",
-        label: "Warehouses",
-        href: "/inventory/warehouses",
-        icon: Building2,
-        iconClassName: "text-slate-500",
       },
       {
         id: "inv-suppliers",
@@ -174,6 +168,27 @@ export const NAV_CONFIG: NavItem[] = [
         href: "/inventory/suppliers",
         icon: Globe,
         iconClassName: "text-lime-500",
+      },
+      {
+        id: "inv-warehouses",
+        label: "Locations/Warehouses",
+        href: "/inventory/warehouses",
+        icon: Building2,
+        iconClassName: "text-slate-500",
+      },
+      {
+        id: "inv-stock-levels",
+        label: "Stock Levels",
+        href: "/inventory/stock_levels",
+        icon: Package,
+        iconClassName: "text-orange-500",
+      },
+      {
+        id: "inv-stock-history",
+        label: "Stock History",
+        href: "/inventory/stock_history",
+        icon: History,
+        iconClassName: "text-rose-500",
       },
     ],
   },
