@@ -1,8 +1,9 @@
-﻿"use server";
+"use server";
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { crmService } from "@/services/crm.service";
+import { crmService } from "@/services/crm/crm.service";
+import { overviewService } from "@/services/crm/overview.service";
 import {
   crmCompanyScopeSchema,
   crmCreateCustomFieldInputSchema,
@@ -117,7 +118,7 @@ export async function getCrmTablesAction(
     return { success: false, error: auth.error };
   }
 
-  const response = await crmService.getTableCounts({
+  const response = await overviewService.getTableCounts({
     supabase: auth.data.supabase,
     companyId: auth.data.companyId,
   });
@@ -153,7 +154,7 @@ export async function getCrmTrendAction(input: unknown): Promise<
     return { success: false, error: auth.error };
   }
 
-  const response = await crmService.getMonthlyTrend({
+  const response = await overviewService.getMonthlyTrend({
     supabase: auth.data.supabase,
     companyId: auth.data.companyId,
     months: 6,
@@ -194,7 +195,7 @@ export async function getCrmOverviewAction(input: unknown): Promise<
     return { success: false, error: auth.error };
   }
 
-  const response = await crmService.getOverviewDashboard({
+  const response = await overviewService.getOverviewDashboard({
     supabase: auth.data.supabase,
     companyId: auth.data.companyId,
   });
@@ -808,7 +809,7 @@ export async function getGlobalSearchResultsAction(input: unknown): Promise<
       return {
         id: `activity:${row.id}`,
         title: row.subject || relatedLabel || "Untitled Activity",
-        subtitle: `${row.activity_type || "activity"} • ${row.completed_at ? "completed" : "pending"}`,
+        subtitle: `${row.activity_type || "activity"} - ${row.completed_at ? "completed" : "pending"}`,
         href: `/crm/activities?q=${encodedQuery}&rowId=${row.id}`,
         category: "Activities",
       };
