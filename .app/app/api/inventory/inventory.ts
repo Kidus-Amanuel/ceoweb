@@ -79,6 +79,39 @@ async function getAuthContext(
   };
 }
 
+export async function getInventoryOverviewAction(input: unknown): Promise<
+  ActionResult<{
+    totalInventoryValue: number;
+    lowStockAlertCount: number;
+    totalActiveSuppliers: number;
+    recentStockMovements: Record<string, unknown>[];
+  }>
+> {
+  const parsed = inventoryCompanyScopeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: zodErrorToText(parsed.error) };
+  }
+
+  const auth = await getAuthContext(parsed.data.companyId);
+  if (!auth.success || !auth.data) {
+    return { success: false, error: auth.error };
+  }
+
+  const response = await inventoryService.getInventoryOverview({
+    supabase: auth.data.supabase,
+    companyId: auth.data.companyId,
+  });
+
+  if (response.error || !response.data) {
+    return {
+      success: false,
+      error: response.error || "Failed to load inventory overview",
+    };
+  }
+
+  return { success: true, data: response.data };
+}
+
 export async function getInventoryRowsAction(input: unknown): Promise<
   ActionResult<{
     rows: Record<string, unknown>[];
@@ -135,6 +168,31 @@ export async function getInventoryProductsOptionsAction(
   }
 
   const response = await inventoryService.listProductsForSelect({
+    supabase: auth.data.supabase,
+    companyId: auth.data.companyId,
+  });
+
+  if (response.error) {
+    return { success: false, error: response.error };
+  }
+
+  return { success: true, data: response.data ?? [] };
+}
+
+export async function getInventorySuppliersOptionsAction(
+  input: unknown,
+): Promise<ActionResult<{ label: string; value: string }[]>> {
+  const parsed = inventoryCompanyScopeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: zodErrorToText(parsed.error) };
+  }
+
+  const auth = await getAuthContext(parsed.data.companyId);
+  if (!auth.success || !auth.data) {
+    return { success: false, error: auth.error };
+  }
+
+  const response = await inventoryService.listSuppliersForSelect({
     supabase: auth.data.supabase,
     companyId: auth.data.companyId,
   });

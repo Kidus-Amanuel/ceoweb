@@ -11,6 +11,7 @@ import {
   VIEW_META,
   type InventoryTable,
 } from "./workspace/inventory-workspace.shared";
+import { InventoryOverviewTab } from "./tabs/InventoryOverviewTab";
 import ProductsTab from "./tabs/ProductsTab";
 import SuppliersTab from "./tabs/SuppliersTab";
 import WarehousesTab from "./tabs/WarehousesTab";
@@ -22,7 +23,7 @@ type InventoryWorkspaceProps = {
 };
 
 export function InventoryWorkspace({
-  defaultTable = "products",
+  defaultTable = "overviews",
 }: InventoryWorkspaceProps) {
   const { selectedCompany } = useCompanies();
   const [workspaceSearchQuery, setWorkspaceSearchQuery] = useState("");
@@ -97,6 +98,12 @@ export function InventoryWorkspace({
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden">
+          {activeTable === "overviews" ? (
+            <InventoryOverviewTab
+              refreshNonce={refreshNonce}
+              onRefreshStateChange={setIsRefreshing}
+            />
+          ) : null}
           {activeTable === "products" ? (
             <ProductsTab
               companyId={selectedCompany.id}

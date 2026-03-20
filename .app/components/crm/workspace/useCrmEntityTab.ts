@@ -75,17 +75,96 @@ const toVirtualColumns = (fields: Record<string, unknown>[]): VirtualColumn[] =>
     };
   });
 
+const dedupeSelectOptions = (
+  ...groups: Array<ReadonlyArray<SelectOption>>
+): SelectOption[] => {
+  const merged: SelectOption[] = [];
+  const seen = new Set<string>();
+
+  for (const group of groups) {
+    for (const option of group) {
+      const value = String(option.value ?? "").trim();
+      const label = String(option.label ?? "").trim();
+      if (!value || !label) continue;
+      if (seen.has(value)) continue;
+      seen.add(value);
+      merged.push({ label, value });
+    }
+  }
+
+  return merged;
+};
+
+const harvestUserOptions = (rows: Record<string, unknown>[]) =>
+  rows.flatMap((row) => {
+    const directAssignedId = String(row.assigned_to ?? "").trim();
+    const directAssignedUser = asRecord(row.assigned_user);
+    const directAssignedLabel = String(
+      directAssignedUser.full_name ?? directAssignedUser.email ?? "",
+    ).trim();
+
+    const createdById = String(row.created_by ?? "").trim();
+    const createdByUser = asRecord(row.created_by_user);
+    const createdByAssignedUser = asRecord(row.assigned_user);
+    const createdByLabel = String(
+      createdByUser.full_name ??
+        createdByUser.email ??
+        createdByAssignedUser.full_name ??
+        createdByAssignedUser.email ??
+        "",
+    ).trim();
+
+    const harvested: SelectOption[] = [];
+    if (directAssignedId && directAssignedLabel) {
+      harvested.push({ value: directAssignedId, label: directAssignedLabel });
+    }
+    if (createdById && createdByLabel) {
+      harvested.push({ value: createdById, label: createdByLabel });
+    }
+    return harvested;
+  });
+
+const harvestCustomerOptions = (rows: Record<string, unknown>[]) =>
+  rows.flatMap((row) => {
+    const customerId = String(row.customer_id ?? row.related_id ?? "").trim();
+    const customer = asRecord(row.customer);
+    const customerName = String(customer.name ?? "").trim();
+    const isCustomerRow = String(row.related_type ?? "").trim() === "customer";
+    if (!customerId || !customerName) return [];
+    if (String(row.customer_id ?? "").trim() || isCustomerRow) {
+      return [{ value: customerId, label: customerName }];
+    }
+    return [];
+  });
+
+const harvestDealOptions = (rows: Record<string, unknown>[]) =>
+  rows.flatMap((row) => {
+    const dealId = String(row.related_id ?? "").trim();
+    const deal = asRecord(row.deal);
+    const dealTitle = String(deal.title ?? deal.name ?? "").trim();
+    if (!dealId || !dealTitle) return [];
+    if (String(row.related_type ?? "").trim() !== "deal") return [];
+    return [{ value: dealId, label: dealTitle }];
+  });
+
 const buildRelations = (
   table: CrmDataTable,
   relationsQuery: ReturnType<typeof useCrmRelationsQueries>,
+  rows: Record<string, unknown>[],
 ): RelationalSets => {
-  const users = relationsQuery.users;
+  const harvestedUsers = harvestUserOptions(rows);
+  const harvestedCustomers = harvestCustomerOptions(rows);
+  const harvestedDeals = harvestDealOptions(rows);
+
+  const users = dedupeSelectOptions(harvestedUsers, relationsQuery.users);
   const customers =
     table === "activities" || table === "deals"
-      ? relationsQuery.customers
+      ? dedupeSelectOptions(harvestedCustomers, relationsQuery.customers)
       : ([] as SelectOption[]);
   const deals =
-    table === "activities" ? relationsQuery.deals : ([] as SelectOption[]);
+    table === "activities"
+      ? dedupeSelectOptions(harvestedDeals, relationsQuery.deals)
+      : ([] as SelectOption[]);
   return { users, customers, deals };
 };
 
@@ -165,8 +244,8 @@ export function useCrmEntityTab({
     [rows],
   );
   const relations = useMemo(
-    () => buildRelations(table, relationsQuery),
-    [relationsQuery, table],
+    () => buildRelations(table, relationsQuery, rows as Record<string, unknown>[]),
+    [relationsQuery, rows, table],
   );
   const standardTypeByKey = useMemo(() => {
     const map = new Map<string, TableFieldType>();

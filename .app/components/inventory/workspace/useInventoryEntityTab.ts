@@ -77,6 +77,39 @@ const toVirtualColumns = (fields: Record<string, unknown>[]): VirtualColumn[] =>
     };
   });
 
+const dedupeSelectOptions = (
+  ...groups: Array<ReadonlyArray<{ label: string; value: string }>>
+): { label: string; value: string }[] => {
+  const merged: { label: string; value: string }[] = [];
+  const seen = new Set<string>();
+
+  for (const group of groups) {
+    for (const option of group) {
+      const value = String(option.value ?? "").trim();
+      const label = String(option.label ?? "").trim();
+      if (!value || !label) continue;
+      if (seen.has(value)) continue;
+      seen.add(value);
+      merged.push({ label, value });
+    }
+  }
+
+  return merged;
+};
+
+const harvestRelationOptions = (
+  rows: Record<string, unknown>[],
+  idKey: "product_id" | "warehouse_id" | "supplier_id",
+  objectKey: "product" | "warehouse" | "supplier",
+) =>
+  rows.flatMap((row) => {
+    const relationId = String(row[idKey] ?? "").trim();
+    const relation = asRecord(row[objectKey]);
+    const relationName = String(relation.name ?? "").trim();
+    if (!relationId || !relationName) return [];
+    return [{ value: relationId, label: relationName }];
+  });
+
 export function useInventoryEntityTab({
   companyId,
   searchQuery,
@@ -152,13 +185,36 @@ export function useInventoryEntityTab({
     () => new Map(rows.map((row) => [row.id, row] as const)),
     [rows],
   );
-  const relations = useMemo<InventoryRelationalSets>(
-    () => ({
-      products: relationsQuery.products,
-      warehouses: relationsQuery.warehouses,
-    }),
-    [relationsQuery.products, relationsQuery.warehouses],
-  );
+  const relations = useMemo<InventoryRelationalSets>(() => {
+    const baseRows = rows as Record<string, unknown>[];
+    const harvestedProducts = harvestRelationOptions(
+      baseRows,
+      "product_id",
+      "product",
+    );
+    const harvestedSuppliers = harvestRelationOptions(
+      baseRows,
+      "supplier_id",
+      "supplier",
+    );
+    const harvestedWarehouses = harvestRelationOptions(
+      baseRows,
+      "warehouse_id",
+      "warehouse",
+    );
+
+    return {
+      products: dedupeSelectOptions(harvestedProducts, relationsQuery.products),
+      suppliers: dedupeSelectOptions(
+        harvestedSuppliers,
+        relationsQuery.suppliers,
+      ),
+      warehouses: dedupeSelectOptions(
+        harvestedWarehouses,
+        relationsQuery.warehouses,
+      ),
+    };
+  }, [relationsQuery.products, relationsQuery.suppliers, relationsQuery.warehouses, rows]);
 
   const standardTypeByKey = useMemo(() => {
     const map = new Map<string, TableFieldType>();
