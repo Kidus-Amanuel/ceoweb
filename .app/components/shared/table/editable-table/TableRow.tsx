@@ -42,7 +42,7 @@ interface TableRowProps<T extends { id: string }> {
     virtualKey?: string;
     value: any;
   }) => void;
-  onDeleteClick: (target: DeleteRowTarget) => void;
+  onDeleteClick?: (target: DeleteRowTarget) => void;
   onRowResizeMouseDown?: (
     event: React.MouseEvent<HTMLTableRowElement>,
     rowId: string,
@@ -162,7 +162,8 @@ function TableRowComponent<
           <TableCell
             key={cell.id}
             className={cn(
-              "border-b border-r border-slate-200 align-middle cursor-text transition-all duration-150",
+              "border-b border-r border-slate-200 align-middle transition-all duration-150",
+              meta?.readOnly ? "cursor-default" : "cursor-text",
               isEditing ? "px-2 py-1 max-w-none bg-white" : "py-1.5",
               isEditing
                 ? meta?.type === "currency"
@@ -175,7 +176,7 @@ function TableRowComponent<
                 : sizeClasses,
               isEditing ? "" : "px-2",
               isEditing && "ring-2 ring-amber-400 ring-inset shadow-sm ",
-              !isEditing && "group-hover:bg-white/50",
+              !isEditing && !meta?.readOnly && "group-hover:bg-white/50",
             )}
             style={{
               fontFamily: "'DM Sans', sans-serif",
@@ -199,6 +200,7 @@ function TableRowComponent<
                 : {}),
             }}
             onClick={() => {
+              if (meta?.readOnly) return;
               if (meta?.type !== "boolean" && !isEditing) {
                 onStartEdit(row.original.id, cell.column.id, cell.getValue());
               }
@@ -241,33 +243,37 @@ function TableRowComponent<
         );
       })}
 
-      {/* Spacer cell */}
-      <TableCell className="px-1 py-1.5 border-b border-slate-200" />
+      {onDeleteClick ? (
+        <>
+          {/* Spacer cell */}
+          <TableCell className="px-1 py-1.5 border-b border-slate-200" />
 
-      {/* Delete button cell */}
-      <TableCell className="px-3 py-1.5 border-b border-slate-200">
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label={`Delete row ${row.index + 1}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onDeleteClick({
-              kind: "row",
-              id: row.original.id,
-              label: String(
-                (row.original as any).name ??
-                  (row.original as any).subject ??
-                  (row.original as any).title ??
-                  "this row",
-              ),
-            });
-          }}
-          className="h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-red-50 border border-slate-200 hover:border-red-300 transition-all duration-200 opacity-0 group-hover:opacity-100"
-        >
-          <Trash2 className="w-3 h-3" strokeWidth={2} />
-        </Button>
-      </TableCell>
+          {/* Delete button cell */}
+          <TableCell className="px-3 py-1.5 border-b border-slate-200">
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label={`Delete row ${row.index + 1}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDeleteClick({
+                  kind: "row",
+                  id: row.original.id,
+                  label: String(
+                    (row.original as any).name ??
+                      (row.original as any).subject ??
+                      (row.original as any).title ??
+                      "this row",
+                  ),
+                });
+              }}
+              className="h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-red-50 border border-slate-200 hover:border-red-300 transition-all duration-200 opacity-0 group-hover:opacity-100"
+            >
+              <Trash2 className="w-3 h-3" strokeWidth={2} />
+            </Button>
+          </TableCell>
+        </>
+      ) : null}
     </motion.tr>
   );
 }

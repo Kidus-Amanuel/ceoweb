@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "@/hooks/use-toast";
+import { truncateFileName } from "@/utils/table-helpers";
 
 interface FileObject {
   id: string;
@@ -120,7 +121,7 @@ export default function FilesEditor({
           size: file.size,
         });
       } catch (error: any) {
-        toast.error(`Error uploading ${file.name}: ${error.message}`);
+        toast.error(`Error uploading ${truncateFileName(file.name)}: ${error.message}`);
       }
     }
 
@@ -257,7 +258,7 @@ export default function FilesEditor({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-[#37352F] truncate">
-                        {file.name}
+                        {truncateFileName(file.name)}
                       </p>
                       <p className="text-xs text-gray-500">
                         {formatSize(file.size)}

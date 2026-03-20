@@ -67,6 +67,7 @@ interface EditableTableHeaderProps<T extends { id: string }> {
   canAddColumns: boolean;
   canEditColumns: boolean;
   canDeleteColumns: boolean;
+  showDeleteColumn: boolean;
 }
 
 /**
@@ -114,6 +115,7 @@ export function EditableTableHeader<
   canAddColumns,
   canEditColumns,
   canDeleteColumns,
+  showDeleteColumn,
 }: EditableTableHeaderProps<T>) {
   return (
     <UITableHeader className="sticky top-0 z-30 bg-slate-50 [&_tr]:border-b [&_tr]:border-slate-300">
@@ -337,8 +339,9 @@ export function EditableTableHeader<
             )}
           </TableHead>
 
-          {/* Spacer for delete button column */}
-          <TableHead className="w-20 px-4 bg-slate-900/50 border-r border-slate-700" />
+          {showDeleteColumn ? (
+            <TableHead className="w-20 px-4 bg-slate-900/50 border-r border-slate-700" />
+          ) : null}
         </TableRow>
       ))}
     </UITableHeader>
