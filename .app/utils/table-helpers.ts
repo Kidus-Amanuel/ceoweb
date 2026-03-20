@@ -23,6 +23,24 @@ export const normalizeNil = (value: unknown) =>
 export const toStringSafe = (value: unknown) =>
   value === null || value === undefined ? "" : String(value);
 
+export const truncateFileName = (name: string, limit = 18) => {
+  const safeName = String(name || "").trim();
+  if (!safeName) return "";
+
+  const dotIndex = safeName.lastIndexOf(".");
+  const hasExtension = dotIndex > 0 && dotIndex < safeName.length - 1;
+  const extension = hasExtension ? safeName.slice(dotIndex + 1) : "";
+  const baseName = hasExtension ? safeName.slice(0, dotIndex) : safeName;
+
+  if (safeName.length <= limit) return safeName;
+
+  const reserved = extension ? extension.length + 3 : 3;
+  const available = Math.max(1, limit - reserved);
+  return extension
+    ? `${baseName.slice(0, available)}...${extension}`
+    : `${baseName.slice(0, available)}...`;
+};
+
 export const stableStringify = (value: unknown): string => {
   if (value === null || value === undefined) return "null";
   if (typeof value !== "object") return JSON.stringify(value);
@@ -169,8 +187,19 @@ export const normalizeByType = (value: unknown, type: TableFieldType) => {
       return normalizeEmail(value);
     case "phone":
       return normalizePhone(value);
-    case "files":
-      return normalizeFiles(value);
+    case "files": {
+      if (value === null || value === undefined) return [];
+      if (Array.isArray(value)) return value;
+      if (typeof value === "string") {
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    }
     case "json":
       return normalizeJson(value);
     case "text":
