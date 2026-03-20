@@ -40,6 +40,8 @@ export default function StockMovementsTab({
 
   const readOnlyProps: InventoryWorkspaceTableProps = {
     ...tableProps,
+    onAdd: undefined,
+    onUpdate: undefined,
     gridData: tableProps.gridData.map((row) => {
       const record = asRecord(row);
       const product = asRecord(record.product);
@@ -56,9 +58,6 @@ export default function StockMovementsTab({
         movement_date: movementDate,
       };
     }),
-    onAdd: undefined,
-    onUpdate: undefined,
-    onDelete: undefined,
     onColumnAdd: undefined,
     onColumnUpdate: undefined,
     onColumnDelete: undefined,
