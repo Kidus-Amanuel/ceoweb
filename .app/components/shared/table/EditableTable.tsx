@@ -584,6 +584,7 @@ export function EditableTable<
                   aria-label="Previous"
                   disabled={currentPage <= 1}
                   onClick={() => onPageChange(currentPage - 1)}
+                  aria-label="Previous"
                   className="h-8 px-3 border-slate-300 bg-white text-[12px] font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2.5} />
@@ -594,6 +595,7 @@ export function EditableTable<
                   aria-label="Next"
                   disabled={currentPage >= totalPages}
                   onClick={() => onPageChange(currentPage + 1)}
+                  aria-label="Next"
                   className="h-8 px-3 border-slate-300 bg-white text-[12px] font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150"
                 >
                   <ChevronRight className="w-3.5 h-3.5" strokeWidth={2.5} />

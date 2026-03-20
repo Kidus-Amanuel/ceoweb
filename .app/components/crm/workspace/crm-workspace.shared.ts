@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import { BarChart3, Handshake, ListTodo, Users } from "lucide-react";
 import type { VirtualColumn } from "@/components/shared/table/EditableTable";
 
@@ -77,6 +78,25 @@ const pickInput = (
 export const toFriendlyCrmError = (input: string) => {
   const message = String(input || "").trim();
   if (!message) return "Something went wrong. Please try again.";
+  if (
+    /\b23505\b|unique violation|duplicate key value violates unique constraint/i.test(
+      message,
+    )
+  ) {
+    return "This record already exists. Please update the existing one or use a different name.";
+  }
+  if (
+    /\b23503\b|foreign key violation|violates foreign key constraint/i.test(
+      message,
+    )
+  ) {
+    return "The related item you selected no longer exists. Please refresh.";
+  }
+  if (
+    /\b23502\b|not-null violation|violates not-null constraint/i.test(message)
+  ) {
+    return "Please fill in all required fields marked with an asterisk.";
+  }
   if (
     /typeerror:\s*fetch failed/i.test(message) ||
     /failed to fetch/i.test(message) ||
@@ -224,26 +244,35 @@ export const normalizeFieldOptions = (
 
 export const crmViewHelpers = {
   getStandardColumns: (table: CrmDataTable, relations: RelationalSets) => {
-    const userMeta = relations.users.length
-      ? { type: "select", options: relations.users }
-      : { type: "text" };
-    const customerMeta = relations.customers.length
-      ? { type: "select", options: relations.customers }
-      : { type: "text" };
+    const getOptionLabel = (
+      value: unknown,
+      options: SelectOption[],
+      fallback = "",
+    ) => {
+      const key = String(value ?? "");
+      return options.find((option) => option.value === key)?.label ?? fallback;
+    };
+
+    const userMeta = {
+      type: "select",
+      options: relations.users,
+    };
+    const customerMeta = {
+      type: "select",
+      options: relations.customers,
+    };
     const relatedOptions = [...relations.customers, ...relations.deals];
-    const relatedIdMeta = relatedOptions.length
-      ? {
-          type: "select",
-          options: relatedOptions,
-          optionsByType: {
-            customer: relations.customers,
-            customers: relations.customers,
-            deal: relations.deals,
-            deals: relations.deals,
-          },
-          optionsSourceKey: "related_type",
-        }
-      : { type: "text" };
+    const relatedIdMeta = {
+      type: "select",
+      options: relatedOptions,
+      optionsByType: {
+        customer: relations.customers,
+        customers: relations.customers,
+        deal: relations.deals,
+        deals: relations.deals,
+      },
+      optionsSourceKey: "related_type",
+    };
 
     return table === "customers"
       ? [
@@ -280,7 +309,28 @@ export const crmViewHelpers = {
             {
               header: "Customer",
               accessorKey: "customer_id",
-              meta: customerMeta,
+              meta: {
+                ...customerMeta,
+              },
+              cell: ({
+                row,
+                getValue,
+              }: {
+                row: { original: Record<string, unknown> };
+                getValue: () => unknown;
+              }) => {
+                const customer = row.original.customer as
+                  | { name?: string | null }
+                  | undefined;
+                const label =
+                  customer?.name ??
+                  getOptionLabel(
+                    getValue(),
+                    relations.customers,
+                    String(getValue() ?? ""),
+                  );
+                return createElement("span", null, label);
+              },
             },
             {
               header: "Contact",
@@ -294,7 +344,29 @@ export const crmViewHelpers = {
             {
               header: "Assigned To",
               accessorKey: "assigned_to",
-              meta: userMeta,
+              meta: {
+                ...userMeta,
+              },
+              cell: ({
+                row,
+                getValue,
+              }: {
+                row: { original: Record<string, unknown> };
+                getValue: () => unknown;
+              }) => {
+                const assignedUser = row.original.assigned_user as
+                  | { full_name?: string | null; email?: string | null }
+                  | undefined;
+                const label =
+                  assignedUser?.full_name ??
+                  assignedUser?.email ??
+                  getOptionLabel(
+                    getValue(),
+                    relations.users,
+                    String(getValue() ?? ""),
+                  );
+                return createElement("span", null, label);
+              },
             },
             {
               header: "Stage",
@@ -338,7 +410,33 @@ export const crmViewHelpers = {
             {
               header: "Related ID",
               accessorKey: "related_id",
-              meta: relatedIdMeta,
+              meta: {
+                ...relatedIdMeta,
+              },
+              cell: ({
+                row,
+                getValue,
+              }: {
+                row: { original: Record<string, unknown> };
+                getValue: () => unknown;
+              }) => {
+                const customer = row.original.customer as
+                  | { name?: string | null }
+                  | undefined;
+                const deal = row.original.deal as
+                  | { title?: string | null; name?: string | null }
+                  | undefined;
+                const label =
+                  customer?.name ??
+                  deal?.title ??
+                  deal?.name ??
+                  getOptionLabel(
+                    getValue(),
+                    relatedOptions,
+                    String(getValue() ?? ""),
+                  );
+                return createElement("span", null, label);
+              },
             },
             { header: "Subject", accessorKey: "subject" },
             {

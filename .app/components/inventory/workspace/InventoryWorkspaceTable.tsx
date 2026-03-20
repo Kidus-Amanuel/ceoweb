@@ -1,15 +1,15 @@
 import type { VirtualColumn } from "@/components/shared/table/EditableTable";
 import { GenericWorkspaceTable } from "@/components/shared/workspace/GenericWorkspaceTable";
 import {
-  type CrmDataTable,
-  type RelationalSets,
-  crmViewHelpers,
-} from "./crm-workspace.shared";
+  type InventoryDataTable,
+  type InventoryRelationalSets,
+  inventoryViewHelpers,
+} from "./inventory-workspace.shared";
 
-export type CrmWorkspaceTableProps = {
-  table: CrmDataTable;
+export type InventoryWorkspaceTableProps = {
+  table: InventoryDataTable;
   gridData: Record<string, unknown>[];
-  relations: RelationalSets;
+  relations: InventoryRelationalSets;
   virtualColumns: VirtualColumn[];
   currentPage: number;
   totalRows: number;
@@ -34,12 +34,15 @@ export type CrmWorkspaceTableProps = {
   isFetchingMoreRows?: boolean;
 };
 
-export function CrmWorkspaceTable(props: CrmWorkspaceTableProps) {
+export function InventoryWorkspaceTable(props: InventoryWorkspaceTableProps) {
   return (
     <GenericWorkspaceTable
       {...props}
       getColumns={(table, relations) =>
-        crmViewHelpers.getStandardColumns(table, relations ?? props.relations)
+        inventoryViewHelpers.getStandardColumns(
+          table,
+          relations ?? props.relations,
+        )
       }
     />
   );

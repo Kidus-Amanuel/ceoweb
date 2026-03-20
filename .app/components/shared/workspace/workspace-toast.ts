@@ -1,9 +1,8 @@
 "use client";
 
 import { toast } from "@/hooks/use-toast";
-import { toFriendlyCrmError } from "@/components/crm/workspace/crm-workspace.shared";
 
-type CrmToastOp =
+export type WorkspaceToastOp =
   | "rowCreate"
   | "rowUpdate"
   | "rowDelete"
@@ -11,25 +10,27 @@ type CrmToastOp =
   | "columnUpdate"
   | "columnDelete";
 
-type CrmToastArgs = {
-  op: CrmToastOp;
+export type WorkspaceToastArgs = {
+  op: WorkspaceToastOp;
+  featureName: string;
   tableLabel: string;
   subjectLabel?: string;
   mode: "success" | "error";
   message?: string;
+  normalizeError?: (message: string) => string;
 };
 
-const recentToastAt = new Map<string, number>();
-const TOAST_DEDUPE_WINDOW_MS = 1800;
-
-const labels = {
+const labels: Record<WorkspaceToastOp, string> = {
   rowCreate: "Create row",
   rowUpdate: "Update row",
   rowDelete: "Delete row",
   columnCreate: "Add field",
   columnUpdate: "Update field",
   columnDelete: "Delete field",
-} as const;
+};
+
+const recentToastAt = new Map<string, number>();
+const TOAST_DEDUPE_WINDOW_MS = 1800;
 
 const shouldEmit = (key: string) => {
   const now = Date.now();
@@ -39,20 +40,27 @@ const shouldEmit = (key: string) => {
   return true;
 };
 
-export const showCrmToast = ({
+export const showWorkspaceToast = ({
   op,
+  featureName,
   tableLabel,
   subjectLabel,
   mode,
   message,
-}: CrmToastArgs) => {
+  normalizeError,
+}: WorkspaceToastArgs) => {
   const title = `${labels[op]} - ${subjectLabel || tableLabel}`;
-  const normalizedMessage = toFriendlyCrmError(
-    message ||
+  const normalizedMessage = normalizeError
+    ? normalizeError(
+        message ||
+          (mode === "success"
+            ? `${featureName} action completed successfully.`
+            : `${featureName} action failed.`),
+      )
+    : message ||
       (mode === "success"
-        ? "Action completed successfully."
-        : "Action failed."),
-  );
+        ? `${featureName} action completed successfully.`
+        : `${featureName} action failed.`);
   if (mode === "error") {
     const dedupeKey = `${mode}:${op}:${normalizedMessage}`;
     if (!shouldEmit(dedupeKey)) return;

@@ -5,12 +5,12 @@ import type { ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Loader2, RefreshCw, Search } from "lucide-react";
+import { WorkspaceErrorBoundary } from "@/components/shared/workspace/WorkspaceErrorBoundary";
 import { Input } from "@/components/shared/ui/input/Input";
 import { Button } from "@/components/shared/ui/button/Button";
 import { useCompanies } from "@/hooks/use-companies";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { VIEW_META, type CrmTable } from "./workspace/crm-workspace.shared";
-import { CrmWorkspaceErrorBoundary } from "./workspace/CrmWorkspaceErrorBoundary";
 import CustomersTab from "./tabs/CustomersTab";
 import DealsTab from "./tabs/DealsTab";
 import ActivitiesTab from "./tabs/ActivitiesTab";
@@ -26,7 +26,9 @@ type TabBoundaryProps = {
 };
 
 const TabBoundary = ({ tabKey, children }: TabBoundaryProps) => (
-  <CrmWorkspaceErrorBoundary key={tabKey}>{children}</CrmWorkspaceErrorBoundary>
+  <WorkspaceErrorBoundary key={tabKey} featureName="CRM">
+    {children}
+  </WorkspaceErrorBoundary>
 );
 
 export function CrmWorkspace({
@@ -83,91 +85,95 @@ export function CrmWorkspace({
   const ActiveIcon = activeMeta.icon;
 
   return (
-    <div className="flex h-[calc(100dvh-145px)] lg:h-[calc(100dvh-170px)] min-h-0 min-w-0 flex-col gap-6 overflow-hidden">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <ActiveIcon className={`h-5 w-5 ${activeMeta.iconClass}`} />
-            {activeMeta.title}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Showing data for{" "}
-            <span className="font-semibold">{selectedCompany.name}</span>
-          </p>
-        </div>
-        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center md:w-auto">
-          <div className="relative w-full sm:min-w-[280px] sm:w-[320px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500" />
-            <Input
-              value={workspaceSearchQuery}
-              onChange={(event) => setWorkspaceSearchQuery(event.target.value)}
-              placeholder="Search workspace..."
-              className="h-10 pl-9 pr-9 !border-[#BEC9DD] focus-visible:!border-[#AAB9D3] focus-visible:ring-blue-200"
-            />
-            <Loader2
-              className={`absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground transition-opacity duration-200 ${isSearchDebouncing ? "opacity-100" : "opacity-0"}`}
-            />
+    <WorkspaceErrorBoundary featureName="CRM">
+      <div className="flex h-[calc(100dvh-145px)] lg:h-[calc(100dvh-170px)] min-h-0 min-w-0 flex-col gap-6 overflow-hidden">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <ActiveIcon className={`h-5 w-5 ${activeMeta.iconClass}`} />
+              {activeMeta.title}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Showing data for{" "}
+              <span className="font-semibold">{selectedCompany.name}</span>
+            </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 rounded-xl border-[#BEC9DD] px-4"
-            onClick={() => {
-              setIsRefreshing(true);
-              setRefreshNonce((value) => value + 1);
-            }}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 text-emerald-500 ${isRefreshing || isMutating ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </Button>
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center md:w-auto">
+            <div className="relative w-full sm:min-w-[280px] sm:w-[320px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500" />
+              <Input
+                value={workspaceSearchQuery}
+                onChange={(event) =>
+                  setWorkspaceSearchQuery(event.target.value)
+                }
+                placeholder="Search workspace..."
+                className="h-10 pl-9 pr-9 !border-[#BEC9DD] focus-visible:!border-[#AAB9D3] focus-visible:ring-blue-200"
+              />
+              <Loader2
+                className={`absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground transition-opacity duration-200 ${isSearchDebouncing ? "opacity-100" : "opacity-0"}`}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-xl border-[#BEC9DD] px-4"
+              onClick={() => {
+                setIsRefreshing(true);
+                setRefreshNonce((value) => value + 1);
+              }}
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 text-emerald-500 ${isRefreshing || isMutating ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {activeTable === "customers" ? (
+            <TabBoundary tabKey="customers">
+              <CustomersTab
+                companyId={selectedCompany.id}
+                searchQuery={debouncedSearchQuery}
+                refreshNonce={refreshNonce}
+                onRefreshStateChange={setIsRefreshing}
+                onMutationStateChange={setIsMutating}
+              />
+            </TabBoundary>
+          ) : null}
+          {activeTable === "deals" ? (
+            <TabBoundary tabKey="deals">
+              <DealsTab
+                companyId={selectedCompany.id}
+                searchQuery={debouncedSearchQuery}
+                refreshNonce={refreshNonce}
+                onRefreshStateChange={setIsRefreshing}
+                onMutationStateChange={setIsMutating}
+              />
+            </TabBoundary>
+          ) : null}
+          {activeTable === "activities" ? (
+            <TabBoundary tabKey="activities">
+              <ActivitiesTab
+                companyId={selectedCompany.id}
+                searchQuery={debouncedSearchQuery}
+                refreshNonce={refreshNonce}
+                onRefreshStateChange={setIsRefreshing}
+                onMutationStateChange={setIsMutating}
+              />
+            </TabBoundary>
+          ) : null}
+          {activeTable === "overviews" ? (
+            <TabBoundary tabKey="overviews">
+              <OverviewsTab
+                refreshNonce={refreshNonce}
+                onRefreshStateChange={setIsRefreshing}
+              />
+            </TabBoundary>
+          ) : null}
         </div>
       </div>
-
-      <div className="min-h-0 flex-1 overflow-hidden">
-        {activeTable === "customers" ? (
-          <TabBoundary tabKey="customers">
-            <CustomersTab
-              companyId={selectedCompany.id}
-              searchQuery={debouncedSearchQuery}
-              refreshNonce={refreshNonce}
-              onRefreshStateChange={setIsRefreshing}
-              onMutationStateChange={setIsMutating}
-            />
-          </TabBoundary>
-        ) : null}
-        {activeTable === "deals" ? (
-          <TabBoundary tabKey="deals">
-            <DealsTab
-              companyId={selectedCompany.id}
-              searchQuery={debouncedSearchQuery}
-              refreshNonce={refreshNonce}
-              onRefreshStateChange={setIsRefreshing}
-              onMutationStateChange={setIsMutating}
-            />
-          </TabBoundary>
-        ) : null}
-        {activeTable === "activities" ? (
-          <TabBoundary tabKey="activities">
-            <ActivitiesTab
-              companyId={selectedCompany.id}
-              searchQuery={debouncedSearchQuery}
-              refreshNonce={refreshNonce}
-              onRefreshStateChange={setIsRefreshing}
-              onMutationStateChange={setIsMutating}
-            />
-          </TabBoundary>
-        ) : null}
-        {activeTable === "overviews" ? (
-          <TabBoundary tabKey="overviews">
-            <OverviewsTab
-              refreshNonce={refreshNonce}
-              onRefreshStateChange={setIsRefreshing}
-            />
-          </TabBoundary>
-        ) : null}
-      </div>
-    </div>
+    </WorkspaceErrorBoundary>
   );
 }

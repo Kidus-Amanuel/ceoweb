@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { crmService } from "@/services/crm/crm.service";
+import { inventoryService } from "@/services/inventory/inventory.service";
 
 type MockQueryBuilder = {
   select: ReturnType<typeof vi.fn>;
@@ -31,34 +31,34 @@ const createSupabaseMock = () => {
   return { supabase, queryBuilder };
 };
 
-describe("crmService.listRows", () => {
+describe("inventoryService.listRows", () => {
   it("calculates range correctly for first page", async () => {
     const { supabase, queryBuilder } = createSupabaseMock();
 
-    await crmService.listRows({
+    await inventoryService.listRows({
       supabase: supabase as any,
-      table: "customers",
+      table: "products",
       companyId: "company-1",
       page: 1,
       pageSize: 50,
     });
 
-    expect(supabase.from).toHaveBeenCalledWith("customers");
+    expect(supabase.from).toHaveBeenCalledWith("products");
     expect(queryBuilder.range).toHaveBeenCalledWith(0, 49);
   });
 
   it("calculates range correctly for later pages", async () => {
     const { queryBuilder, supabase } = createSupabaseMock();
 
-    await crmService.listRows({
+    await inventoryService.listRows({
       supabase: supabase as any,
-      table: "deals",
+      table: "stock_movements",
       companyId: "company-1",
       page: 3,
       pageSize: 25,
     });
 
-    expect(supabase.from).toHaveBeenCalledWith("deals");
+    expect(supabase.from).toHaveBeenCalledWith("stock_movements");
     expect(queryBuilder.range).toHaveBeenCalledWith(50, 74);
   });
 });
