@@ -150,14 +150,15 @@ export type EmployeeParams = {
   page?: number;
   pageSize?: number;
   search?: string;
+  status?: string;
 };
 
 export function useEmployees(companyId?: string, params: EmployeeParams = {}) {
   const qc = useQueryClient();
-  const { page = 1, pageSize = 50, search = "" } = params;
+  const { page = 1, pageSize = 50, search = "", status = "all" } = params;
 
   const query = useQuery({
-    queryKey: [...hrKeys.employees(companyId), page, pageSize, search],
+    queryKey: [...hrKeys.employees(companyId), page, pageSize, search, status],
     queryFn: () =>
       apiFetch<{
         data: any[];
@@ -165,7 +166,7 @@ export function useEmployees(companyId?: string, params: EmployeeParams = {}) {
         page: number;
         pageSize: number;
       }>(
-        `/api/hr/employees?company_id=${companyId}&page=${page}&pageSize=${pageSize}&search=${search}`,
+        `/api/hr/employees?company_id=${companyId}&page=${page}&pageSize=${pageSize}&search=${search}&status=${status}`,
       ),
     staleTime: 30_000,
     enabled: !!companyId,
@@ -544,15 +545,17 @@ export type LeaveParams = {
   pageSize?: number;
   employee_id?: string;
   status?: string;
+  search?: string;
 };
 
 export function useLeaves(companyId?: string, params: LeaveParams = {}) {
   const qc = useQueryClient();
-  const { page = 1, pageSize = 50, employee_id, status } = params;
+  const { page = 1, pageSize = 50, employee_id, status, search = "" } = params;
 
   let url = `/api/hr/leaves?company_id=${companyId}&page=${page}&pageSize=${pageSize}`;
   if (employee_id) url += `&employee_id=${employee_id}`;
   if (status) url += `&status=${status}`;
+  if (search) url += `&search=${search}`;
 
   const query = useQuery({
     queryKey: [
@@ -561,6 +564,7 @@ export function useLeaves(companyId?: string, params: LeaveParams = {}) {
       pageSize,
       employee_id,
       status,
+      search,
     ],
     queryFn: () =>
       apiFetch<{

@@ -1,29 +1,22 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { type VirtualColumn } from "@/components/shared/table/EditableTable";
 import { EditableTable } from "@/components/shared/table/EditableTable";
 import {
   BadgeDollarSign,
   ArrowDownToLine,
-  Filter,
   CheckCircle2,
   Receipt,
   Plus,
   RefreshCw,
   Calendar,
-  Wallet,
   TrendingUp,
   Clock,
-  ExternalLink,
-  ChevronRight,
   Search,
   Settings2,
-  ShieldCheck,
-  ClipboardList,
   X,
-  Layers,
-  ShieldAlert,
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/shared/ui/button/Button";
@@ -45,6 +38,7 @@ import { type ColumnFieldType } from "@/components/shared/table/CustomColumnEdit
 import { FleetTableSkeleton } from "@/components/shared/ui/skeleton/FleetTableSkeleton";
 
 export default function PayrollPage() {
+  const { t } = useTranslation();
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
@@ -58,14 +52,14 @@ export default function PayrollPage() {
 
   // 3. Mutations
   const addRun = useAddPayrollRun(companyId, {
-    onSuccess: () => toast.success("Payroll run created"),
+    onSuccess: () => toast.success(t("hr.toast_payroll_add")),
     onError: (err: any) =>
-      toast.error(err.message || "Failed to create payroll run"),
+      toast.error(err.message || t("hr.toast_payroll_add") + " failed"),
   });
   const updateRun = useUpdatePayrollRun(companyId, {
-    onSuccess: () => toast.success("Payroll run updated"),
+    onSuccess: () => toast.success(t("hr.toast_payroll_update")),
     onError: (err: any) =>
-      toast.error(err.message || "Failed to update payroll run"),
+      toast.error(err.message || t("hr.toast_payroll_update") + " failed"),
   });
 
   // Custom Column Mutations
@@ -122,7 +116,7 @@ export default function PayrollPage() {
   const columns = useMemo(
     () => [
       {
-        header: "Payroll Period",
+        header: t("hr.col_payroll_period"),
         accessorKey: "period_start",
         meta: { type: "text" as ColumnFieldType },
         cell: ({ row }: any) => {
@@ -133,7 +127,7 @@ export default function PayrollPage() {
                 month: "long",
                 year: "numeric",
               })
-            : "Custom Period";
+            : t("hr.custom_period");
 
           return (
             <div className="flex items-center gap-3 group">
@@ -153,15 +147,15 @@ export default function PayrollPage() {
         },
       },
       {
-        header: "Status",
+        header: t("hr.col_status"),
         accessorKey: "status",
         meta: {
           type: "select" as ColumnFieldType,
           options: [
-            { label: "Draft", value: "draft" },
-            { label: "Reviewing", value: "reviewing" },
-            { label: "Processing", value: "processing" },
-            { label: "Completed", value: "completed" },
+            { label: t("hr.status_draft"), value: "draft" },
+            { label: t("hr.status_reviewing"), value: "reviewing" },
+            { label: t("hr.status_processing"), value: "processing" },
+            { label: t("hr.status_completed"), value: "completed" },
           ],
         },
         cell: ({ row }: any) => {
@@ -206,7 +200,7 @@ export default function PayrollPage() {
         },
       },
       {
-        header: "Financial Summary",
+        header: t("hr.col_financial_summary"),
         accessorKey: "total_cost",
         meta: { type: "number" as ColumnFieldType },
         cell: ({ row }: any) => (
@@ -222,7 +216,7 @@ export default function PayrollPage() {
         ),
       },
     ],
-    [],
+    [t],
   );
 
   // 5. Table Handlers
@@ -307,17 +301,18 @@ export default function PayrollPage() {
                 </div>
                 <div>
                   <h1 className="text-xl font-black font-display text-slate-900 leading-none mb-1.5 uppercase tracking-tighter">
-                    Payroll Hub
+                    {t("hr.payroll_hub")}
                   </h1>
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase flex items-center gap-1.5">
-                      <TrendingUp className="w-3 h-3 text-indigo-500" /> Total:{" "}
+                      <TrendingUp className="w-3 h-3 text-indigo-500" />{" "}
+                      {t("hr.payroll_total")}:{" "}
                       <span className="text-slate-800">{stats.totalCost}</span>
                     </span>
                     <div className="w-1 h-1 rounded-full bg-slate-200" />
                     <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase flex items-center gap-1.5">
                       <CheckCircle2 className="w-3 h-3 text-emerald-500" />{" "}
-                      Processed:{" "}
+                      {t("hr.payroll_processed")}:{" "}
                       <span className="text-slate-800">{stats.completed}</span>
                     </span>
                   </div>
@@ -328,7 +323,7 @@ export default function PayrollPage() {
                 <div className="relative group flex-1 lg:w-[280px]">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-indigo-500" />
                   <Input
-                    placeholder="Search cycles..."
+                    placeholder={t("hr.search_payroll")}
                     className="pl-10 h-10 bg-slate-50/50 border-slate-200 rounded-xl font-bold text-[11px] uppercase tracking-wider focus:ring-4 focus:ring-indigo-500/5 transition-all"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -354,7 +349,7 @@ export default function PayrollPage() {
                     )?.click()
                   }
                 >
-                  <Plus className="w-3.5 h-3.5" /> Create Run
+                  <Plus className="w-3.5 h-3.5" /> {t("hr.create_run")}
                 </Button>
               </div>
             </motion.div>
@@ -397,7 +392,7 @@ export default function PayrollPage() {
                     )
                   }
                 >
-                  <RefreshCw className="w-3.5 h-3.5" /> Execute Batch
+                  <RefreshCw className="w-3.5 h-3.5" /> {t("hr.execute_batch")}
                 </Button>
                 <div className="h-8 w-px bg-indigo-200/50 mx-1" />
                 <Button
@@ -446,12 +441,12 @@ export default function PayrollPage() {
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Payroll System Active
+              {t("hr.payroll_active")}
             </span>
           </div>
           <div className="h-4 w-px bg-slate-200" />
           <p className="text-[10px] font-medium text-slate-400">
-            Total disbursement across cycles:{" "}
+            {t("hr.payroll_disbursement")}{" "}
             <span className="text-slate-700 font-black">{stats.totalCost}</span>
           </p>
         </div>

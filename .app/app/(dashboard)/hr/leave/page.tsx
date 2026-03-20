@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useCompanies } from "@/hooks/use-companies";
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/shared/ui/button/Button";
@@ -20,20 +21,13 @@ import {
 } from "@/hooks/use-hr";
 import {
   Search,
-  RefreshCw,
   Palmtree,
   Plus,
   CheckCircle2,
   XCircle,
   Clock,
-  LayoutGrid,
-  MoreHorizontal,
-  ArrowLeft,
-  ChevronRight,
   Settings2,
   X,
-  UserCircle2,
-  Info,
 } from "lucide-react";
 import { type VirtualColumn } from "@/components/shared/table/EditableTable";
 import { Input } from "@/components/shared/ui/input/Input";
@@ -43,6 +37,7 @@ import { calculateDays } from "@/utils/table-utils";
 import { type ColumnFieldType } from "@/components/shared/table/CustomColumnEditorContent";
 
 export default function LeaveRequestsPage() {
+  const { t } = useTranslation();
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
@@ -58,6 +53,7 @@ export default function LeaveRequestsPage() {
     page,
     pageSize,
     status,
+    search: searchTerm,
   });
   const { data: employeesRes } = useEmployees(companyId);
   const { data: leaveTypes = [] } = useLeaveTypes(companyId);
@@ -74,29 +70,32 @@ export default function LeaveRequestsPage() {
 
   // 3. Mutations
   const addLeave = useAddLeave(companyId, {
-    onSuccess: () => toast.success("Leave request submitted"),
-    onError: (err: any) => toast.error(err.message || "Failed to submit leave"),
+    onSuccess: () => toast.success(t("hr.toast_leave_add")),
+    onError: (err: any) =>
+      toast.error(err.message || t("hr.toast_leave_add") + " failed"),
   });
   const updateLeave = useUpdateLeave(companyId, {
-    onSuccess: () => toast.success("Leave request updated"),
-    onError: (err: any) => toast.error(err.message || "Failed to update leave"),
+    onSuccess: () => toast.success(t("hr.toast_leave_update")),
+    onError: (err: any) =>
+      toast.error(err.message || t("hr.toast_leave_update") + " failed"),
   });
   const deleteLeave = useDeleteLeave(companyId, {
     onSuccess: () => {
-      toast.success("Leave request cancelled");
+      toast.success(t("hr.toast_leave_delete"));
       setSelectedRowId(null);
     },
-    onError: (err: any) => toast.error(err.message || "Failed to cancel leave"),
+    onError: (err: any) =>
+      toast.error(err.message || t("hr.toast_leave_delete") + " failed"),
   });
 
   const addColumn = useAddHrColumn("leaves", companyId, {
-    onSuccess: () => toast.success("Field deployed"),
+    onSuccess: () => toast.success(t("hr.toast_field_add")),
   });
   const updateColumn = useUpdateHrColumn("leaves", companyId, {
-    onSuccess: () => toast.success("Field optimized"),
+    onSuccess: () => toast.success(t("hr.toast_field_update")),
   });
   const deleteColumn = useDeleteHrColumn("leaves", companyId, {
-    onSuccess: () => toast.success("Field recalled"),
+    onSuccess: () => toast.success(t("hr.toast_field_delete")),
   });
 
   // 4. Derived Configuration
@@ -131,7 +130,7 @@ export default function LeaveRequestsPage() {
   const columns = useMemo(
     () => [
       {
-        header: "Employee",
+        header: t("hr.col_employee"),
         accessorKey: "employee_id",
         meta: {
           type: "select" as ColumnFieldType,
@@ -155,7 +154,7 @@ export default function LeaveRequestsPage() {
         },
       },
       {
-        header: "Leave Type",
+        header: t("hr.col_leave_type"),
         accessorKey: "leave_type_id",
         meta: {
           type: "select" as ColumnFieldType,
@@ -180,25 +179,25 @@ export default function LeaveRequestsPage() {
         ),
       },
       {
-        header: "Start Date",
+        header: t("hr.col_start_date"),
         accessorKey: "start_date",
         meta: { type: "date" as ColumnFieldType },
       },
       {
-        header: "End Date",
+        header: t("hr.col_end_date"),
         accessorKey: "end_date",
         meta: { type: "date" as ColumnFieldType },
       },
       {
-        header: "Status",
+        header: t("hr.col_status"),
         accessorKey: "status",
         meta: {
           type: "select" as ColumnFieldType,
           options: [
-            { label: "Pending", value: "pending" },
-            { label: "Approved", value: "approved" },
-            { label: "Rejected", value: "rejected" },
-            { label: "Cancelled", value: "cancelled" },
+            { label: t("hr.status_pending"), value: "pending" },
+            { label: t("hr.status_approved"), value: "approved" },
+            { label: t("hr.status_rejected"), value: "rejected" },
+            { label: t("hr.status_cancelled"), value: "cancelled" },
           ],
         },
         cell: ({ row }: any) => {
@@ -231,17 +230,18 @@ export default function LeaveRequestsPage() {
         },
       },
       {
-        header: "Total Days",
+        header: t("hr.col_total_days"),
         accessorKey: "total_days",
         meta: { type: "number" as ColumnFieldType, readOnly: true },
         cell: ({ row }: any) => (
           <span className="font-bold text-slate-700">
-            {calculateDays(row.original.start_date, row.original.end_date)} days
+            {calculateDays(row.original.start_date, row.original.end_date)}{" "}
+            {t("hr.days_label")}
           </span>
         ),
       },
       {
-        header: "Reason",
+        header: t("hr.col_reason"),
         accessorKey: "reason",
         meta: { type: "text" as ColumnFieldType },
         cell: ({ row }: any) => (
@@ -251,7 +251,7 @@ export default function LeaveRequestsPage() {
         ),
       },
     ],
-    [employees, leaveTypes],
+    [t, employees, leaveTypes],
   );
 
   const handleUpdate = async (id: string, updatedFields: any) => {
@@ -268,14 +268,12 @@ export default function LeaveRequestsPage() {
         "reason",
       ];
 
-      // 1. Map standard fields
       Object.keys(updatedFields).forEach((key) => {
         if (standardKeys.includes(key)) {
           payload[key] = updatedFields[key];
         }
       });
 
-      // 2. Auto-calculate duration if dates change
       if (payload.start_date || payload.end_date) {
         const existing = leaves.find((l) => l.id === id);
         payload.total_days = calculateDays(
@@ -284,7 +282,6 @@ export default function LeaveRequestsPage() {
         );
       }
 
-      // 3. Map custom fields
       const existing = leaves.find((x) => x.id === id);
       const mergedCustom = {
         ...(existing?.custom_fields || {}),
@@ -381,7 +378,7 @@ export default function LeaveRequestsPage() {
                   <div className="relative w-full md:w-80 group">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
                     <Input
-                      placeholder="Search leave records..."
+                      placeholder={t("hr.search_leaves")}
                       className="pl-10 h-10 border-slate-200/60 rounded-2xl bg-white shadow-sm text-xs focus:ring-4 focus:ring-emerald-500/10 transition-all font-medium"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -405,7 +402,11 @@ export default function LeaveRequestsPage() {
                         }`}
                         onClick={() => setStatus(f === "all" ? undefined : f)}
                       >
-                        {f}
+                        {f === "all"
+                          ? t("hr.filter_all")
+                          : f === "pending"
+                            ? t("hr.filter_pending")
+                            : t("hr.filter_approved")}
                       </Button>
                     ))}
                   </div>
@@ -413,19 +414,19 @@ export default function LeaveRequestsPage() {
 
                 <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-slate-400 ml-auto mr-4">
                   <span className="flex items-center gap-2">
-                    Total{" "}
+                    {t("hr.stat_total")}{" "}
                     <span className="text-slate-900 text-xs font-black">
                       {stats.total}
                     </span>
                   </span>
                   <span className="flex items-center gap-2 text-amber-500">
-                    Pending{" "}
+                    {t("hr.filter_pending")}{" "}
                     <span className="text-amber-700 text-xs font-black">
                       {stats.pending}
                     </span>
                   </span>
                   <span className="flex items-center gap-2 text-emerald-500">
-                    Approved{" "}
+                    {t("hr.filter_approved")}{" "}
                     <span className="text-emerald-700 text-xs font-black">
                       {stats.approved}
                     </span>
@@ -443,7 +444,7 @@ export default function LeaveRequestsPage() {
                     )?.click()
                   }
                 >
-                  <Plus className="w-4 h-4" /> REQUEST LEAVE
+                  <Plus className="w-4 h-4" /> {t("hr.request_leave")}
                 </Button>
               </motion.div>
             ) : (
@@ -470,7 +471,7 @@ export default function LeaveRequestsPage() {
                         selectedLeave?.start_date,
                         selectedLeave?.end_date,
                       )}{" "}
-                      Days
+                      {t("hr.days_label")}
                     </p>
                   </div>
                 </div>
@@ -522,7 +523,7 @@ export default function LeaveRequestsPage() {
             <div className="flex items-center gap-2 group cursor-help">
               <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Live Registry
+                {t("hr.live_registry")}
               </span>
             </div>
             <div className="flex items-center gap-2 group cursor-help">
@@ -538,7 +539,7 @@ export default function LeaveRequestsPage() {
             className="h-7 text-[8px] font-black text-emerald-600 hover:bg-emerald-50 rounded-full px-4 uppercase tracking-widest border border-emerald-100"
             onClick={() => (window.location.href = "/hr/leave/types")}
           >
-            Configure Types
+            {t("hr.configure_types")}
           </Button>
         </div>
       </div>

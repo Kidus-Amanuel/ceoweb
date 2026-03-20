@@ -189,6 +189,13 @@ export const NAV_CONFIG: NavItem[] = [
     roles: ["super_admin", "company_user"],
     subItems: [
       {
+        id: "hr-overview",
+        label: "Overview",
+        href: "/hr",
+        icon: LayoutDashboard,
+        iconClassName: "text-orange-500",
+      },
+      {
         id: "hr-employees",
         label: "Employees",
         href: "/hr/employees",

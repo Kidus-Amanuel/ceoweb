@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { type VirtualColumn } from "@/components/shared/table/EditableTable";
 import { EditableTable } from "@/components/shared/table/EditableTable";
 import {
@@ -38,6 +39,7 @@ import { FleetTableSkeleton } from "@/components/shared/ui/skeleton/FleetTableSk
 import { type ColumnFieldType } from "@/components/shared/table/CustomColumnEditorContent";
 
 export default function AttendancePage() {
+  const { t } = useTranslation();
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
@@ -66,32 +68,32 @@ export default function AttendancePage() {
 
   // 3. Mutations
   const addAtt = useAddAttendance(companyId, {
-    onSuccess: () => toast.success("Attendance entry logged"),
+    onSuccess: () => toast.success(t("hr.toast_attendance_add")),
     onError: (err: any) =>
-      toast.error(err.message || "Failed to log attendance"),
+      toast.error(err.message || t("hr.toast_attendance_add") + " failed"),
   });
   const updateAtt = useUpdateAttendance(companyId, {
-    onSuccess: () => toast.success("Attendance record optimized"),
+    onSuccess: () => toast.success(t("hr.toast_attendance_update")),
     onError: (err: any) =>
-      toast.error(err.message || "Failed to optimize record"),
+      toast.error(err.message || t("hr.toast_attendance_update") + " failed"),
   });
   const deleteAtt = useDeleteAttendance(companyId, {
     onSuccess: () => {
-      toast.success("Attendance record recalled");
+      toast.success(t("hr.toast_attendance_delete"));
       setSelectedRowId(null);
     },
     onError: (err: any) =>
-      toast.error(err.message || "Failed to recall record"),
+      toast.error(err.message || t("hr.toast_attendance_delete") + " failed"),
   });
 
   const addColumn = useAddHrColumn("attendance", companyId, {
-    onSuccess: () => toast.success("Field deployed"),
+    onSuccess: () => toast.success(t("hr.toast_field_add")),
   });
   const updateColumn = useUpdateHrColumn("attendance", companyId, {
-    onSuccess: () => toast.success("Field optimized"),
+    onSuccess: () => toast.success(t("hr.toast_field_update")),
   });
   const deleteColumn = useDeleteHrColumn("attendance", companyId, {
-    onSuccess: () => toast.success("Field recalled"),
+    onSuccess: () => toast.success(t("hr.toast_field_delete")),
   });
 
   // 4. Derived Configuration
@@ -130,7 +132,7 @@ export default function AttendancePage() {
   const columns = useMemo(
     () => [
       {
-        header: "Personnel",
+        header: t("hr.col_personnel"),
         accessorKey: "employee_id",
         meta: {
           type: "select" as ColumnFieldType,
@@ -163,7 +165,7 @@ export default function AttendancePage() {
         },
       },
       {
-        header: "Log Date",
+        header: t("hr.col_log_date"),
         accessorKey: "date",
         meta: { type: "date" as ColumnFieldType },
         cell: ({ row }: any) => (
@@ -177,7 +179,7 @@ export default function AttendancePage() {
         ),
       },
       {
-        header: "Entry Log",
+        header: t("hr.col_entry_log"),
         accessorKey: "check_in",
         meta: { type: "text" as ColumnFieldType },
         cell: ({ row }: any) => (
@@ -193,7 +195,7 @@ export default function AttendancePage() {
         ),
       },
       {
-        header: "Exit Log",
+        header: t("hr.col_exit_log"),
         accessorKey: "check_out",
         meta: { type: "text" as ColumnFieldType },
         cell: ({ row }: any) => (
@@ -209,7 +211,7 @@ export default function AttendancePage() {
         ),
       },
       {
-        header: "Compute Output",
+        header: t("hr.col_hours"),
         accessorKey: "hours_worked",
         meta: { readOnly: true, type: "number" as ColumnFieldType },
         cell: ({ row }: any) => (
@@ -223,21 +225,21 @@ export default function AttendancePage() {
               />
             </div>
             <span className="text-[11px] font-black text-slate-600 min-w-[45px]">
-              {row.original.hours_worked || "0.00"} HRS
+              {row.original.hours_worked || "0.00"} {t("hr.hrs_label")}
             </span>
           </div>
         ),
       },
       {
-        header: "System Status",
+        header: t("hr.col_system_status"),
         accessorKey: "status",
         meta: {
           type: "select" as ColumnFieldType,
           options: [
-            { label: "Present", value: "present" },
-            { label: "Late", value: "late" },
-            { label: "Absent", value: "absent" },
-            { label: "Half Day", value: "half_day" },
+            { label: t("hr.status_present"), value: "present" },
+            { label: t("hr.status_late"), value: "late" },
+            { label: t("hr.status_absent"), value: "absent" },
+            { label: t("hr.status_half_day"), value: "half_day" },
           ],
         },
         cell: ({ row }: any) => {
@@ -259,7 +261,7 @@ export default function AttendancePage() {
         },
       },
     ],
-    [employees],
+    [t, employees],
   );
 
   const handleUpdate = async (id: string, updatedFields: any) => {
@@ -373,7 +375,7 @@ export default function AttendancePage() {
                   <div className="relative w-full md:w-80 group">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                     <Input
-                      placeholder="Search system logs..."
+                      placeholder={t("hr.search_attendance")}
                       className="pl-10 h-10 border-slate-200/60 rounded-2xl bg-white shadow-sm text-xs focus:ring-4 focus:ring-amber-500/10 transition-all font-medium"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -383,19 +385,19 @@ export default function AttendancePage() {
 
                 <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-slate-400 ml-auto mr-4">
                   <span className="flex items-center gap-2">
-                    Workforce{" "}
+                    {t("hr.stat_workforce")}{" "}
                     <span className="text-slate-900 text-xs font-black">
                       {stats.total}
                     </span>
                   </span>
                   <span className="flex items-center gap-2 text-emerald-500">
-                    Present{" "}
+                    {t("hr.stat_present")}{" "}
                     <span className="text-emerald-700 text-xs font-black">
                       {stats.present}
                     </span>
                   </span>
                   <span className="flex items-center gap-2 text-amber-500">
-                    Late{" "}
+                    {t("hr.stat_late")}{" "}
                     <span className="text-amber-700 text-xs font-black">
                       {stats.late}
                     </span>
@@ -413,7 +415,7 @@ export default function AttendancePage() {
                     )?.click()
                   }
                 >
-                  <Clock className="w-4 h-4" /> LOG ATTENDANCE
+                  <Clock className="w-4 h-4" /> {t("hr.log_attendance")}
                 </Button>
               </motion.div>
             ) : (
@@ -436,7 +438,7 @@ export default function AttendancePage() {
                     <p className="text-[10px] text-amber-600 font-black uppercase tracking-widest opacity-70 flex items-center gap-2">
                       <CalendarDays className="w-3 h-3" />{" "}
                       {new Date(selectedEntry?.date).toLocaleDateString()} •{" "}
-                      {selectedEntry?.hours_worked || "0.00"} Compute Hours
+                      {selectedEntry?.hours_worked || "0.00"} {t("hr.compute_hours")}
                     </p>
                   </div>
                 </div>
@@ -488,13 +490,13 @@ export default function AttendancePage() {
             <div className="flex items-center gap-2 group cursor-help">
               <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)] animate-pulse" />
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Entry Verifier Active
+                {t("hr.attendance_verifier")}
               </span>
             </div>
             <div className="flex items-center gap-2 group cursor-help">
               <Settings2 className="w-3 h-3 text-slate-400 group-hover:rotate-90 transition-transform duration-500" />
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Entity: ATTENDANCE
+                {t("hr.attendance_entity")}
               </span>
             </div>
           </div>

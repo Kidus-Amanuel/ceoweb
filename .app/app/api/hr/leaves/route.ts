@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     const pageSize = parseInt(searchParams.get("pageSize") || "50");
     const employeeId = searchParams.get("employee_id");
     const status = searchParams.get("status");
+    const search = searchParams.get("search");
 
     const auth = await getFleetAuthContext();
     if (!auth)
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
       .select(
         `
         *,
-        employee:employees (id, first_name, last_name, employee_code),
+        employee:employees!inner (id, first_name, last_name, employee_code),
         leave_type:leave_types (id, name)
       `,
         { count: "exact" },
@@ -32,6 +33,12 @@ export async function GET(req: Request) {
 
     if (employeeId) query = query.eq("employee_id", employeeId);
     if (status) query = query.eq("status", status);
+    if (search) {
+      query = query.or(
+        `first_name.ilike.%${search}%,last_name.ilike.%${search}%,employee_code.ilike.%${search}%`,
+        { foreignTable: "employee" }
+      );
+    }
 
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
@@ -64,6 +71,28 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
+    // Overlapping leave validation
+    if (body.employee_id && body.start_date && body.end_date) {
+      const { data: overlaps, error: overlapError } = await supabase
+        .from("leaves")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("employee_id", body.employee_id)
+        .is("deleted_at", null)
+        .neq("status", "rejected")
+        .neq("status", "cancelled")
+        .lte("start_date", body.end_date)
+        .gte("end_date", body.start_date);
+
+      if (overlapError) throw overlapError;
+      if (overlaps && overlaps.length > 0) {
+        return NextResponse.json(
+          { error: "Employee already has a leave overlapping with these dates." },
+          { status: 400 }
+        );
+      }
+    }
+
     const { data, error } = await supabase
       .from("leaves")
       .insert({
@@ -95,6 +124,42 @@ export async function PATCH(req: Request) {
 
     if (!id)
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
+
+    // Validate overlaps if dates or employee change
+    if (updates.employee_id || updates.start_date || updates.end_date) {
+      // We need the full record to validate overlaps if partial dates provided
+      const { data: existingLeave } = await supabase
+        .from("leaves")
+        .select("employee_id, start_date, end_date")
+        .eq("id", id)
+        .single();
+        
+      if (existingLeave) {
+        const checkEmployeeId = updates.employee_id || existingLeave.employee_id;
+        const checkStartDate = updates.start_date || existingLeave.start_date;
+        const checkEndDate = updates.end_date || existingLeave.end_date;
+
+        const { data: overlaps, error: overlapError } = await supabase
+          .from("leaves")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("employee_id", checkEmployeeId)
+          .neq("id", id) // Exclude current leave
+          .is("deleted_at", null)
+          .neq("status", "rejected")
+          .neq("status", "cancelled")
+          .lte("start_date", checkEndDate)
+          .gte("end_date", checkStartDate);
+
+        if (overlapError) throw overlapError;
+        if (overlaps && overlaps.length > 0) {
+          return NextResponse.json(
+            { error: "Employee already has a leave overlapping with these dates." },
+            { status: 400 }
+          );
+        }
+      }
+    }
 
     const { data, error } = await supabase
       .from("leaves")

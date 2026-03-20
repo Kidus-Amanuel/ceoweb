@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   EditableTable,
   type VirtualColumn,
@@ -65,6 +66,7 @@ import { calculateDays } from "@/utils/table-utils";
 import { type ColumnFieldType } from "@/components/shared/table/CustomColumnEditorContent";
 
 export default function EmployeesPage() {
+  const { t } = useTranslation();
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
@@ -81,6 +83,8 @@ export default function EmployeesPage() {
   const { data: employeeRes, isLoading: loading } = useEmployees(companyId, {
     page,
     pageSize,
+    search: searchTerm,
+    status: statusFilter,
   });
   const { data: departments = [] } = useDepartments(companyId);
   const { data: positions = [] } = usePositions(companyId);
@@ -115,46 +119,46 @@ export default function EmployeesPage() {
 
   // 4. Mutations
   const addEmp = useAddEmployee(companyId, {
-    onSuccess: () => toast.success("Talent onboarded"),
+    onSuccess: () => toast.success(t("hr.toast_employee_add")),
   });
   const updateEmp = useUpdateEmployee(companyId, {
-    onSuccess: () => toast.success("Record refined"),
+    onSuccess: () => toast.success(t("hr.toast_employee_update")),
   });
   const deleteEmp = useDeleteEmployee(companyId, {
     onSuccess: () => {
-      toast.success("Record archived");
+      toast.success(t("hr.toast_employee_delete"));
       setSelectedRowId(null);
     },
   });
 
   const addLeave = useAddLeave(companyId, {
-    onSuccess: () => toast.success("Leave logged"),
+    onSuccess: () => toast.success(t("hr.toast_leave_log")),
   });
   const updateLeave = useUpdateLeave(companyId, {
-    onSuccess: () => toast.success("Leave refined"),
+    onSuccess: () => toast.success(t("hr.toast_leave_refined")),
   });
   const deleteLeave = useDeleteLeave(companyId, {
-    onSuccess: () => toast.success("Leave deleted"),
+    onSuccess: () => toast.success(t("hr.toast_leave_deleted")),
   });
 
   const addType = useAddLeaveType(companyId, {
-    onSuccess: () => toast.success("Category deployed"),
+    onSuccess: () => toast.success(t("hr.toast_leave_type_add")),
   });
   const updateType = useUpdateLeaveType(companyId, {
-    onSuccess: () => toast.success("Category refined"),
+    onSuccess: () => toast.success(t("hr.toast_leave_type_update")),
   });
   const deleteType = useDeleteLeaveType(companyId, {
-    onSuccess: () => toast.success("Category recalled"),
+    onSuccess: () => toast.success(t("hr.toast_leave_type_delete")),
   });
 
   const addColumn = useAddHrColumn(entityType, companyId, {
-    onSuccess: () => toast.success("Field deployed"),
+    onSuccess: () => toast.success(t("hr.toast_field_add")),
   });
   const updateColumn = useUpdateHrColumn(entityType, companyId, {
-    onSuccess: () => toast.success("Field optimized"),
+    onSuccess: () => toast.success(t("hr.toast_field_update")),
   });
   const deleteColumn = useDeleteHrColumn(entityType, companyId, {
-    onSuccess: () => toast.success("Field recalled"),
+    onSuccess: () => toast.success(t("hr.toast_field_delete")),
   });
 
   // 5. Derived Options & Stats
@@ -214,7 +218,7 @@ export default function EmployeesPage() {
   const employeeColumns = useMemo(
     () => [
       {
-        header: "Employee",
+        header: t("hr.col_employee"),
         accessorKey: "first_name",
         meta: { type: "text" as ColumnFieldType },
         cell: ({ row }: any) => {
@@ -239,7 +243,7 @@ export default function EmployeesPage() {
         },
       },
       {
-        header: "Department",
+        header: t("hr.col_department"),
         accessorKey: "department_id",
         meta: { type: "select" as ColumnFieldType, options: deptOptions },
         cell: ({ row }: any) => (
@@ -252,7 +256,7 @@ export default function EmployeesPage() {
         ),
       },
       {
-        header: "Position / Role",
+        header: t("hr.col_position_role"),
         accessorKey: "position_id",
         meta: { type: "select" as ColumnFieldType, options: posOptions },
         cell: ({ row }: any) => (
@@ -267,14 +271,14 @@ export default function EmployeesPage() {
         ),
       },
       {
-        header: "Current Status",
+        header: t("hr.col_current_status"),
         accessorKey: "status",
         meta: {
           type: "select" as ColumnFieldType,
           options: [
-            { label: "Active", value: "active" },
-            { label: "On Leave", value: "on_leave" },
-            { label: "Terminated", value: "terminated" },
+            { label: t("hr.status_active"), value: "active" },
+            { label: t("hr.status_on_leave"), value: "on_leave" },
+            { label: t("hr.status_terminated"), value: "terminated" },
           ],
         },
         cell: ({ row }: any) => {
@@ -284,24 +288,24 @@ export default function EmployeesPage() {
               variant="outline"
               className={`capitalize text-[9px] font-black tracking-widest px-2.5 ${onLeave ? "bg-amber-50 text-amber-700 border-amber-100" : "bg-emerald-50 text-emerald-700 border-emerald-100"}`}
             >
-              {onLeave ? "ON LEAVE" : row.original.status || "active"}
+              {onLeave ? t("hr.status_on_leave") : (row.original.status ? t(`hr.status_${row.original.status}`) : t("hr.status_active"))}
             </Badge>
           );
         },
       },
       {
-        header: "Salary",
+        header: t("hr.col_salary"),
         accessorKey: "basic_salary",
         meta: { type: "currency" as ColumnFieldType },
       },
     ],
-    [deptOptions, posOptions],
+    [t, deptOptions, posOptions],
   );
 
   const leaveColumns = useMemo(
     () => [
       {
-        header: "Category",
+        header: t("hr.col_category"),
         accessorKey: "leave_type_id",
         meta: { type: "select" as ColumnFieldType, options: leaveTypeOptions },
         cell: ({ row }: any) => (
@@ -318,39 +322,39 @@ export default function EmployeesPage() {
         ),
       },
       {
-        header: "From",
+        header: t("hr.col_from"),
         accessorKey: "start_date",
         meta: { type: "date" as ColumnFieldType },
       },
       {
-        header: "Until",
+        header: t("hr.col_until"),
         accessorKey: "end_date",
         meta: { type: "date" as ColumnFieldType },
       },
       {
-        header: "Days",
+        header: t("hr.col_days"),
         accessorKey: "days_taken",
         meta: { type: "number" as ColumnFieldType, readOnly: true },
         cell: ({ row }: any) => (
           <span className="font-bold text-slate-700">
-            {calculateDays(row.original.start_date, row.original.end_date)} days
+            {calculateDays(row.original.start_date, row.original.end_date)} {t("hr.days_label")}
           </span>
         ),
       },
       {
-        header: "Personnel Note / Reason",
+        header: t("hr.col_leave_note"),
         accessorKey: "reason",
         meta: { type: "text" as ColumnFieldType },
       },
       {
-        header: "Status",
+        header: t("hr.col_status"),
         accessorKey: "status",
         meta: {
           type: "select" as ColumnFieldType,
           options: [
-            { label: "Pending", value: "pending" },
-            { label: "Approved", value: "approved" },
-            { label: "Rejected", value: "rejected" },
+            { label: t("hr.status_pending"), value: "pending" },
+            { label: t("hr.status_approved"), value: "approved" },
+            { label: t("hr.status_rejected"), value: "rejected" },
           ],
         },
         cell: ({ row }: any) => {
@@ -365,39 +369,39 @@ export default function EmployeesPage() {
               variant="outline"
               className={`uppercase text-[9px] font-black tracking-widest ${styles[status]}`}
             >
-              {status}
+              {t(`hr.status_${status}`)}
             </Badge>
           );
         },
       },
     ],
-    [leaveTypeOptions],
+    [t, leaveTypeOptions],
   );
 
   const typeColumns = useMemo(
     () => [
       {
-        header: "Category Name",
+        header: t("hr.col_category_name"),
         accessorKey: "name",
         meta: { type: "text" as ColumnFieldType },
       },
       {
-        header: "Annual Limit (Days)",
+        header: t("hr.col_annual_limit"),
         accessorKey: "days_per_year",
         meta: { type: "number" as ColumnFieldType },
       },
       {
-        header: "Paid Leave?",
+        header: t("hr.col_paid_leave"),
         accessorKey: "paid",
         meta: { type: "boolean" as ColumnFieldType },
       },
       {
-        header: "Carry Over Support?",
+        header: t("hr.col_carry_over"),
         accessorKey: "carry_over",
         meta: { type: "boolean" as ColumnFieldType },
       },
     ],
-    [],
+    [t],
   );
 
   // 7. Event Logic - Single Selection Behavior
@@ -642,7 +646,7 @@ export default function EmployeesPage() {
                   <div className="relative w-full md:w-80 group">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                     <Input
-                      placeholder="Search workforce repository..."
+                      placeholder={t("hr.search_employees")}
                       className="pl-10 h-10 border-slate-200/60 rounded-2xl bg-white shadow-sm text-xs focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -665,7 +669,7 @@ export default function EmployeesPage() {
                         {f === "active" && (
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         )}
-                        {f.replace("_", " ")}
+                        {f === "all" ? t("hr.filter_all") : f === "active" ? t("hr.filter_active") : t("hr.filter_on_leave")}
                       </Button>
                     ))}
                   </div>
@@ -673,19 +677,19 @@ export default function EmployeesPage() {
 
                 <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-slate-400 ml-auto mr-4">
                   <span className="flex items-center gap-2">
-                    Total{" "}
+                    {t("hr.stat_total")}{" "}
                     <span className="text-slate-900 text-xs font-black">
                       {stats.total}
                     </span>
                   </span>
                   <span className="flex items-center gap-2 text-emerald-500">
-                    Active{" "}
+                    {t("hr.stat_active")}{" "}
                     <span className="text-emerald-700 text-xs font-black">
                       {stats.active}
                     </span>
                   </span>
                   <span className="flex items-center gap-2 text-amber-500">
-                    On Leave{" "}
+                    {t("hr.stat_on_leave")}{" "}
                     <span className="text-amber-700 text-xs font-black">
                       {stats.onLeave}
                     </span>
@@ -703,7 +707,7 @@ export default function EmployeesPage() {
                     )?.click()
                   }
                 >
-                  <UserPlus className="w-4 h-4" /> RECRUIT TALENT
+                  <UserPlus className="w-4 h-4" /> {t("hr.recruit_talent")}
                 </Button>
               </motion.div>
             )}
@@ -749,7 +753,7 @@ export default function EmployeesPage() {
                       <Palmtree className="w-4 h-4 text-amber-600" />
                     </div>
                     <span className="text-[11px] font-black uppercase tracking-widest">
-                      Manage Leaves
+                      {t("hr.manage_leaves")}
                     </span>
                   </Button>
                   <Button
@@ -761,7 +765,7 @@ export default function EmployeesPage() {
                       <Clock className="w-4 h-4 text-sky-600" />
                     </div>
                     <span className="text-[11px] font-black uppercase tracking-widest">
-                      Clock Logs
+                      {t("hr.clock_logs")}
                     </span>
                   </Button>
                   <div className="w-px h-8 bg-indigo-200 mx-3 opacity-50" />
@@ -793,7 +797,7 @@ export default function EmployeesPage() {
                   >
                     <ArrowLeft className="w-4 h-4 text-slate-500 mr-2 group-hover:translate-x-[-2px] transition-transform" />
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-                      Employee Directory
+                      {t("hr.employee_directory")}
                     </span>
                   </Button>
                   <div className="h-6 w-px bg-slate-200" />
