@@ -438,7 +438,8 @@ export default function AttendancePage() {
                     <p className="text-[10px] text-amber-600 font-black uppercase tracking-widest opacity-70 flex items-center gap-2">
                       <CalendarDays className="w-3 h-3" />{" "}
                       {new Date(selectedEntry?.date).toLocaleDateString()} •{" "}
-                      {selectedEntry?.hours_worked || "0.00"} {t("hr.compute_hours")}
+                      {selectedEntry?.hours_worked || "0.00"}{" "}
+                      {t("hr.compute_hours")}
                     </p>
                   </div>
                 </div>

@@ -288,7 +288,11 @@ export default function EmployeesPage() {
               variant="outline"
               className={`capitalize text-[9px] font-black tracking-widest px-2.5 ${onLeave ? "bg-amber-50 text-amber-700 border-amber-100" : "bg-emerald-50 text-emerald-700 border-emerald-100"}`}
             >
-              {onLeave ? t("hr.status_on_leave") : (row.original.status ? t(`hr.status_${row.original.status}`) : t("hr.status_active"))}
+              {onLeave
+                ? t("hr.status_on_leave")
+                : row.original.status
+                  ? t(`hr.status_${row.original.status}`)
+                  : t("hr.status_active")}
             </Badge>
           );
         },
@@ -337,7 +341,8 @@ export default function EmployeesPage() {
         meta: { type: "number" as ColumnFieldType, readOnly: true },
         cell: ({ row }: any) => (
           <span className="font-bold text-slate-700">
-            {calculateDays(row.original.start_date, row.original.end_date)} {t("hr.days_label")}
+            {calculateDays(row.original.start_date, row.original.end_date)}{" "}
+            {t("hr.days_label")}
           </span>
         ),
       },
@@ -669,7 +674,11 @@ export default function EmployeesPage() {
                         {f === "active" && (
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         )}
-                        {f === "all" ? t("hr.filter_all") : f === "active" ? t("hr.filter_active") : t("hr.filter_on_leave")}
+                        {f === "all"
+                          ? t("hr.filter_all")
+                          : f === "active"
+                            ? t("hr.filter_active")
+                            : t("hr.filter_on_leave")}
                       </Button>
                     ))}
                   </div>

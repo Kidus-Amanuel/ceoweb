@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     if (search) {
       query = query.or(
         `first_name.ilike.%${search}%,last_name.ilike.%${search}%,employee_code.ilike.%${search}%`,
-        { foreignTable: "employee" }
+        { foreignTable: "employee" },
       );
     }
 
@@ -87,8 +87,10 @@ export async function POST(req: Request) {
       if (overlapError) throw overlapError;
       if (overlaps && overlaps.length > 0) {
         return NextResponse.json(
-          { error: "Employee already has a leave overlapping with these dates." },
-          { status: 400 }
+          {
+            error: "Employee already has a leave overlapping with these dates.",
+          },
+          { status: 400 },
         );
       }
     }
@@ -133,9 +135,10 @@ export async function PATCH(req: Request) {
         .select("employee_id, start_date, end_date")
         .eq("id", id)
         .single();
-        
+
       if (existingLeave) {
-        const checkEmployeeId = updates.employee_id || existingLeave.employee_id;
+        const checkEmployeeId =
+          updates.employee_id || existingLeave.employee_id;
         const checkStartDate = updates.start_date || existingLeave.start_date;
         const checkEndDate = updates.end_date || existingLeave.end_date;
 
@@ -154,8 +157,11 @@ export async function PATCH(req: Request) {
         if (overlapError) throw overlapError;
         if (overlaps && overlaps.length > 0) {
           return NextResponse.json(
-            { error: "Employee already has a leave overlapping with these dates." },
-            { status: 400 }
+            {
+              error:
+                "Employee already has a leave overlapping with these dates.",
+            },
+            { status: 400 },
           );
         }
       }

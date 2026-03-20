@@ -19,11 +19,16 @@ import {
   AlertTriangle,
   History,
   Activity,
-  CheckCircle2
+  CheckCircle2,
 } from "lucide-react";
 import { Badge } from "@/components/shared/ui/badge/Badge";
 import { useCompanies } from "@/hooks/use-companies";
-import { useEmployees, usePayrollRuns, useLeaves, useDepartments } from "@/hooks/use-hr";
+import {
+  useEmployees,
+  usePayrollRuns,
+  useLeaves,
+  useDepartments,
+} from "@/hooks/use-hr";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useRouter } from "next/navigation";
 
@@ -109,10 +114,23 @@ export default function HRPage() {
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
-  const { data: employeesRes, isLoading: loadingEmployees, refetch: refetchEmployees } = useEmployees(companyId);
-  const { data: payrollRunsRes, isLoading: loadingPayroll, refetch: refetchPayroll } = usePayrollRuns(companyId);
-  const { data: leavesRes, isLoading: loadingLeaves, refetch: refetchLeaves } = useLeaves(companyId);
-  const { data: departmentsRes, refetch: refetchDepartments } = useDepartments(companyId);
+  const {
+    data: employeesRes,
+    isLoading: loadingEmployees,
+    refetch: refetchEmployees,
+  } = useEmployees(companyId);
+  const {
+    data: payrollRunsRes,
+    isLoading: loadingPayroll,
+    refetch: refetchPayroll,
+  } = usePayrollRuns(companyId);
+  const {
+    data: leavesRes,
+    isLoading: loadingLeaves,
+    refetch: refetchLeaves,
+  } = useLeaves(companyId);
+  const { data: departmentsRes, refetch: refetchDepartments } =
+    useDepartments(companyId);
   const { notifications } = useNotifications();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -139,20 +157,39 @@ export default function HRPage() {
   // ── Derived stats ───────────────────────────────────────────────────────────
 
   const totalEmployees = employees.length;
-  const activeEmployees = employees.filter((e: any) => e.status !== "terminated" && e.status !== "on_leave").length;
-  const onLeaveCount = employees.filter((e: any) => e.status === "on_leave").length;
-  const terminatedCount = employees.filter((e: any) => e.status === "terminated").length;
+  const activeEmployees = employees.filter(
+    (e: any) => e.status !== "terminated" && e.status !== "on_leave",
+  ).length;
+  const onLeaveCount = employees.filter(
+    (e: any) => e.status === "on_leave",
+  ).length;
+  const terminatedCount = employees.filter(
+    (e: any) => e.status === "terminated",
+  ).length;
 
-  const activeLeaves = leaves.filter((l: any) => l.status === "approved" || l.status === "pending");
+  const activeLeaves = leaves.filter(
+    (l: any) => l.status === "approved" || l.status === "pending",
+  );
 
-  const monthlyPayroll = payrollRuns.reduce((sum: number, run: any) => sum + (Number(run.total_cost) || 0), 0);
+  const monthlyPayroll = payrollRuns.reduce(
+    (sum: number, run: any) => sum + (Number(run.total_cost) || 0),
+    0,
+  );
 
   const newHires = [...employees]
-    .sort((a: any, b: any) => new Date(b.hire_date || b.created_at || 0).getTime() - new Date(a.hire_date || a.created_at || 0).getTime())
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.hire_date || b.created_at || 0).getTime() -
+        new Date(a.hire_date || a.created_at || 0).getTime(),
+    )
     .slice(0, 5);
 
-  const recentHrNotifications = notifications.filter((n) => n.category === "hr").slice(0, 5);
-  const unreadCount = notifications.filter((n) => n.category === "hr" && !n.is_read).length;
+  const recentHrNotifications = notifications
+    .filter((n) => n.category === "hr")
+    .slice(0, 5);
+  const unreadCount = notifications.filter(
+    (n) => n.category === "hr" && !n.is_read,
+  ).length;
 
   const statusPct = (n: number) =>
     totalEmployees ? Math.round((n / totalEmployees) * 100) : 0;
@@ -174,7 +211,8 @@ export default function HRPage() {
       <div className="flex items-center justify-between px-0.5">
         <div>
           <p className="text-[10px] text-slate-400 font-medium">
-            {t("hr.last_updated", "Last updated")} {lastRefresh.toLocaleTimeString()}
+            {t("hr.last_updated", "Last updated")}{" "}
+            {lastRefresh.toLocaleTimeString()}
           </p>
         </div>
         <button
@@ -182,9 +220,7 @@ export default function HRPage() {
           disabled={refreshing}
           className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-700 transition-colors"
         >
-          <RefreshCw
-            className={cn("w-3 h-3", refreshing && "animate-spin")}
-          />
+          <RefreshCw className={cn("w-3 h-3", refreshing && "animate-spin")} />
           {refreshing
             ? t("hr.refreshing", "Refreshing...")
             : t("hr.refresh", "Refresh")}
@@ -196,7 +232,10 @@ export default function HRPage() {
         <StatCard
           label={t("hr.stat_total_employees", "Total Employees")}
           value={totalEmployees}
-          sub={t("hr.stat_total_employees_sub", `${activeEmployees} Active | ${onLeaveCount} On Leave`)}
+          sub={t(
+            "hr.stat_total_employees_sub",
+            `${activeEmployees} Active | ${onLeaveCount} On Leave`,
+          )}
           icon={Users}
           accent="bg-blue-50 text-blue-600"
         />
@@ -232,7 +271,10 @@ export default function HRPage() {
               {t("hr.workforce_status_title", "Workforce Status")}
             </p>
             <p className="text-[10px] text-slate-400 mt-0.5">
-              {t("hr.workforce_status_sub", `Distribution of ${totalEmployees} registered employees`)}
+              {t(
+                "hr.workforce_status_sub",
+                `Distribution of ${totalEmployees} registered employees`,
+              )}
             </p>
           </div>
           <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider">
@@ -281,7 +323,6 @@ export default function HRPage() {
 
       {/* ── Main 2-col grid ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        
         {/* Left: Recent Onboards */}
         <div className="bg-white rounded-3xl border border-border/60 shadow-sm overflow-hidden">
           <div className="px-5 pt-5 pb-3 border-b border-border/40 flex items-center justify-between">
@@ -327,11 +368,16 @@ export default function HRPage() {
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-400 truncate">
-                      {hire.department?.name || "General"} · {hire.position?.title || "Staff"}
+                      {hire.department?.name || "General"} ·{" "}
+                      {hire.position?.title || "Staff"}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0 text-[9px] text-slate-400 font-medium">
-                    {fmtDate(hire.hire_date || hire.created_at || new Date().toISOString())}
+                    {fmtDate(
+                      hire.hire_date ||
+                        hire.created_at ||
+                        new Date().toISOString(),
+                    )}
                   </div>
                 </div>
               ))
@@ -351,7 +397,10 @@ export default function HRPage() {
                   {t("hr.notifications_title", "HR System Alerts")}
                 </p>
                 <p className="text-[10px] text-slate-400">
-                  {t("hr.notifications_sub", "Leave requests and performance updates")}
+                  {t(
+                    "hr.notifications_sub",
+                    "Leave requests and performance updates",
+                  )}
                 </p>
               </div>
             </div>
@@ -391,7 +440,14 @@ export default function HRPage() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={cn("text-[12px] truncate", !n.is_read ? "font-bold text-slate-800" : "font-semibold text-slate-700")}>
+                    <p
+                      className={cn(
+                        "text-[12px] truncate",
+                        !n.is_read
+                          ? "font-bold text-slate-800"
+                          : "font-semibold text-slate-700",
+                      )}
+                    >
                       {n.title}
                       {!n.is_read && (
                         <span className="inline-block w-1.5 h-1.5 bg-orange-500 rounded-full ml-2 animate-pulse" />

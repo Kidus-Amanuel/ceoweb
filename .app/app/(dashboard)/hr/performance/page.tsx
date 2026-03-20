@@ -43,7 +43,9 @@ export default function PerformancePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("performance_reviews")
-        .select(`*, employee:employees!employee_id(first_name, last_name, employee_code)`)
+        .select(
+          `*, employee:employees!employee_id(first_name, last_name, employee_code)`,
+        )
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
 
@@ -71,7 +73,9 @@ export default function PerformancePage() {
     },
     onSuccess: () => {
       toast.success(t("hr.toast_performance_add"));
-      queryClient.invalidateQueries({ queryKey: ["performance_reviews", companyId] });
+      queryClient.invalidateQueries({
+        queryKey: ["performance_reviews", companyId],
+      });
     },
     onError: (err: any) => toast.error(err.message || "Failed to add review"),
   });
@@ -89,9 +93,12 @@ export default function PerformancePage() {
     },
     onSuccess: () => {
       toast.success(t("hr.toast_performance_update"));
-      queryClient.invalidateQueries({ queryKey: ["performance_reviews", companyId] });
+      queryClient.invalidateQueries({
+        queryKey: ["performance_reviews", companyId],
+      });
     },
-    onError: (err: any) => toast.error(err.message || "Failed to update review"),
+    onError: (err: any) =>
+      toast.error(err.message || "Failed to update review"),
   });
 
   // 3. Columns
@@ -171,7 +178,13 @@ export default function PerformancePage() {
         },
         cell: ({ row }: any) => (
           <span className="text-xs font-medium text-slate-700">
-            {row.original.reviewer_id ? (employees.find((e: any) => e.user_id === row.original.reviewer_id || e.id === row.original.reviewer_id)?.first_name || "Manager") : "Manager"}
+            {row.original.reviewer_id
+              ? employees.find(
+                  (e: any) =>
+                    e.user_id === row.original.reviewer_id ||
+                    e.id === row.original.reviewer_id,
+                )?.first_name || "Manager"
+              : "Manager"}
           </span>
         ),
       },
@@ -220,7 +233,8 @@ export default function PerformancePage() {
   const handleUpdate = async (id: string, updates: any) => {
     try {
       if (updates.rating) updates.rating = String(updates.rating);
-      if (updates.rating && updates.rating.includes(" - ")) updates.rating = updates.rating.split(" - ")[0];
+      if (updates.rating && updates.rating.includes(" - "))
+        updates.rating = updates.rating.split(" - ")[0];
       await updateMutation.mutateAsync({ id, updates });
     } catch (err) {
       console.error(err);
@@ -233,7 +247,11 @@ export default function PerformancePage() {
         company_id: companyId,
         employee_id: newItem.employee_id,
         review_period: newItem.review_period || "Q1 2026",
-        rating: newItem.rating ? (String(newItem.rating).includes(" - ") ? String(newItem.rating).split(" - ")[0] : String(newItem.rating)) : "3",
+        rating: newItem.rating
+          ? String(newItem.rating).includes(" - ")
+            ? String(newItem.rating).split(" - ")[0]
+            : String(newItem.rating)
+          : "3",
         reviewer_id: newItem.reviewer_id,
         notes: newItem.notes,
         status: newItem.status || "draft",
@@ -313,7 +331,8 @@ export default function PerformancePage() {
                 </div>
                 <div>
                   <h2 className="text-base font-black text-slate-900 leading-none mb-1">
-                    {selectedReview?.employee?.first_name} {selectedReview?.employee?.last_name}
+                    {selectedReview?.employee?.first_name}{" "}
+                    {selectedReview?.employee?.last_name}
                   </h2>
                   <div className="flex items-center gap-3">
                     <span className="text-[9px] text-indigo-600 font-black tracking-[0.1em] uppercase bg-indigo-100/50 px-2 py-0.5 rounded-md">
@@ -345,7 +364,7 @@ export default function PerformancePage() {
           <EditableTable
             hideHeader={true}
             multiSelect={false}
-            data={reviews.map(r => ({ ...r, customValues: {} }))}
+            data={reviews.map((r) => ({ ...r, customValues: {} }))}
             searchQuery={searchTerm}
             onSearchQueryChange={setSearchTerm}
             columns={columns}

@@ -117,7 +117,9 @@ export default function DriversPage() {
   );
 
   const employeeOptions = useMemo(() => {
-    const list = Array.isArray(employees) ? employees : (employees as any)?.data || [];
+    const list = Array.isArray(employees)
+      ? employees
+      : (employees as any)?.data || [];
     return list.map((e: any) => ({
       label: e.name || `${e.first_name || ""} ${e.last_name || ""}`.trim(),
       value: e.id,
