@@ -51,7 +51,7 @@ interface EditableTableBodyProps<T extends { id: string }> {
     isVirtual: boolean,
     virtualKey?: string,
   ) => void;
-  onDeleteClick: (target: DeleteRowTarget) => void;
+  onDeleteClick?: (target: DeleteRowTarget) => void;
   onRowResizeMouseDown?: (
     event: React.MouseEvent<HTMLTableRowElement>,
     rowId: string,
@@ -77,6 +77,7 @@ interface EditableTableBodyProps<T extends { id: string }> {
   ) => string;
   isEmailColumn: (columnId: string, type: unknown) => boolean;
   isPhoneColumn: (columnId: string, type: unknown) => boolean;
+  showDeleteColumn: boolean;
 }
 
 /**
@@ -120,6 +121,7 @@ export function EditableTableBody<
   getColumnSizeClasses,
   isEmailColumn,
   isPhoneColumn,
+  showDeleteColumn,
 }: EditableTableBodyProps<T>) {
   return (
     <UITableBody>
@@ -141,7 +143,7 @@ export function EditableTableBody<
             onNavigate={onNavigate}
             onCancelEdit={onCancelEdit}
             onSave={onSave}
-            onDeleteClick={onDeleteClick}
+            onDeleteClick={showDeleteColumn ? onDeleteClick : undefined}
             onRowResizeMouseDown={onRowResizeMouseDown}
             onRegisterRef={onRegisterRef}
             onOpenFilesEditor={onOpenFilesEditor}
@@ -282,31 +284,35 @@ export function EditableTableBody<
               );
             })}
 
-            {/* Spacer cell */}
-            <TableCell className="px-1 py-1.5 border-b border-slate-200" />
+            {showDeleteColumn ? (
+              <>
+                {/* Spacer cell */}
+                <TableCell className="px-1 py-1.5 border-b border-slate-200" />
 
-            {/* Commit and cancel buttons */}
-            <TableCell className="px-3 py-1.5 border-b border-slate-200">
-              <div className="flex items-center justify-end gap-1.5">
-                <Button
-                  size="icon"
-                  onClick={onAddCommit}
-                  aria-label="Commit new row"
-                  className="h-6 w-6 rounded-sm bg-green-600 text-white border border-green-700 hover:bg-green-700 shadow-sm transition-all duration-200"
-                >
-                  <Check className="w-3 h-3" strokeWidth={2.5} />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={onAddCancel}
-                  aria-label="Cancel adding row"
-                  className="h-6 w-6 rounded-sm text-slate-600 hover:text-red-600 hover:bg-red-50 border border-slate-300 hover:border-red-400 transition-all duration-200"
-                >
-                  <X className="w-3 h-3" strokeWidth={2.5} />
-                </Button>
-              </div>
-            </TableCell>
+                {/* Commit and cancel buttons */}
+                <TableCell className="px-3 py-1.5 border-b border-slate-200">
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Button
+                      size="icon"
+                      onClick={onAddCommit}
+                      aria-label="Commit new row"
+                      className="h-6 w-6 rounded-sm bg-green-600 text-white border border-green-700 hover:bg-green-700 shadow-sm transition-all duration-200"
+                    >
+                      <Check className="w-3 h-3" strokeWidth={2.5} />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={onAddCancel}
+                      aria-label="Cancel adding row"
+                      className="h-6 w-6 rounded-sm text-slate-600 hover:text-red-600 hover:bg-red-50 border border-slate-300 hover:border-red-400 transition-all duration-200"
+                    >
+                      <X className="w-3 h-3" strokeWidth={2.5} />
+                    </Button>
+                  </div>
+                </TableCell>
+              </>
+            ) : null}
           </motion.tr>
         )}
       </AnimatePresence>

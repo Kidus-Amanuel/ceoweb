@@ -12,6 +12,7 @@ import {
   prettyValue,
 } from "@/utils/table-utils";
 import type { RefObject } from "react";
+import { truncateFileName } from "@/utils/table-helpers";
 
 interface CellRendererProps<T> {
   cell: Cell<T, any>;
@@ -130,20 +131,29 @@ export function CellRenderer<T extends { id: string }>({
   // Files field: show add/manage button in read mode
   if (meta?.type === "files") {
     const files = Array.isArray(val) ? val : [];
-    const count = files.length;
+    const labels = files
+      .map((file) => {
+        if (!file || typeof file !== "object") return "";
+        const record = file as { name?: unknown; path?: unknown; url?: unknown };
+        return truncateFileName(
+          String(record.name ?? record.path ?? record.url ?? ""),
+        );
+      })
+      .filter(Boolean);
     return (
       <button
         type="button"
         className={cn(
-          "inline-flex items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50/50 px-2.5 py-1.5 hover:bg-indigo-50 transition-colors",
+          "inline-flex max-w-full items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50/50 px-2.5 py-1.5 transition-colors",
+          meta?.readOnly ? "cursor-default" : "hover:bg-indigo-50",
         )}
         onClick={(event) => {
           event.stopPropagation();
           onOpenFilesEditor?.();
         }}
       >
-        <span className="text-xs font-medium text-indigo-700">
-          {count > 0 ? `${count} file${count > 1 ? "s" : ""}` : "Add files"}
+        <span className="truncate text-xs font-medium text-indigo-700">
+          {labels.length > 0 ? labels.join(", ") : "Add files"}
         </span>
       </button>
     );

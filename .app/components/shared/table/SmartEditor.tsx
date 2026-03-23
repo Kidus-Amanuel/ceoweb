@@ -20,6 +20,7 @@ import {
   getTypeIcon,
 } from "@/utils/table-utils";
 import { Paperclip } from "lucide-react";
+import { truncateFileName } from "@/utils/table-helpers";
 
 export interface SmartEditorProps {
   value: any;
@@ -314,19 +315,27 @@ export const SmartEditor = ({
 
   if (type === "files") {
     const files = Array.isArray(value) ? value : [];
-    const count = files.length;
+    const labels = files
+      .map((file) => {
+        if (!file || typeof file !== "object") return "";
+        const record = file as { name?: unknown; path?: unknown; url?: unknown };
+        return truncateFileName(
+          String(record.name ?? record.path ?? record.url ?? ""),
+        );
+      })
+      .filter(Boolean);
     return (
       <div className="flex items-center h-full px-2">
         <button
           type="button"
-          className="flex items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50/50 px-2.5 py-1.5 hover:bg-indigo-50 transition-colors group"
+          className="flex max-w-full items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50/50 px-2.5 py-1.5 hover:bg-indigo-50 transition-colors group"
           onClick={() => {
             onClick?.();
           }}
         >
           <Paperclip className="w-3.5 h-3.5 text-indigo-500 group-hover:text-indigo-600" />
-          <span className="text-xs font-medium text-indigo-700">
-            {count > 0 ? `${count} file${count > 1 ? "s" : ""}` : "Add files"}
+          <span className="truncate text-xs font-medium text-indigo-700">
+            {labels.length > 0 ? labels.join(", ") : "Add files"}
           </span>
         </button>
       </div>

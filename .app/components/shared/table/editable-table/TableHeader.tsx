@@ -67,6 +67,7 @@ interface EditableTableHeaderProps<T extends { id: string }> {
   canAddColumns: boolean;
   canEditColumns: boolean;
   canDeleteColumns: boolean;
+  showDeleteColumn: boolean;
   multiSelect?: boolean;
 }
 
@@ -115,6 +116,7 @@ export function EditableTableHeader<
   canAddColumns,
   canEditColumns,
   canDeleteColumns,
+  showDeleteColumn,
   multiSelect = true,
 }: EditableTableHeaderProps<T>) {
   return (
@@ -341,8 +343,9 @@ export function EditableTableHeader<
             )}
           </TableHead>
 
-          {/* Spacer for delete button column */}
-          <TableHead className="w-20 px-4 bg-slate-900/50 border-r border-slate-700" />
+          {showDeleteColumn ? (
+            <TableHead className="w-20 px-4 bg-slate-900/50 border-r border-slate-700" />
+          ) : null}
         </TableRow>
       ))}
     </UITableHeader>

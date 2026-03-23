@@ -504,6 +504,7 @@ export function EditableTable<
               canAddColumns={!!onColumnAdd}
               canEditColumns={!!onColumnUpdate}
               canDeleteColumns={!!onColumnDelete}
+              showDeleteColumn={onDelete !== undefined}
               multiSelect={multiSelect}
             />
             <EditableTableBody
@@ -525,7 +526,7 @@ export function EditableTable<
               onNavigate={cellEditing.moveToNeighborCell}
               onCancelEdit={cellEditing.cancelEditing}
               onSave={cellEditing.handleSave}
-              onDeleteClick={(target) => setDeleteTarget(target)}
+              onDeleteClick={onDelete !== undefined ? (target) => setDeleteTarget(target) : undefined}
               onRowResizeMouseDown={handleRowResizeMouseDown}
               onRegisterRef={registerRowRef}
               onNewRowDataChange={rowOperations.setNewRowData}
@@ -538,6 +539,7 @@ export function EditableTable<
               getColumnSizeClasses={getColumnSizeClasses}
               isEmailColumn={isEmailColumn}
               isPhoneColumn={isPhoneColumn}
+              showDeleteColumn={onDelete !== undefined}
             />
           </Table>
         </div>

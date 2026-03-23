@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import { Boxes, Building2, History, Package, Warehouse } from "lucide-react";
+import { BarChart3, Boxes, Building2, History, Package, Warehouse } from "lucide-react";
 import type { VirtualColumn } from "@/components/shared/table/EditableTable";
 
 export type InventoryDataTable =
@@ -9,10 +9,11 @@ export type InventoryDataTable =
   | "stock_levels"
   | "stock_movements";
 
-export type InventoryTable = InventoryDataTable;
+export type InventoryTable = InventoryDataTable | "overviews";
 export type SelectOption = { label: string; value: string };
 export type InventoryRelationalSets = {
   products: SelectOption[];
+  suppliers: SelectOption[];
   warehouses: SelectOption[];
 };
 
@@ -23,6 +24,11 @@ export type RawRow = Record<string, unknown> & {
 };
 
 export const VIEW_META = {
+  overviews: {
+    title: "Overview",
+    icon: BarChart3,
+    iconClass: "text-sky-500",
+  },
   products: {
     title: "Products",
     icon: Package,
@@ -103,6 +109,7 @@ export const mapFieldType = (value: string): VirtualColumn["type"] => {
   if (token === "date") return "date";
   if (token === "datetime" || token === "timestamp") return "datetime";
   if (token === "currency" || token === "money") return "currency";
+  if (token === "files") return "files";
   if (token === "phone" || token === "email") return "text";
   return "text";
 };
@@ -129,7 +136,11 @@ export const normalizeFieldOptions = (
 export const inventoryViewHelpers = {
   getStandardColumns: (
     table: InventoryDataTable,
-    relations: InventoryRelationalSets = { products: [], warehouses: [] },
+    relations: InventoryRelationalSets = {
+      products: [],
+      suppliers: [],
+      warehouses: [],
+    },
   ) => {
     const getOptionLabel = (
       value: unknown,
@@ -144,6 +155,33 @@ export const inventoryViewHelpers = {
       ? [
           { header: "SKU", accessorKey: "sku" },
           { header: "Name", accessorKey: "name" },
+          {
+            header: "Supplier",
+            accessorKey: "supplier_id",
+            meta: {
+              type: "select",
+              options: relations.suppliers,
+            },
+            cell: ({
+              row,
+              getValue,
+            }: {
+              row: { original: Record<string, unknown> };
+              getValue: () => unknown;
+            }) => {
+              const supplier = row.original.supplier as
+                | { name?: string | null }
+                | undefined;
+              const label =
+                supplier?.name ??
+                getOptionLabel(
+                  getValue(),
+                  relations.suppliers,
+                  String(getValue() ?? ""),
+                );
+              return createElement("span", null, label);
+            },
+          },
           { header: "Description", accessorKey: "description" },
           {
             header: "Type",
@@ -159,6 +197,11 @@ export const inventoryViewHelpers = {
           },
           { header: "Unit", accessorKey: "unit" },
           {
+            header: "Units / Package",
+            accessorKey: "units_per_package",
+            meta: { type: "number" },
+          },
+          {
             header: "Cost Price",
             accessorKey: "cost_price",
             meta: { type: "number" },
@@ -167,6 +210,47 @@ export const inventoryViewHelpers = {
             header: "Selling Price",
             accessorKey: "selling_price",
             meta: { type: "number" },
+          },
+          {
+            header: "Total Cost",
+            accessorKey: "total_cost",
+            meta: { type: "number", readOnly: true },
+            cell: ({ row }: { row: { original: Record<string, unknown> } }) => {
+              const units = Number(row.original.units_per_package ?? 0);
+              const cost = Number(row.original.cost_price ?? 0);
+              const total = units * cost;
+              return createElement("span", null, total.toFixed(2));
+            },
+          },
+          {
+            header: "Total Selling",
+            accessorKey: "total_selling",
+            meta: { type: "number", readOnly: true },
+            cell: ({ row }: { row: { original: Record<string, unknown> } }) => {
+              const units = Number(row.original.units_per_package ?? 0);
+              const selling = Number(row.original.selling_price ?? 0);
+              const total = units * selling;
+              return createElement("span", null, total.toFixed(2));
+            },
+          },
+          {
+            header: "Profit/Loss",
+            accessorKey: "profit_loss",
+            meta: { type: "number", readOnly: true },
+            cell: ({ row }: { row: { original: Record<string, unknown> } }) => {
+              const units = Number(row.original.units_per_package ?? 0);
+              const cost = Number(row.original.cost_price ?? 0);
+              const selling = Number(row.original.selling_price ?? 0);
+              const profit = units * selling - units * cost;
+              return createElement(
+                "span",
+                {
+                  className:
+                    profit >= 0 ? "font-semibold text-emerald-600" : "font-semibold text-red-600",
+                },
+                profit.toFixed(2),
+              );
+            },
           },
           {
             header: "Reorder Level",
@@ -247,7 +331,11 @@ export const inventoryViewHelpers = {
                     return createElement("span", null, label);
                   },
                 },
-                { header: "Type", accessorKey: "movement_type" },
+                {
+                  header: "Type",
+                  accessorKey: "movement_type",
+                  meta: { readOnly: true },
+                },
                 {
                   header: "Quantity Change",
                   accessorKey: "quantity_change",

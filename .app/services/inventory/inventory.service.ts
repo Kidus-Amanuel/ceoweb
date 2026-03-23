@@ -12,6 +12,7 @@ import { productService } from "./product.service";
 import { supplierService } from "./supplier.service";
 import { warehouseService } from "./warehouse.service";
 import { stockService } from "./stock.service";
+import { overviewService } from "./overview.service";
 
 type ServiceResult<T> = { data?: T; error?: string };
 
@@ -112,19 +113,19 @@ const stockMovementsService = {
   },
 
   async create(): Promise<ServiceResult<Record<string, unknown>>> {
-    return { error: "Stock movements are read-only." };
+    return { error: "Stock History is an immutable audit trail and cannot be modified." };
   },
 
   async update(): Promise<ServiceResult<Record<string, unknown>>> {
-    return { error: "Stock movements are read-only." };
+    return { error: "Stock History is an immutable audit trail and cannot be modified." };
   },
 
   async remove(): Promise<ServiceResult<null>> {
-    return { error: "Stock movements are read-only." };
+    return { error: "Stock History is an immutable audit trail and cannot be modified." };
   },
 };
 
-const routeByTable = (table: InventoryTable | "stock_movements") => {
+const routeByTable = (table: InventoryTable | "stock_movements" | "overviews") => {
   switch (table) {
     case "products":
       return productService;
@@ -136,6 +137,8 @@ const routeByTable = (table: InventoryTable | "stock_movements") => {
       return stockService;
     case "stock_movements":
       return stockMovementsService;
+    case "overviews":
+      return overviewService;
     default:
       return stockService;
   }
@@ -746,5 +749,41 @@ export const inventoryService = {
         value: row.id,
       })),
     };
+  },
+
+  async listSuppliersForSelect({
+    supabase,
+    companyId,
+    page = 1,
+    pageSize = 200,
+  }: SelectListParams): Promise<ServiceResult<SelectOption[]>> {
+    const { from, to } = buildPagedRange(page, pageSize);
+    const { data, error } = await supabase
+      .from("suppliers")
+      .select("id,name")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("name", { ascending: true })
+      .range(from, to);
+    if (error) return { error: error.message };
+    return {
+      data: (data ?? []).map((row) => ({
+        label: row.name || "Unnamed Supplier",
+        value: row.id,
+      })),
+    };
+  },
+
+  async getInventoryOverview({
+    supabase,
+    companyId,
+  }: {
+    supabase: SupabaseClient;
+    companyId: string;
+  }) {
+    return overviewService.getInventoryOverview({
+      supabase,
+      companyId,
+    });
   },
 };

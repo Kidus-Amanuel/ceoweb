@@ -6,6 +6,7 @@ import {
   getInventoryColumnsAction,
   getInventoryProductsOptionsAction,
   getInventoryRowsAction,
+  getInventorySuppliersOptionsAction,
   getInventoryWarehousesOptionsAction,
 } from "./inventory-workspace.query-actions";
 import type {
@@ -74,7 +75,7 @@ export const inventoryKeys = {
   meta: (params: {
     companyId: string;
     table: InventoryDataTable;
-    kind: "products" | "warehouses";
+    kind: "products" | "suppliers" | "warehouses";
   }) =>
     ["inventory", "meta", params.companyId, params.table, params.kind] as const,
 };
@@ -151,9 +152,10 @@ export const useInventoryColumnsQuery = (
 export const useInventoryRelationsQueries = (
   params: { companyId: string; table: InventoryDataTable } | null,
 ) => {
+  const enabledProducts = params?.table === "products";
   const enabledStock = params?.table === "stock_levels";
 
-  const [productsQuery, warehousesQuery] = useQueries({
+  const [productsQuery, suppliersQuery, warehousesQuery] = useQueries({
     queries: [
       {
         queryKey: params
@@ -168,6 +170,24 @@ export const useInventoryRelationsQueries = (
         queryFn: async () => {
           if (!params) return [] as SelectOption[];
           const response = await getInventoryProductsOptionsAction({
+            companyId: params.companyId,
+          });
+          return throwIfError<SelectOption[]>(response) ?? [];
+        },
+      },
+      {
+        queryKey: params
+          ? inventoryKeys.meta({
+              companyId: params.companyId,
+              table: params.table,
+              kind: "suppliers",
+            })
+          : ["inventory", "meta", "disabled", "suppliers"],
+        enabled: !!enabledProducts,
+        staleTime: 5 * 60 * 1000,
+        queryFn: async () => {
+          if (!params) return [] as SelectOption[];
+          const response = await getInventorySuppliersOptionsAction({
             companyId: params.companyId,
           });
           return throwIfError<SelectOption[]>(response) ?? [];
@@ -196,22 +216,27 @@ export const useInventoryRelationsQueries = (
 
   const firstError =
     (productsQuery.error instanceof Error && productsQuery.error.message) ||
+    (suppliersQuery.error instanceof Error && suppliersQuery.error.message) ||
     (warehousesQuery.error instanceof Error && warehousesQuery.error.message) ||
     null;
 
   return {
     products: productsQuery.data ?? [],
+    suppliers: suppliersQuery.data ?? [],
     warehouses: warehousesQuery.data ?? [],
     isPending:
       (enabledStock && productsQuery.isPending) ||
+      (enabledProducts && suppliersQuery.isPending) ||
       (enabledStock && warehousesQuery.isPending),
     isFetching:
       (enabledStock && productsQuery.isFetching) ||
+      (enabledProducts && suppliersQuery.isFetching) ||
       (enabledStock && warehousesQuery.isFetching),
     error: firstError,
     refetchAll: () =>
       Promise.all([
         enabledStock ? productsQuery.refetch() : Promise.resolve(),
+        enabledProducts ? suppliersQuery.refetch() : Promise.resolve(),
         enabledStock ? warehousesQuery.refetch() : Promise.resolve(),
       ]),
   };

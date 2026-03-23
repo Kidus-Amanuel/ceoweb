@@ -11,6 +11,9 @@ const withoutUndefined = (value: Record<string, unknown>) =>
     Object.entries(value).filter(([, entry]) => entry !== undefined),
   );
 
+const productSelect =
+  "id, company_id, sku, name, description, category_id, supplier_id, type, unit, units_per_package, cost_price, selling_price, reorder_level, is_active, custom_fields, created_at, updated_at, supplier:supplier_id(id,name)";
+
 export const productService = {
   async list({
     supabase,
@@ -29,7 +32,7 @@ export const productService = {
   > {
     let query = supabase
       .from("products")
-      .select("*", { count: "exact" })
+      .select(productSelect, { count: "exact" })
       .eq("company_id", companyId)
       .is("deleted_at", null);
     if (search) {
@@ -60,16 +63,19 @@ export const productService = {
     companyId: string;
     payload: Extract<InventoryCreateRowInput, { table: "products" }>;
   }): Promise<ServiceResult<Record<string, unknown>>> {
+    const standardData = payload.standardData as Record<string, unknown>;
     const { data, error } = await supabase
       .from("products")
       .insert(
         withoutUndefined({
           company_id: companyId,
-          ...payload.standardData,
+          ...standardData,
+          supplier_id: standardData.supplier_id,
+          units_per_package: standardData.units_per_package,
           custom_fields: payload.customData ?? {},
         }),
       )
-      .select()
+      .select(productSelect)
       .single();
     if (error) return { error: error.message };
     return { data: data as Record<string, unknown> };
@@ -86,8 +92,11 @@ export const productService = {
     rowId: string;
     payload: Extract<InventoryUpdateRowInput, { table: "products" }>;
   }): Promise<ServiceResult<Record<string, unknown>>> {
+    const standardData = payload.standardData as Record<string, unknown>;
     const next = withoutUndefined({
-      ...payload.standardData,
+      ...standardData,
+      supplier_id: standardData.supplier_id,
+      units_per_package: standardData.units_per_package,
       updated_at: new Date().toISOString(),
     });
     if (payload.customData !== undefined)
@@ -98,7 +107,7 @@ export const productService = {
       .eq("id", rowId)
       .eq("company_id", companyId)
       .is("deleted_at", null)
-      .select()
+      .select(productSelect)
       .single();
     if (error) return { error: error.message };
     return { data: data as Record<string, unknown> };
