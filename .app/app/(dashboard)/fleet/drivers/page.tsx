@@ -116,14 +116,15 @@ export default function DriversPage() {
     [rawDrivers],
   );
 
-  const employeeOptions = useMemo(
-    () =>
-      (employees as any[]).map((e: any) => ({
-        label: e.name || `${e.first_name || ""} ${e.last_name || ""}`.trim(),
-        value: e.id,
-      })),
-    [employees],
-  );
+  const employeeOptions = useMemo(() => {
+    const list = Array.isArray(employees)
+      ? employees
+      : (employees as any)?.data || [];
+    return list.map((e: any) => ({
+      label: e.name || `${e.first_name || ""} ${e.last_name || ""}`.trim(),
+      value: e.id,
+    }));
+  }, [employees]);
 
   const vehicleOptions = useMemo(() => {
     const list = (rawVehicles as any)?.data || (rawVehicles as any) || [];

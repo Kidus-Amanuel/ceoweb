@@ -197,46 +197,43 @@ export default function FleetOverviewPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  const loadAll = useCallback(
-    async (isRefresh = false) => {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      try {
-        const [vRes, dRes, mRes, fRes] = await Promise.all([
-          fetch("/api/fleet/vehicles?pageSize=10000"),
-          fetch("/api/fleet/drivers?pageSize=10000"),
-          fetch("/api/fleet/maintenance?pageSize=10000"),
-          fetch("/api/fleet/fuel-logs").catch(() => ({ ok: false })),
-        ]);
+  const loadAll = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const [vRes, dRes, mRes, fRes] = await Promise.all([
+        fetch("/api/fleet/vehicles?pageSize=10000"),
+        fetch("/api/fleet/drivers?pageSize=10000"),
+        fetch("/api/fleet/maintenance?pageSize=10000"),
+        fetch("/api/fleet/fuel-logs").catch(() => ({ ok: false })),
+      ]);
 
-        const [vJson, dJson, mJson, fJson] = await Promise.all([
-          vRes.ok ? (vRes as Response).json() : [],
-          dRes.ok ? (dRes as Response).json() : [],
-          mRes.ok ? (mRes as Response).json() : [],
-          (fRes as any).ok ? (fRes as Response).json() : [],
-        ]);
+      const [vJson, dJson, mJson, fJson] = await Promise.all([
+        vRes.ok ? (vRes as Response).json() : [],
+        dRes.ok ? (dRes as Response).json() : [],
+        mRes.ok ? (mRes as Response).json() : [],
+        (fRes as any).ok ? (fRes as Response).json() : [],
+      ]);
 
-        setVehicles(vJson?.data || vJson || []);
-        setDrivers(dJson?.data || dJson || []);
-        setMaintenance(mJson?.data || mJson || []);
-        setFuelLogs(fJson?.data || fJson || []);
-        setLastRefresh(new Date());
-      } catch (err) {
-        console.error("[Fleet Overview] load failed:", err);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [companyId],
-  );
+      setVehicles(vJson?.data || vJson || []);
+      setDrivers(dJson?.data || dJson || []);
+      setMaintenance(mJson?.data || mJson || []);
+      setFuelLogs(fJson?.data || fJson || []);
+      setLastRefresh(new Date());
+    } catch (err) {
+      console.error("[Fleet Overview] load failed:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadAll();
     // Auto-refresh every 60s for live GPS
     const interval = setInterval(() => loadAll(true), 60_000);
     return () => clearInterval(interval);
-  }, [loadAll]);
+  }, [loadAll, companyId]);
 
   // ── Derived stats ───────────────────────────────────────────────────────────
 

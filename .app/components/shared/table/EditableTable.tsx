@@ -71,6 +71,7 @@ interface EditableTableProps<
   onReachBottom?: () => void;
   hasMoreRows?: boolean;
   isFetchingMoreRows?: boolean;
+  multiSelect?: boolean;
 }
 
 type FileEditingCell = {
@@ -109,6 +110,7 @@ export function EditableTable<
   onReachBottom,
   hasMoreRows = false,
   isFetchingMoreRows = false,
+  multiSelect = true,
 }: EditableTableProps<T>) {
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -236,6 +238,7 @@ export function EditableTable<
     getFilteredRowModel: getFilteredRowModel(),
     enableGlobalFilter: true,
     enableRowSelection: true,
+    enableMultiRowSelection: multiSelect,
     globalFilterFn: "auto",
   });
 
@@ -502,6 +505,7 @@ export function EditableTable<
               canEditColumns={!!onColumnUpdate}
               canDeleteColumns={!!onColumnDelete}
               showDeleteColumn={onDelete !== undefined}
+              multiSelect={multiSelect}
             />
             <EditableTableBody
               table={table}
@@ -579,6 +583,7 @@ export function EditableTable<
                 <Button
                   type="button"
                   variant="outline"
+                  aria-label="Previous"
                   disabled={currentPage <= 1}
                   onClick={() => onPageChange(currentPage - 1)}
                   aria-label="Previous"
@@ -589,6 +594,7 @@ export function EditableTable<
                 <Button
                   type="button"
                   variant="outline"
+                  aria-label="Next"
                   disabled={currentPage >= totalPages}
                   onClick={() => onPageChange(currentPage + 1)}
                   aria-label="Next"

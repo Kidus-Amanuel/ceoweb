@@ -189,11 +189,17 @@ export default function VehiclesPage() {
         accessorKey: "vehicle_type_id",
         meta: {
           type: "select" as const,
-          options: vehicleTypes.map((t) => ({ label: t.name, value: t.id })),
+          options: (Array.isArray(vehicleTypes)
+            ? vehicleTypes
+            : (vehicleTypes as any)?.data || []
+          ).map((t: any) => ({ label: t.name, value: t.id })),
         },
         cell: ({ row }: any) => {
           const typeId = row.original.vehicle_type_id;
-          const type = vehicleTypes.find((t) => t.id === typeId);
+          const typeList = Array.isArray(vehicleTypes)
+            ? vehicleTypes
+            : (vehicleTypes as any)?.data || [];
+          const type = typeList.find((t: any) => t.id === typeId);
           return (
             <span className="text-xs font-semibold text-slate-600">
               {type?.name || "-"}

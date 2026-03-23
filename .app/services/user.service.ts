@@ -28,6 +28,7 @@ export const userService = {
         user_id: profile.id,
         company_id: profile.company_id,
         company_name: null,
+        plan_id: null,
         plan_name: null,
         plan_modules: [],
         role_id: null,

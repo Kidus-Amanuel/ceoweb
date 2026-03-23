@@ -3,33 +3,42 @@
 ## AI Agent Enhancements
 
 ### 1. Thinking Phase Animation
+
 Implemented a dynamic 3-phase animation in the AI agent's message bubble:
+
 - **Thinking** (Requesting phase)
 - **Analyzing** (Validation stage)
 - **Finalizing** (Validating returned content)
 
 Key changes:
+
 - Updated `ChatLayout.tsx` to track thinking phases and streaming state
 - Enhanced `ChatMessages.tsx` to pass animation props to MessageItem
 - Improved `MessageItem.tsx` to display animated thinking phases with bouncing dots
 - Added animation styling (grey color, larger bold text, matching loading dots)
 
 ### 2. Amharic Language Support
+
 Added support for Amharic queries and responses:
+
 - Updated system prompt in `route.ts` to detect and respond in Amharic
 - Added Amharic translations for all modules and entities
 - Implemented logic to respond in the same language as the query
 - Added Amharic terms for modules (e.g., customers = ከሚገኙት, deals = ገቢዎች)
 
 ### 3. Custom Fields Handling
+
 Enhanced readModuleData tool to handle custom fields:
+
 - Updated `readModuleData.ts` to read custom column definitions from company settings
 - Improved entity type support for module configuration
 - Implemented logic to fetch custom fields from JSONB column
 - Added support for relational data querying and joining related tables
 
 ### 4. Duplicate Message ID Fix
+
 Fixed duplicate message ID issue by:
+
 - Generating unique message IDs with random numbers
 - Adding validation to prevent invalid filter fields
 - Enhancing AI markup renderer with custom column support
@@ -48,11 +57,13 @@ Fixed duplicate message ID issue by:
 ## Usage Instructions
 
 ### Testing Thinking Phase Animation
+
 1. Navigate to the AI agent chat interface
 2. Send any query that will trigger a backend data retrieval
 3. Observe the animated thinking phase text (Thinking → Analyzing → Finalizing) with bouncing dots
 
 ### Testing Amharic Language Support
+
 1. Open the AI chat interface
 2. Type a query in Amharic, e.g., "አዳናዊ ደንበኛዎችን አሳይ" (Show recent deals)
 3. The AI should respond entirely in Amharic
@@ -60,6 +71,7 @@ Fixed duplicate message ID issue by:
 ## Changes Already Committed
 
 The changes have been committed and pushed to the remote repository. The last commit includes:
+
 - Custom column rendering fixes
 - Duplicate message ID resolution
 - Thinking phase animation
@@ -68,6 +80,7 @@ The changes have been committed and pushed to the remote repository. The last co
 ## Testing
 
 To test the implementation:
+
 1. Pull the latest changes from the remote repository
 2. Run `npm run dev` to start the development server
 3. Navigate to the AI chat interface

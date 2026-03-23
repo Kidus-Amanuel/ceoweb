@@ -68,6 +68,7 @@ interface EditableTableHeaderProps<T extends { id: string }> {
   canEditColumns: boolean;
   canDeleteColumns: boolean;
   showDeleteColumn: boolean;
+  multiSelect?: boolean;
 }
 
 /**
@@ -116,6 +117,7 @@ export function EditableTableHeader<
   canEditColumns,
   canDeleteColumns,
   showDeleteColumn,
+  multiSelect = true,
 }: EditableTableHeaderProps<T>) {
   return (
     <UITableHeader className="sticky top-0 z-30 bg-slate-50 [&_tr]:border-b [&_tr]:border-slate-300">
@@ -124,13 +126,15 @@ export function EditableTableHeader<
           {/* Select all checkbox */}
           <TableHead className="h-8 w-10 min-w-10 px-2 border-r border-slate-300 text-left bg-white">
             <div className="flex items-center justify-start">
-              <Checkbox
-                checked={
-                  isAllRowsSelected || (isSomeRowsSelected && "indeterminate")
-                }
-                onCheckedChange={(value) => onSelectAll(value === true)}
-                className="size-4"
-              />
+              {multiSelect && (
+                <Checkbox
+                  checked={
+                    isAllRowsSelected || (isSomeRowsSelected && "indeterminate")
+                  }
+                  onCheckedChange={(value) => onSelectAll(value === true)}
+                  className="size-4"
+                />
+              )}
             </div>
           </TableHead>
 

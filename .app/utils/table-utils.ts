@@ -264,6 +264,16 @@ export const resolveMetaForValues = (
 export const prettifyColumnKey = (v: string) =>
   v.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
+export const calculateDays = (start?: string | null, end?: string | null) => {
+  if (!start || !end) return 0;
+  const s = new Date(start);
+  const e = new Date(end);
+  if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
+  const diff = e.getTime() - s.getTime();
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
+  return days > 0 ? days : 0;
+};
+
 export const getTypeIcon = (type: unknown) => {
   const t = String(type ?? "text");
   return t === "number"

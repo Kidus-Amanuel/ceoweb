@@ -16,6 +16,7 @@ export interface RoleInfo {
   user_id: string;
   company_id: string | null;
   company_name: string | null;
+  plan_id: string | null;
   plan_name: string | null;
   plan_modules: string[];
   role_id: string | null;
@@ -72,6 +73,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             user_id: currentUser.id,
             company_id: meta.company_id || meta.companyId || null,
             company_name: meta.company_name || null,
+            plan_id: meta.plan_id || meta.planId || null,
             plan_name: meta.plan_name || null,
             plan_modules: meta.plan_modules || [],
             role_id: meta.role_id || meta.roleId || null,
