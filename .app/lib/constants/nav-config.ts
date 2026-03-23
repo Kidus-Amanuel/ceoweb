@@ -15,6 +15,8 @@ import {
   Ship,
   Anchor,
   Globe,
+  Briefcase,
+  Palmtree,
   History,
 } from "lucide-react";
 import { LucideIcon } from "lucide-react";
@@ -202,11 +204,32 @@ export const NAV_CONFIG: NavItem[] = [
     roles: ["super_admin", "company_user"],
     subItems: [
       {
+        id: "hr-overview",
+        label: "Overview",
+        href: "/hr",
+        icon: LayoutDashboard,
+        iconClassName: "text-orange-500",
+      },
+      {
         id: "hr-employees",
         label: "Employees",
         href: "/hr/employees",
         icon: Users,
         iconClassName: "text-pink-500",
+      },
+      {
+        id: "hr-leave",
+        label: "Leave Records",
+        href: "/hr/leave",
+        icon: Palmtree,
+        iconClassName: "text-emerald-500",
+      },
+      {
+        id: "hr-positions",
+        label: "Positions",
+        href: "/hr/positions",
+        icon: Briefcase,
+        iconClassName: "text-green-500",
       },
       {
         id: "hr-payroll",

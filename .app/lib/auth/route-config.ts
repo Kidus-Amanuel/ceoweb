@@ -42,6 +42,8 @@ export const AUTHENTICATED_ROUTES = [
   "/onboarding",
   "/chat",
   "/ai-agent",
+  "/billing",
+  "/api/billing",
 ] as const;
 
 /**

@@ -72,6 +72,7 @@ export function SidebarNav() {
       "fleet-vehicles": "vehicles",
       "fleet-drivers": "drivers",
       "fleet-maintenance": "maintenance",
+      "hr-overview": "overview",
       "inv-stock": "stock_level",
       "inv-warehouses": "warehouses",
       "inv-suppliers": "suppliers",

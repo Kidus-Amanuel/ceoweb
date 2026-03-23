@@ -1,56 +1,148 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getFleetAuthContext } from "@/lib/auth/api-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const qv_company_id = searchParams.get("company_id"); // Cache buster
-    const supabase = await createClient();
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "50");
+    const search = searchParams.get("search") || "";
+    const status = searchParams.get("status") || "all";
 
-    // Get current user company
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user)
+    const auth = await getFleetAuthContext();
+    if (!auth)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { supabase, companyId } = auth;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("company_id")
-      .eq("id", user.id)
-      .single();
+    const today = new Date().toISOString().split("T")[0];
 
-    if (!profile?.company_id)
-      return NextResponse.json({ error: "Company not found" }, { status: 403 });
-
-    // Fetch employees for this company
-    // Note: employees table uses first_name + last_name (no single 'name' column)
-    const { data, error } = await supabase
+    let query = supabase
       .from("employees")
-      .select("id, first_name, last_name, email, job_title, status")
-      .eq("company_id", profile.company_id)
-      .is("deleted_at", null)
-      .eq("status", "active")
-      .order("first_name", { ascending: true });
+      .select(
+        `
+        *,
+        department:departments (id, name),
+        position:positions (id, title),
+        leaves:leaves (id, start_date, end_date, status, leave_type_id)
+      `,
+        { count: "exact" },
+      )
+      .eq("company_id", companyId)
+      .is("deleted_at", null);
+
+    if (search) {
+      query = query.or(
+        `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,employee_code.ilike.%${search}%`,
+      );
+    }
+
+    if (status !== "all") {
+      query = query.eq("status", status);
+    }
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error, count } = await query
+      .order("first_name", { ascending: true })
+      .range(from, to);
 
     if (error) throw error;
 
-    // Shape: add a computed 'name' field for dropdown compatibility
-    const shaped = (data || []).map((e: any) => ({
-      id: e.id,
-      name: `${e.first_name} ${e.last_name}`.trim(),
-      first_name: e.first_name,
-      last_name: e.last_name,
-      email: e.email || "",
-      job_title: e.job_title || "",
-      status: e.status,
-    }));
+    // Derived flags for UI
+    const enrichedData = (data || []).map((emp) => {
+      const activeLeave = emp.leaves?.find(
+        (l: any) =>
+          l.status === "approved" &&
+          l.start_date <= today &&
+          l.end_date >= today,
+      );
 
-    return NextResponse.json(shaped);
+      return {
+        ...emp,
+        on_active_leave: !!activeLeave,
+        current_leave: activeLeave || null,
+      };
+    });
+
+    return NextResponse.json({
+      data: enrichedData,
+      total: count || 0,
+      page,
+      pageSize,
+    });
   } catch (error: any) {
     console.error("[Employees API] GET Error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const auth = await getFleetAuthContext();
+    if (!auth)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { supabase, companyId } = auth;
+
+    const body = await req.json();
+    const { data, error } = await supabase
+      .from("employees")
+      .insert({ ...body, company_id: companyId })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const auth = await getFleetAuthContext();
+    if (!auth)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { supabase, companyId } = auth;
+
+    const body = await req.json();
+    const { id, ...updates } = body;
+
+    const { data, error } = await supabase
+      .from("employees")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("company_id", companyId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    const auth = await getFleetAuthContext();
+    if (!auth)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { supabase, companyId } = auth;
+
+    const { error } = await supabase
+      .from("employees")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("company_id", companyId);
+
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

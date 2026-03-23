@@ -71,7 +71,9 @@ export const fleetUpdateCustomFieldInputSchema =
     fieldId: z.string().min(1, "Invalid custom field id"),
   });
 
-export const fleetDeleteCustomFieldInputSchema = deleteCustomFieldSchema;
+export const fleetDeleteCustomFieldInputSchema = deleteCustomFieldSchema(
+  fleetEntityTypeSchema,
+);
 
 // Row CRUD Input Schemas
 export const fleetCreateRowInputSchema = z.discriminatedUnion("table", [
