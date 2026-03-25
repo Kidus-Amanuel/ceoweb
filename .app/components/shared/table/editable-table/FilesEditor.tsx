@@ -121,7 +121,9 @@ export default function FilesEditor({
           size: file.size,
         });
       } catch (error: any) {
-        toast.error(`Error uploading ${truncateFileName(file.name)}: ${error.message}`);
+        toast.error(
+          `Error uploading ${truncateFileName(file.name)}: ${error.message}`,
+        );
       }
     }
 

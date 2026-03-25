@@ -10,10 +10,47 @@ export async function GET(req: Request) {
     const pageSize = parseInt(searchParams.get("pageSize") || "20");
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "all";
+    const id = searchParams.get("id");
 
     const auth = await requireFleetAuth();
     if (auth instanceof NextResponse) return auth;
     const { supabase, companyId } = auth;
+
+    if (id) {
+      const { data: assignment, error } = await supabase
+        .from("driver_assignments")
+        .select(
+          `
+          *,
+          employee:employees!driver_assignments_driver_id_fkey (
+            *,
+            documents:employee_documents (*)
+          ),
+          vehicle:vehicles!driver_assignments_vehicle_id_fkey (*)
+        `,
+        )
+        .eq("id", id)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .single();
+
+      if (error) throw error;
+      if (!assignment)
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+      // Fetch trips related to this assignment (same driver + same vehicle)
+      const { data: trips } = await supabase
+        .from("trips")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("driver_id", assignment.driver_id)
+        .eq("vehicle_id", assignment.vehicle_id)
+        .is("deleted_at", null)
+        .order("start_time", { ascending: false })
+        .limit(20);
+
+      return NextResponse.json({ ...assignment, trips: trips || [] });
+    }
 
     // Fetch driver assignments with employee and vehicle details
     let query = supabase

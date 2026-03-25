@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -14,6 +15,8 @@ import {
   Mail,
   Clock,
   BadgeCheck,
+  Eye,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/shared/ui/badge/Badge";
 import { Input } from "@/components/shared/ui/input/Input";
@@ -33,6 +36,7 @@ import {
 } from "@/hooks/use-fleet";
 import { toast } from "@/hooks/use-toast";
 import { FleetTableSkeleton } from "@/components/shared/ui/skeleton/FleetTableSkeleton";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Assignment {
   id: string;
@@ -63,6 +67,8 @@ export default function DriversPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "ended">(
     "all",
   );
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const router = useRouter();
 
   // ── Data via React Query ──────────────────────────────────────────────────
   const { data: driverResponse, isLoading: loading } = useDrivers(companyId, {
@@ -407,76 +413,155 @@ export default function DriversPage() {
   };
 
   return (
-    <div className="space-y-1">
-      <div className="px-1 flex flex-col md:flex-row items-center justify-between gap-2">
-        <div className="flex items-center gap-1 w-full md:w-auto">
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <Input
-              placeholder={t("fleet_drivers.search_placeholder")}
-              className="pl-8 h-8 border-slate-200/60 rounded-lg bg-slate-50/10 text-[11px] focus:bg-white transition-all"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="flex items-center gap-0.5 bg-slate-100/30 p-0.5 rounded-lg border border-slate-200/40">
-            {(["all", "active", "ended"] as const).map((f) => (
-              <Button
-                key={f}
-                variant={statusFilter === f ? "secondary" : "ghost"}
-                size="sm"
-                className={`h-7 px-2.5 text-[9px] font-bold uppercase rounded-md gap-1 ${
-                  statusFilter === f ? "bg-white shadow-sm" : ""
-                }`}
-                onClick={() => setStatusFilter(f)}
+    <div className="space-y-4 relative">
+      <div className="bg-white rounded-[2.5rem] border border-slate-200/50 shadow-2xl shadow-indigo-900/5 min-h-[700px] flex flex-col relative overflow-hidden">
+        {/* Dynamic Header */}
+        <div className="relative z-[60] bg-white border-b border-slate-100">
+          <AnimatePresence mode="wait">
+            {!selectedRowId ? (
+              <motion.div
+                key="default-header"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="px-6 py-4 flex items-center justify-between gap-4"
               >
-                {f === "active" && (
-                  <div className="w-1 h-1 rounded-full bg-emerald-500" />
-                )}
-                {f === "all"
-                  ? t("fleet_drivers.filter_all")
-                  : f === "active"
-                    ? t("fleet_drivers.filter_active")
-                    : t("fleet_drivers.filter_ended")}
-              </Button>
-            ))}
-          </div>
+                <div className="flex items-center gap-3">
+                  <div className="relative w-64 group">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                    <Input
+                      placeholder={t("fleet_drivers.search_placeholder")}
+                      className="pl-10 h-10 border-slate-200/60 rounded-2xl bg-slate-50/10 text-xs focus:bg-white transition-all font-medium"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1 bg-slate-100/50 p-1 rounded-xl border border-slate-200/50">
+                    {(["all", "active", "ended"] as const).map((f) => (
+                      <Button
+                        key={f}
+                        variant={statusFilter === f ? "secondary" : "ghost"}
+                        size="sm"
+                        className={`h-8 px-3 text-[10px] font-black uppercase rounded-lg transition-all ${
+                          statusFilter === f
+                            ? "bg-white shadow-sm text-indigo-600"
+                            : "text-slate-400"
+                        }`}
+                        onClick={() => setStatusFilter(f)}
+                      >
+                        {f === "all"
+                          ? t("fleet_drivers.filter_all")
+                          : f === "active"
+                            ? t("fleet_drivers.filter_active")
+                            : t("fleet_drivers.filter_ended")}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <span className="flex items-center gap-2">
+                    {t("fleet_drivers.stat_total", { count: totalDrivers })}
+                  </span>
+                  <span className="flex items-center gap-2 text-emerald-500">
+                    Active:{" "}
+                    <span className="text-emerald-700 text-xs font-black">
+                      {stats.active}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2 text-blue-500">
+                    With Vehicle:{" "}
+                    <span className="text-blue-700 text-xs font-black">
+                      {stats.withVehicle}
+                    </span>
+                  </span>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="selection-header"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="px-6 py-4 flex items-center justify-between bg-indigo-50/80 backdrop-blur-md text-indigo-900 shadow-sm border-b-2 border-indigo-200/50 transition-colors duration-500"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-3xl bg-white flex items-center justify-center text-indigo-600 font-black text-xs border border-indigo-100 shadow-xl">
+                    {data
+                      .find((d) => d.id === selectedRowId)
+                      ?.driver_name?.split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()}
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-black text-slate-900 leading-none mb-1">
+                      {data.find((d) => d.id === selectedRowId)?.driver_name}
+                    </h2>
+                    <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest opacity-80">
+                      Fleet Assignment •{" "}
+                      {data.find((d) => d.id === selectedRowId)
+                        ?.vehicle_plate || "No Vehicle"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="h-11 px-6 text-indigo-600 hover:bg-indigo-500/10 hover:text-indigo-700 rounded-2xl gap-3 transition-all border border-indigo-500/20 bg-white group shadow-sm"
+                    onClick={() =>
+                      router.push(`/fleet/drivers/${selectedRowId}`)
+                    }
+                  >
+                    <div className="p-1 bg-indigo-500/10 rounded-lg group-hover:scale-110 transition-transform">
+                      <Eye className="w-4 h-4 text-indigo-600" />
+                    </div>
+                    <span className="text-[11px] font-black uppercase tracking-widest">
+                      View Analytics
+                    </span>
+                  </Button>
+                  <div className="w-px h-8 bg-indigo-200 mx-3 opacity-50" />
+                  <Button
+                    variant="ghost"
+                    className="h-11 w-11 p-0 text-slate-400 hover:text-slate-600 hover:bg-indigo-100/50 rounded-2xl transition-all"
+                    onClick={() => setSelectedRowId(null)}
+                  >
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-wider text-slate-400">
-          <span>{t("fleet_drivers.stat_total", { count: totalDrivers })}</span>
-          <span className="text-emerald-500">
-            {t("fleet_drivers.stat_active", { count: stats.active })}
-          </span>
-          <span className="text-blue-500">
-            {t("fleet_drivers.stat_with_vehicle", { count: stats.withVehicle })}
-          </span>
+        {/* Table Content */}
+        <div className="flex-1 min-h-0 flex flex-col relative overflow-hidden">
+          {loading ? (
+            <FleetTableSkeleton rows={10} cols={6} />
+          ) : (
+            <EditableTable
+              hideHeader={true}
+              data={displayData}
+              columns={columns}
+              virtualColumns={virtualColumns}
+              onAdd={handleAdd}
+              onUpdate={handleUpdate}
+              onDelete={handleDelete}
+              onColumnAdd={handleColumnAdd}
+              onColumnUpdate={handleColumnUpdate}
+              onColumnDelete={handleColumnDelete}
+              onSelectionChange={(ids) => setSelectedRowId(ids[0] || null)}
+              selectedRowId={selectedRowId}
+              pagination={true}
+              currentPage={page}
+              totalRows={totalDrivers}
+              pageSize={pageSize}
+              onPageChange={(p) => setPage(p)}
+            />
+          )}
         </div>
-      </div>
-
-      <div className="bg-white rounded-3xl border border-border overflow-hidden shadow-sm min-h-[560px] flex flex-col">
-        {loading ? (
-          <FleetTableSkeleton rows={10} cols={6} />
-        ) : (
-          <EditableTable
-            hideHeader={true}
-            data={displayData}
-            columns={columns}
-            virtualColumns={virtualColumns}
-            onAdd={handleAdd}
-            onUpdate={handleUpdate}
-            onDelete={handleDelete}
-            onColumnAdd={handleColumnAdd}
-            onColumnUpdate={handleColumnUpdate}
-            onColumnDelete={handleColumnDelete}
-            pagination={true}
-            currentPage={page}
-            totalRows={totalDrivers}
-            pageSize={pageSize}
-            onPageChange={(p) => setPage(p)}
-          />
-        )}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -34,6 +35,7 @@ import {
   UserCircle2,
   Plus,
   Sliders,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/shared/ui/button/Button";
 import { Badge } from "@/components/shared/ui/badge/Badge";
@@ -67,6 +69,7 @@ import { type ColumnFieldType } from "@/components/shared/table/CustomColumnEdit
 
 export default function EmployeesPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
@@ -775,6 +778,20 @@ export default function EmployeesPage() {
                     </div>
                     <span className="text-[11px] font-black uppercase tracking-widest">
                       {t("hr.clock_logs")}
+                    </span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="h-11 px-5 text-indigo-700 hover:bg-white hover:text-indigo-800 rounded-2xl gap-3 transition-all border border-emerald-100 bg-emerald-50/30 shadow-sm hover:shadow-md group"
+                    onClick={() =>
+                      router.push(`/hr/employees/${selectedRowId}`)
+                    }
+                  >
+                    <div className="p-1 bg-emerald-100 rounded-lg group-hover:scale-110 transition-transform">
+                      <Eye className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <span className="text-[11px] font-black uppercase tracking-widest">
+                      {t("hr.view_detail")}
                     </span>
                   </Button>
                   <div className="w-px h-8 bg-indigo-200 mx-3 opacity-50" />

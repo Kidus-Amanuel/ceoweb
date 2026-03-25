@@ -244,7 +244,8 @@ export function useCrmEntityTab({
     [rows],
   );
   const relations = useMemo(
-    () => buildRelations(table, relationsQuery, rows as Record<string, unknown>[]),
+    () =>
+      buildRelations(table, relationsQuery, rows as Record<string, unknown>[]),
     [relationsQuery, rows, table],
   );
   const standardTypeByKey = useMemo(() => {

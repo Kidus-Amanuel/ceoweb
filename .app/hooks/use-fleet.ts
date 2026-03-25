@@ -112,6 +112,16 @@ export function useVehicles(companyId?: string, params: VehicleParams = {}) {
   return query;
 }
 
+export function useVehicle(companyId?: string, id?: string) {
+  return useQuery({
+    queryKey: ["fleet", "vehicle", companyId, id],
+    queryFn: () =>
+      apiFetch<any>(`/api/fleet/vehicles?company_id=${companyId}&id=${id}`),
+    enabled: !!companyId && !!id,
+    staleTime: 30_000,
+  });
+}
+
 export function useAddVehicle(companyId?: string, options?: any) {
   const qc = useQueryClient();
   return useMutation({
@@ -247,6 +257,16 @@ export function useDrivers(companyId?: string, params: DriverParams = {}) {
   }, [companyId, qc]);
 
   return query;
+}
+
+export function useDriver(companyId?: string, id?: string) {
+  return useQuery({
+    queryKey: ["fleet", "driver", companyId, id],
+    queryFn: () =>
+      apiFetch<any>(`/api/fleet/drivers?company_id=${companyId}&id=${id}`),
+    enabled: !!companyId && !!id,
+    staleTime: 30_000,
+  });
 }
 
 export function useAddDriver(companyId?: string, options?: any) {

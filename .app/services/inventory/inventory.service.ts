@@ -113,19 +113,30 @@ const stockMovementsService = {
   },
 
   async create(): Promise<ServiceResult<Record<string, unknown>>> {
-    return { error: "Stock History is an immutable audit trail and cannot be modified." };
+    return {
+      error:
+        "Stock History is an immutable audit trail and cannot be modified.",
+    };
   },
 
   async update(): Promise<ServiceResult<Record<string, unknown>>> {
-    return { error: "Stock History is an immutable audit trail and cannot be modified." };
+    return {
+      error:
+        "Stock History is an immutable audit trail and cannot be modified.",
+    };
   },
 
   async remove(): Promise<ServiceResult<null>> {
-    return { error: "Stock History is an immutable audit trail and cannot be modified." };
+    return {
+      error:
+        "Stock History is an immutable audit trail and cannot be modified.",
+    };
   },
 };
 
-const routeByTable = (table: InventoryTable | "stock_movements" | "overviews") => {
+const routeByTable = (
+  table: InventoryTable | "stock_movements" | "overviews",
+) => {
   switch (table) {
     case "products":
       return productService;

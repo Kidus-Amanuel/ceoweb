@@ -199,6 +199,18 @@ export function useEmployees(companyId?: string, params: EmployeeParams = {}) {
   return query;
 }
 
+export function useEmployee(companyId?: string, employeeId?: string) {
+  return useQuery({
+    queryKey: ["hr", "employee", companyId, employeeId],
+    queryFn: () =>
+      apiFetch<any>(
+        `/api/hr/employees?company_id=${companyId}&id=${employeeId}`,
+      ),
+    enabled: !!companyId && !!employeeId,
+    staleTime: 30_000,
+  });
+}
+
 export function useAddEmployee(companyId?: string, options?: any) {
   const qc = useQueryClient();
   return useMutation({

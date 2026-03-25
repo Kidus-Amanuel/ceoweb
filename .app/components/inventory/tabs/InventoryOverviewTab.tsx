@@ -139,7 +139,8 @@ export function InventoryOverviewTab({
                   ),
                 );
                 const quantity = Number(row.quantity_change ?? 0);
-                const tone = quantity >= 0 ? "text-emerald-600" : "text-red-600";
+                const tone =
+                  quantity >= 0 ? "text-emerald-600" : "text-red-600";
                 return (
                   <tr key={String(row.id ?? index)} className="text-[#37352F]">
                     <td className="px-3 py-3 font-medium">
@@ -149,7 +150,10 @@ export function InventoryOverviewTab({
                       {String(warehouse ?? "Unnamed Warehouse")}
                     </td>
                     <td className="px-3 py-3 capitalize">
-                      {String(row.movement_type ?? "adjustment").replace(/_/g, " ")}
+                      {String(row.movement_type ?? "adjustment").replace(
+                        /_/g,
+                        " ",
+                      )}
                     </td>
                     <td className={`px-3 py-3 font-semibold ${tone}`}>
                       {quantity > 0 ? `+${quantity}` : `${quantity}`}
@@ -170,7 +174,10 @@ export function InventoryOverviewTab({
               })}
               {!overviewQuery.isPending && recentMovements.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-8 text-center text-sm text-[#787774]">
+                  <td
+                    colSpan={5}
+                    className="px-3 py-8 text-center text-sm text-[#787774]"
+                  >
                     No stock movements found yet.
                   </td>
                 </tr>

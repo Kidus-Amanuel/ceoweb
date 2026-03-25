@@ -11,10 +11,58 @@ export async function GET(req: Request) {
     const pageSize = parseInt(searchParams.get("pageSize") || "20");
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "all";
+    const id = searchParams.get("id");
 
     const auth = await requireFleetAuth();
     if (auth instanceof NextResponse) return auth;
     const { supabase, companyId } = auth;
+
+    if (id) {
+      // 1. Fetch Vehicle with Current Assignment
+      const { data: vehicle, error } = await supabase
+        .from("vehicles")
+        .select(
+          `
+          *,
+          vehicle_types(name),
+          assignments:driver_assignments(
+            *,
+            employee:employees(*)
+          ),
+          maintenance:vehicle_maintenance(*),
+          documents:vehicle_documents(*),
+          trips:trips(*)
+        `,
+        )
+        .eq("id", id)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .single();
+
+      if (error) throw error;
+      if (!vehicle)
+        return NextResponse.json(
+          { error: "Vehicle not found" },
+          { status: 404 },
+        );
+
+      // Sort sub-collections by date
+      if (vehicle.maintenance) {
+        vehicle.maintenance.sort(
+          (a: any, b: any) =>
+            new Date(b.service_date).getTime() -
+            new Date(a.service_date).getTime(),
+        );
+      }
+      if (vehicle.trips) {
+        vehicle.trips.sort(
+          (a: any, b: any) =>
+            new Date(b.start_time).getTime() - new Date(a.start_time).getTime(),
+        );
+      }
+
+      return NextResponse.json(vehicle);
+    }
 
     // 1. Build Query
     let query = supabase

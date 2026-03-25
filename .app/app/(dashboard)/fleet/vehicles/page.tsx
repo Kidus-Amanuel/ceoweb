@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -15,6 +16,8 @@ import {
   Filter,
   RefreshCw,
   AlertTriangle,
+  Eye,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/shared/ui/button/Button";
 import { Badge } from "@/components/shared/ui/badge/Badge";
@@ -35,6 +38,7 @@ import {
 } from "@/hooks/use-fleet";
 import { toast } from "@/hooks/use-toast";
 import { FleetTableSkeleton } from "@/components/shared/ui/skeleton/FleetTableSkeleton";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Dynamically import Map to avoid SSR issues with Leaflet
 function MapLoadingFallback() {
@@ -66,6 +70,8 @@ export default function VehiclesPage() {
   const [statusFilter, setStatusFilter] = useState<
     "all" | "online" | "offline"
   >("all");
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const router = useRouter();
 
   // ── Data via React Query ──────────────────────────────────────────────────
   const { data: vehicleResponse, isLoading: loadingVehicles } = useVehicles(
@@ -487,101 +493,179 @@ export default function VehiclesPage() {
 
   return (
     <div className="space-y-1">
-      <div className="px-2 flex flex-col md:flex-row items-center justify-between gap-2">
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input
-              placeholder={t("fleet_vehicles.search_placeholder")}
-              className="pl-10 h-11 border-slate-200/60 rounded-[1.2rem] bg-slate-50/30 focus:bg-white transition-all shadow-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+      <div className="bg-white rounded-[2.5rem] border border-slate-200/50 shadow-2xl shadow-indigo-900/5 min-h-[700px] flex flex-col relative overflow-hidden">
+        {/* Dynamic Header (Only in List Mode) */}
+        {viewMode === "list" && (
+          <div className="relative z-[60] bg-white border-b border-slate-100">
+            <AnimatePresence mode="wait">
+              {!selectedRowId ? (
+                <motion.div
+                  key="default-header"
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="px-6 py-4 flex items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-64 group">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                      <Input
+                        placeholder={t("fleet_vehicles.search_placeholder")}
+                        className="pl-10 h-10 border-slate-200/60 rounded-2xl bg-slate-50/10 text-xs focus:bg-white transition-all font-medium"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
 
-          <div className="flex items-center gap-1 bg-slate-100/40 p-1.5 rounded-2xl border border-slate-200/50">
-            <Button
-              variant={statusFilter === "all" ? "secondary" : "ghost"}
-              size="sm"
-              className={`h-8 text-[10px] font-bold uppercase tracking-wider rounded-xl px-4 ${statusFilter === "all" ? "bg-white shadow-sm" : ""}`}
-              onClick={() => setStatusFilter("all")}
-            >
-              {t("fleet_vehicles.filter_all")}
-            </Button>
-            <Button
-              variant={statusFilter === "online" ? "secondary" : "ghost"}
-              size="sm"
-              className={`h-8 text-[10px] font-bold uppercase tracking-wider rounded-xl px-4 gap-2 ${statusFilter === "online" ? "bg-white shadow-sm" : ""}`}
-              onClick={() => setStatusFilter("online")}
-            >
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              {t("fleet_vehicles.filter_online")}
-            </Button>
-            <Button
-              variant={statusFilter === "offline" ? "secondary" : "ghost"}
-              size="sm"
-              className={`h-8 text-[10px] font-bold uppercase tracking-wider rounded-xl px-4 gap-2 ${statusFilter === "offline" ? "bg-white shadow-sm" : ""}`}
-              onClick={() => setStatusFilter("offline")}
-            >
-              <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-              {t("fleet_vehicles.filter_offline")}
-            </Button>
-          </div>
-        </div>
+                    <div className="flex items-center gap-1 bg-slate-100/50 p-1 rounded-xl border border-slate-200/50">
+                      {(["all", "online", "offline"] as const).map((f) => (
+                        <Button
+                          key={f}
+                          variant={statusFilter === f ? "secondary" : "ghost"}
+                          size="sm"
+                          className={`h-8 px-3 text-[10px] font-black uppercase rounded-lg transition-all ${
+                            statusFilter === f
+                              ? "bg-white shadow-sm text-indigo-600"
+                              : "text-slate-400"
+                          }`}
+                          onClick={() => setStatusFilter(f)}
+                        >
+                          {f === "online" && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2 animate-pulse" />
+                          )}
+                          {f === "all"
+                            ? t("fleet_vehicles.filter_all")
+                            : f === "online"
+                              ? t("fleet_vehicles.filter_online")
+                              : t("fleet_vehicles.filter_offline")}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setViewMode(viewMode === "list" ? "map" : "list")}
-            className="h-11 px-6 gap-3 rounded-[1.2rem] border-slate-200/60 bg-white hover:bg-slate-50 transition-all shadow-sm"
-          >
-            {viewMode === "list" ? (
-              <Map className="w-4 h-4 text-blue-500" />
-            ) : (
-              <List className="w-4 h-4 text-blue-500" />
-            )}
-            <span className="text-[11px] font-black uppercase tracking-[0.1em] text-slate-700">
-              {viewMode === "list"
-                ? t("fleet_vehicles.view_map")
-                : t("fleet_vehicles.view_list")}
-            </span>
-          </Button>
-        </div>
-      </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setViewMode("map")}
+                      className="h-10 px-5 gap-3 rounded-2xl border-slate-200/60 bg-white hover:bg-slate-50 transition-all shadow-sm group"
+                    >
+                      <Map className="w-4 h-4 text-blue-500 group-hover:scale-110 transition-transform" />
+                      <span className="text-[11px] font-black uppercase tracking-widest text-slate-700">
+                        {t("fleet_vehicles.view_map")}
+                      </span>
+                    </Button>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="selection-header"
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="px-6 py-4 flex items-center justify-between bg-indigo-50/80 backdrop-blur-md text-indigo-900 shadow-sm border-b-2 border-indigo-200/50 transition-colors duration-500"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-3xl bg-indigo-600 flex items-center justify-center text-white font-black text-xs border border-indigo-400 shadow-xl shadow-indigo-600/20">
+                      <Truck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-black text-slate-900 leading-none mb-1">
+                        {vehicles.find((v) => v.id === selectedRowId)?.make}{" "}
+                        {vehicles.find((v) => v.id === selectedRowId)?.model}
+                      </h2>
+                      <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-widest opacity-80">
+                        Asset •{" "}
+                        {vehicles.find((v) => v.id === selectedRowId)
+                          ?.license_plate || "No Plate"}
+                      </p>
+                    </div>
+                  </div>
 
-      <div className="bg-white rounded-3xl border border-border overflow-hidden shadow-sm min-h-[600px] flex flex-col">
-        {viewMode === "list" ? (
-          <EditableTable
-            data={displayData.map((v) => ({
-              ...v,
-              gps_id: v.custom_fields?.gps_id || "",
-              gps_status: v.custom_fields?.gps_status || "inactive",
-              assignment_status:
-                v.custom_fields?.assignment_status ||
-                (v.assigned_driver_id ? "assigned" : "unassigned"),
-              customValues: v.custom_fields || {},
-            }))}
-            columns={columns}
-            virtualColumns={virtualColumns}
-            hideHeader={true}
-            onUpdate={handleUpdate}
-            onAdd={handleAdd}
-            onDelete={handleDelete}
-            onColumnAdd={handleColumnAdd}
-            onColumnUpdate={handleColumnUpdate}
-            onColumnDelete={handleColumnDelete}
-            pagination={true}
-            currentPage={page}
-            totalRows={totalVehicles}
-            pageSize={pageSize}
-            onPageChange={(p) => setPage(p)}
-          />
-        ) : (
-          <div className="flex-1 w-full relative">
-            <VehicleMap vehicles={displayData} />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      className="h-11 px-6 text-indigo-600 hover:bg-indigo-500/10 hover:text-indigo-700 rounded-2xl gap-3 transition-all border border-indigo-500/20 bg-white group shadow-sm"
+                      onClick={() =>
+                        router.push(`/fleet/vehicles/${selectedRowId}`)
+                      }
+                    >
+                      <div className="p-1 bg-indigo-500/10 rounded-lg group-hover:scale-110 transition-transform">
+                        <Eye className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <span className="text-[11px] font-black uppercase tracking-widest">
+                        Vehicle Analytics
+                      </span>
+                    </Button>
+                    <div className="w-px h-8 bg-indigo-200 mx-3 opacity-50" />
+                    <Button
+                      variant="ghost"
+                      className="h-11 w-11 p-0 text-slate-400 hover:text-slate-600 hover:bg-indigo-100/50 rounded-2xl transition-all"
+                      onClick={() => setSelectedRowId(null)}
+                    >
+                      <X className="w-5 h-5" />
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
+
+        {viewMode === "map" && (
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white relative z-50">
+            <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">
+              Live Fleet View
+            </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setViewMode("list")}
+              className="h-10 px-5 gap-3 rounded-2xl border-slate-200/60 bg-white hover:bg-slate-50 transition-all shadow-sm"
+            >
+              <List className="w-4 h-4 text-blue-500" />
+              <span className="text-[11px] font-black uppercase tracking-widest text-slate-700">
+                Back to List
+              </span>
+            </Button>
+          </div>
+        )}
+
+        <div className="flex-1 min-h-0 flex flex-col relative overflow-hidden">
+          {viewMode === "list" ? (
+            <EditableTable
+              data={displayData.map((v) => ({
+                ...v,
+                gps_id: v.custom_fields?.gps_id || "",
+                gps_status: v.custom_fields?.gps_status || "inactive",
+                assignment_status:
+                  v.custom_fields?.assignment_status ||
+                  (v.assigned_driver_id ? "assigned" : "unassigned"),
+                customValues: v.custom_fields || {},
+              }))}
+              columns={columns}
+              virtualColumns={virtualColumns}
+              hideHeader={true}
+              onUpdate={handleUpdate}
+              onAdd={handleAdd}
+              onDelete={handleDelete}
+              onColumnAdd={handleColumnAdd}
+              onColumnUpdate={handleColumnUpdate}
+              onColumnDelete={handleColumnDelete}
+              onSelectionChange={(ids) => setSelectedRowId(ids[0] || null)}
+              selectedRowId={selectedRowId}
+              pagination={true}
+              currentPage={page}
+              totalRows={totalVehicles}
+              pageSize={pageSize}
+              onPageChange={(p) => setPage(p)}
+            />
+          ) : (
+            <div className="flex-1 w-full relative">
+              <VehicleMap vehicles={displayData} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

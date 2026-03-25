@@ -526,7 +526,11 @@ export function EditableTable<
               onNavigate={cellEditing.moveToNeighborCell}
               onCancelEdit={cellEditing.cancelEditing}
               onSave={cellEditing.handleSave}
-              onDeleteClick={onDelete !== undefined ? (target) => setDeleteTarget(target) : undefined}
+              onDeleteClick={
+                onDelete !== undefined
+                  ? (target) => setDeleteTarget(target)
+                  : undefined
+              }
               onRowResizeMouseDown={handleRowResizeMouseDown}
               onRegisterRef={registerRowRef}
               onNewRowDataChange={rowOperations.setNewRowData}
@@ -583,7 +587,6 @@ export function EditableTable<
                 <Button
                   type="button"
                   variant="outline"
-                  aria-label="Previous"
                   disabled={currentPage <= 1}
                   onClick={() => onPageChange(currentPage - 1)}
                   aria-label="Previous"
@@ -594,7 +597,6 @@ export function EditableTable<
                 <Button
                   type="button"
                   variant="outline"
-                  aria-label="Next"
                   disabled={currentPage >= totalPages}
                   onClick={() => onPageChange(currentPage + 1)}
                   aria-label="Next"

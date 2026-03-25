@@ -214,7 +214,12 @@ export function useInventoryEntityTab({
         relationsQuery.warehouses,
       ),
     };
-  }, [relationsQuery.products, relationsQuery.suppliers, relationsQuery.warehouses, rows]);
+  }, [
+    relationsQuery.products,
+    relationsQuery.suppliers,
+    relationsQuery.warehouses,
+    rows,
+  ]);
 
   const standardTypeByKey = useMemo(() => {
     const map = new Map<string, TableFieldType>();

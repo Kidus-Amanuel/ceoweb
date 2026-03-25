@@ -10,11 +10,33 @@ export async function GET(req: Request) {
     const pageSize = parseInt(searchParams.get("pageSize") || "50");
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "all";
+    const id = searchParams.get("id");
 
     const auth = await getFleetAuthContext();
     if (!auth)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { supabase, companyId } = auth;
+
+    if (id) {
+      const { data, error } = await supabase
+        .from("employees")
+        .select(
+          `
+          *,
+          department:departments (id, name),
+          position:positions (id, title),
+          leaves:leaves (id, start_date, end_date, status, reason, leave_type:leave_types(id, name)),
+          documents:employee_documents (*)
+        `,
+        )
+        .eq("id", id)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .single();
+
+      if (error) throw error;
+      return NextResponse.json(data);
+    }
 
     const today = new Date().toISOString().split("T")[0];
 

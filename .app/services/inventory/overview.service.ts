@@ -22,32 +22,25 @@ export const overviewService = {
     supabase: SupabaseClient;
     companyId: string;
   }): Promise<ServiceResult<OverviewMetric>> {
-    const [
-      stockLevelsResult,
-      suppliersResult,
-      recentMovementsResult,
-    ] = await Promise.all([
-      supabase
-        .from("stock_levels")
-        .select(
-          "quantity, product:product_id(selling_price, reorder_level)",
-        )
-        .eq("company_id", companyId),
-      supabase
-        .from("suppliers")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .eq("is_active", true),
-      supabase
-        .from("stock_movements")
-        .select(
-          "*, product:product_id(name), warehouse:warehouse_id(name)",
-        )
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false })
-        .limit(5),
-    ]);
+    const [stockLevelsResult, suppliersResult, recentMovementsResult] =
+      await Promise.all([
+        supabase
+          .from("stock_levels")
+          .select("quantity, product:product_id(selling_price, reorder_level)")
+          .eq("company_id", companyId),
+        supabase
+          .from("suppliers")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .eq("is_active", true),
+        supabase
+          .from("stock_movements")
+          .select("*, product:product_id(name), warehouse:warehouse_id(name)")
+          .eq("company_id", companyId)
+          .order("created_at", { ascending: false })
+          .limit(5),
+      ]);
 
     if (stockLevelsResult.error) {
       return { error: stockLevelsResult.error.message };
@@ -81,8 +74,10 @@ export const overviewService = {
         totalInventoryValue,
         lowStockAlertCount,
         totalActiveSuppliers: suppliersResult.count ?? 0,
-        recentStockMovements:
-          (recentMovementsResult.data ?? []) as Record<string, unknown>[],
+        recentStockMovements: (recentMovementsResult.data ?? []) as Record<
+          string,
+          unknown
+        >[],
       },
     };
   },
@@ -96,7 +91,9 @@ export const overviewService = {
     page?: number;
     pageSize?: number;
     search?: string;
-  }): Promise<ServiceResult<{ data: Record<string, unknown>[]; count: number }>> {
+  }): Promise<
+    ServiceResult<{ data: Record<string, unknown>[]; count: number }>
+  > {
     const overview = await this.getInventoryOverview({ supabase, companyId });
     if (overview.error || !overview.data) {
       return { error: overview.error ?? "Failed to load inventory overview." };

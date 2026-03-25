@@ -231,7 +231,7 @@ export default function LeaveRequestsPage() {
       },
       {
         header: t("hr.col_total_days"),
-        accessorKey: "total_days",
+        accessorKey: "days_taken",
         meta: { type: "number" as ColumnFieldType, readOnly: true },
         cell: ({ row }: any) => (
           <span className="font-bold text-slate-700">
@@ -263,7 +263,7 @@ export default function LeaveRequestsPage() {
         "leave_type_id",
         "start_date",
         "end_date",
-        "total_days",
+        "days_taken",
         "status",
         "reason",
       ];
@@ -276,7 +276,7 @@ export default function LeaveRequestsPage() {
 
       if (payload.start_date || payload.end_date) {
         const existing = leaves.find((l) => l.id === id);
-        payload.total_days = calculateDays(
+        payload.days_taken = calculateDays(
           payload.start_date || existing?.start_date,
           payload.end_date || existing?.end_date,
         );
@@ -305,7 +305,7 @@ export default function LeaveRequestsPage() {
         "leave_type_id",
         "start_date",
         "end_date",
-        "total_days",
+        "days_taken",
         "status",
         "reason",
       ];
@@ -314,7 +314,7 @@ export default function LeaveRequestsPage() {
         if (standardKeys.includes(key)) payload[key] = newItem[key];
       });
 
-      payload.total_days = calculateDays(newItem.start_date, newItem.end_date);
+      payload.days_taken = calculateDays(newItem.start_date, newItem.end_date);
       payload.status = payload.status || "pending";
 
       await addLeave.mutateAsync(payload);

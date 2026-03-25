@@ -71,6 +71,12 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
+    // Mapping total_days to days_taken for backward compatibility
+    if (body.total_days && !body.days_taken) {
+      body.days_taken = body.total_days;
+      delete body.total_days;
+    }
+
     // Overlapping leave validation
     if (body.employee_id && body.start_date && body.end_date) {
       const { data: overlaps, error: overlapError } = await supabase
@@ -123,6 +129,12 @@ export async function PATCH(req: Request) {
 
     const body = await req.json();
     const { id, ...updates } = body;
+
+    // Mapping total_days to days_taken for backward compatibility
+    if (updates.total_days && !updates.days_taken) {
+      updates.days_taken = updates.total_days;
+      delete updates.total_days;
+    }
 
     if (!id)
       return NextResponse.json({ error: "ID is required" }, { status: 400 });

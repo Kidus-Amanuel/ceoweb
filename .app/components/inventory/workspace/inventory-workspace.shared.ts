@@ -1,5 +1,12 @@
 import { createElement } from "react";
-import { BarChart3, Boxes, Building2, History, Package, Warehouse } from "lucide-react";
+import {
+  BarChart3,
+  Boxes,
+  Building2,
+  History,
+  Package,
+  Warehouse,
+} from "lucide-react";
 import type { VirtualColumn } from "@/components/shared/table/EditableTable";
 
 export type InventoryDataTable =
@@ -246,7 +253,9 @@ export const inventoryViewHelpers = {
                 "span",
                 {
                   className:
-                    profit >= 0 ? "font-semibold text-emerald-600" : "font-semibold text-red-600",
+                    profit >= 0
+                      ? "font-semibold text-emerald-600"
+                      : "font-semibold text-red-600",
                 },
                 profit.toFixed(2),
               );

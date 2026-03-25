@@ -134,7 +134,11 @@ export function CellRenderer<T extends { id: string }>({
     const labels = files
       .map((file) => {
         if (!file || typeof file !== "object") return "";
-        const record = file as { name?: unknown; path?: unknown; url?: unknown };
+        const record = file as {
+          name?: unknown;
+          path?: unknown;
+          url?: unknown;
+        };
         return truncateFileName(
           String(record.name ?? record.path ?? record.url ?? ""),
         );
