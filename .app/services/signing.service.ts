@@ -13,7 +13,7 @@ export interface SignatureRequest {
 }
 
 export class SigningService {
-  private static DOCUMENSO_URL = process.env.NEXT_PUBLIC_DOCUMENSO_URL || "http://localhost:3000";
+  private static DOCUMENSO_URL = process.env.NEXT_PUBLIC_DOCUMENSO_URL || "https://documentsign.onrender.com";
   private static API_KEY = process.env.DOCUMENSO_API_KEY;
 
   /**
@@ -34,7 +34,7 @@ export class SigningService {
   }
 
   /**
-   * Syncs status with Documenso API (Local instance).
+   * Syncs status with Documenso API (Production).
    */
   public static async syncEnvelopeStatus(envelopeId: string): Promise<string> {
     const response = await fetch(`${this.DOCUMENSO_URL}/api/v2/envelopes/${envelopeId}`, {
@@ -55,25 +55,15 @@ export class SigningService {
     supabase,
     companyId,
     title,
-    recipientEmail,
-    recipientName,
-    pdfUrl,
     moduleName,
     recordId,
   }: {
     supabase: SupabaseClient;
     companyId: string;
     title: string;
-    recipientEmail: string;
-    recipientName: string;
-    pdfUrl: string;
     moduleName: string;
     recordId: string;
   }) {
-    // 1. Call Documenso API to create the envelope
-    // This is a placeholder for the actual API call logic
-    // We would use the DOCUMENSO_API_KEY here to hide the complexity from Abel.
-    
     const { data, error } = await supabase
       .from("document_signing")
       .insert({
@@ -88,5 +78,21 @@ export class SigningService {
 
     if (error) throw new Error(error.message);
     return data;
+  }
+
+  /**
+   * Generates a "Jump Link" to the Documenso documents dashboard.
+   * If Abel is logged into his browser, this takes him directly to his docs.
+   */
+  public static getManageUrl(): string {
+    const teamId = "personal_mxtbdheonrmwhfbs"; // Hardcoded team ID based on your URL
+    return `${this.DOCUMENSO_URL}/t/${teamId}/documents`;
+  }
+
+  /**
+   * Returns a direct preparation link for a specific envelope.
+   */
+  public static getPrepareUrl(envelopeId: string): string {
+    return `${this.DOCUMENSO_URL}/envelopes/${envelopeId}/prepare`;
   }
 }

@@ -43,10 +43,20 @@ export default function SignaturesPage() {
             </p>
           </div>
           
-          <button className="group flex items-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-2xl shadow-2xl shadow-slate-900/20 hover:scale-[1.02] active:scale-95 transition-all">
-            <Plus className="w-5 h-5 text-amber-400 group-hover:rotate-90 transition-transform" />
-            <span className="font-bold tracking-tight">Send New Agreement</span>
-          </button>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => window.open("https://documentsign.onrender.com/t/personal_mxtbdheonrmwhfbs/documents", "_blank")}
+              className="flex items-center gap-2 px-6 py-4 rounded-2xl border border-slate-200 bg-white/50 text-slate-700 hover:bg-white hover:border-amber-300 transition-all font-bold tracking-tight shadow-sm"
+            >
+              <ExternalLink className="w-4 h-4 text-amber-500" />
+              Manage Archive
+            </button>
+            
+            <button className="group flex items-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-2xl shadow-2xl shadow-slate-900/20 hover:scale-[1.02] active:scale-95 transition-all">
+              <Plus className="w-5 h-5 text-amber-400 group-hover:rotate-90 transition-transform" />
+              <span className="font-bold tracking-tight">Send New Agreement</span>
+            </button>
+          </div>
         </div>
         
         {/* Decorative Background Elements */}
