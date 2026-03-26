@@ -82,7 +82,9 @@ export const inventoryUpdateCustomFieldInputSchema =
     fieldId: z.string().min(1, "Invalid custom field id"),
   });
 
-export const inventoryDeleteCustomFieldInputSchema = deleteCustomFieldSchema;
+export const inventoryDeleteCustomFieldInputSchema = deleteCustomFieldSchema(
+  inventoryEntityTypeSchema,
+);
 
 export const inventoryCreateRowInputSchema = z.discriminatedUnion("table", [
   inventoryCompanyScopeSchema.extend({
