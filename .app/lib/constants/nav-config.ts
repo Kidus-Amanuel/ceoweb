@@ -18,6 +18,7 @@ import {
   Briefcase,
   Palmtree,
   History,
+  FileSignature,
 } from "lucide-react";
 import { LucideIcon } from "lucide-react";
 
@@ -331,6 +332,15 @@ export const NAV_CONFIG: NavItem[] = [
         iconClassName: "text-violet-500",
       },
     ],
+  },
+  {
+    id: "signatures",
+    label: "Agreements",
+    icon: FileSignature,
+    iconClassName: "text-amber-500",
+    href: "/signatures",
+    module: "signatures",
+    roles: ["super_admin", "company_user"],
   },
   {
     id: "settings",
