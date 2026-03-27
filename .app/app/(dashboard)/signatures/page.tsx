@@ -124,6 +124,7 @@ export default function SignaturesPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-2 bg-slate-100/50 p-1 rounded-xl w-fit">
             <TabButton active={filter === 'ALL'} onClick={() => setFilter('ALL')}>All</TabButton>
+            <TabButton active={filter === 'DRAFT'} onClick={() => setFilter('DRAFT')}>Drafts</TabButton>
             <TabButton active={filter === 'PENDING'} onClick={() => setFilter('PENDING')}>Pending</TabButton>
             <TabButton active={filter === 'COMPLETED'} onClick={() => setFilter('COMPLETED')}>Completed</TabButton>
           </div>

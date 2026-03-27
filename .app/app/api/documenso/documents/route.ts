@@ -10,17 +10,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const tenantId = user.user_metadata?.company_id || 'default-tenant';
-    const documensoApiToken = process.env.DOCUMENSO_API_TOKEN || ''; // In prod, use standard env var
+    const documensoUrl = process.env.NEXT_PUBLIC_DOCUMENSO_URL || 'https://documentsign.onrender.com';
+    const ssoSecret = process.env.ERP_SSO_SECRET || 'ceo222';
+    const companyId = user.user_metadata?.company_id || 'default-tenant';
+    const userEmail = user.email || 'user@example.com';
+
+    // Call our NEW internal ERP bridging API in Documenso
+    // This allows us to fetch all documents for this tenant correctly
+    const internalUrl = `${documensoUrl}/api/erp/documents?secret=${ssoSecret}&email=${userEmail}&teamUrl=${companyId}`;
     
-    // Instead of querying Documenso, if we need it simple:
-    // We could proxy to documenso API securely.
-    const documensoUrl = process.env.DOCUMENSO_URL || 'https://documentsign.onrender.com';
-    
-    const response = await fetch(`${documensoUrl}/api/v1/documents`, {
+    const response = await fetch(internalUrl, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${documensoApiToken}`, // Fallback if API tokens configured
         'Content-Type': 'application/json'
       }
     });
@@ -29,11 +30,9 @@ export async function GET(request: Request) {
       const data = await response.json();
       return NextResponse.json(data);
     } else {
-      // Return empty array and the status if call fails
       return NextResponse.json({
         documents: [],
-        error: `Documenso API returned ${response.status}`,
-        debug_url: `${documensoUrl}/api/v1/documents`
+        error: `Documenso internal API error: ${response.status}`,
       });
     }
 
