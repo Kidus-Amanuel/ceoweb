@@ -1,5 +1,18 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import crypto from "crypto";
+import axios from "axios";
+
+function signJWT(payload: any, secret: string) {
+  const header = { alg: "HS256", typ: "JWT" };
+  const encodedHeader = Buffer.from(JSON.stringify(header)).toString("base64url");
+  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = crypto
+    .createHmac("sha256", secret)
+    .update(encodedHeader + "." + encodedPayload)
+    .digest("base64url");
+  return `${encodedHeader}.${encodedPayload}.${signature}`;
+}
 
 export async function POST(request: Request) {
   try {
@@ -44,7 +57,7 @@ export async function POST(request: Request) {
       .eq("name", "Starter")
       .single();
 
-    const allowedModules: string[] = starterPlanData?.modules || ["hr", "crm"];
+    const allowedModules: string[] = starterPlanData?.modules || ["hr", "crm", "signatures"];
 
     // Fetch Display Names for these modules
     const { data: dbModules } = await supabase
@@ -108,12 +121,15 @@ export async function POST(request: Request) {
     ];
 
     availableModules.forEach((m: any) => {
+      const dept = dbDepartments?.find((d) => d.name === m.display_name);
       const roleName = `${m.display_name} Manager`;
+      
       defaultRoles.push({
         company_id: company.id,
         name: roleName,
         description: `Manages ${m.display_name} module`,
-        department: m.name, // Use internal code (e.g., "hr")
+        department: dept?.id || null, // FIX: Use UUID instead of module name string
+        custom_fields: { module_code: m.name } // Temporary store for permission seeding
       });
     });
 
@@ -145,10 +161,11 @@ export async function POST(request: Request) {
 
     // 3c. Assign Module-Specific Permissions for Managers
     for (const role of roleRecords || []) {
-      if (role.department && role.name !== "General Manager") {
+      const moduleCode = (role.custom_fields as any)?.module_code;
+      if (moduleCode && role.name !== "General Manager") {
         await supabase.from("role_permissions").insert({
           role_id: role.id,
-          module: role.department, // This is now m.name
+          module: moduleCode,
           action: "view",
         });
       }
@@ -274,7 +291,38 @@ export async function POST(request: Request) {
       console.warn("Could not create owner employee record:", employeeError);
     }
 
-    // 8. Return success
+    // 8. Provision Documenso Organisation
+    try {
+      const documensoUrl = process.env.NEXT_PUBLIC_DOCUMENSO_URL;
+      const ssoSecret = process.env.ERP_SSO_SECRET;
+
+      if (documensoUrl && ssoSecret) {
+        const payload = {
+          email: user.email,
+          name: fullName || user.email,
+          tenantId: company.id,
+          tenantName: companyName,
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour for background provisioning
+        };
+
+        const token = signJWT(payload, ssoSecret);
+
+        // Trigger the Documenso bridge server-side.
+        // This will create the Organization & Team in Documenso's DB immediately.
+        await axios.get(`${documensoUrl}/api/auth/erp-sso?token=${token}`, {
+          timeout: 5000,
+          validateStatus: (status) => status < 500, // We expect a 302 redirect normally
+        });
+        
+        console.log(`[Onboarding] Successfully provisioned Documenso for ${companyName}`);
+      }
+    } catch (documensoError) {
+      // Non-fatal: we don't want to break CEO onboarding if Documenso is down
+      console.warn("Documenso provisioning warning:", documensoError);
+    }
+
+    // 9. Return success
     return NextResponse.json({ success: true, company });
   } catch (error: any) {
     console.error("Onboarding error:", error);
