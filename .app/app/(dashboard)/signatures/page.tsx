@@ -32,12 +32,12 @@ export default function SignaturesPage() {
         const res = await fetch("/api/documenso/documents");
         if (res.ok) {
           const data = await res.json();
-          setDocuments(data.documents || MOCK_SIGNATURES);
+          setDocuments(data.documents || []);
         } else {
-          setDocuments(MOCK_SIGNATURES);
+          setDocuments([]);
         }
       } catch (e) {
-        setDocuments(MOCK_SIGNATURES);
+        setDocuments([]);
       } finally {
         setIsLoading(false);
       }
@@ -73,7 +73,7 @@ export default function SignaturesPage() {
           
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => window.open("/api/documenso/sso-redirect", "_blank")}
+              onClick={() => window.location.href = "/api/documenso/sso-redirect"}
               className="flex items-center gap-2 px-6 py-4 rounded-2xl border border-slate-200 bg-white/50 text-slate-700 hover:bg-white hover:border-amber-300 transition-all font-bold tracking-tight shadow-sm"
             >
               <ExternalLink className="w-4 h-4 text-amber-500" />
@@ -98,21 +98,21 @@ export default function SignaturesPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard 
           label="Pending Sync" 
-          value="12" 
+          value={documents.filter(d => d.status === 'PENDING').length} 
           icon={Clock} 
           color="amber" 
           description="Waiting for signatures"
         />
         <StatCard 
           label="Finalized" 
-          value="48" 
+          value={documents.filter(d => d.status === 'COMPLETED').length} 
           icon={CheckCircle2} 
           color="emerald" 
           description="Legally signed documents"
         />
         <StatCard 
           label="Drafts" 
-          value="5" 
+          value={documents.filter(d => d.status === 'DRAFT').length} 
           icon={FileSignature} 
           color="blue" 
           description="Drafting in progress"
@@ -160,8 +160,15 @@ export default function SignaturesPage() {
                   <td colSpan={5} className="py-8 text-center text-slate-400 text-sm font-medium">Loading documents from Documenso...</td>
                 </tr>
               )}
-              {!isLoading && documents.map((sig: any) => (
-                <tr key={sig.id} className="group hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => window.open(`/api/documenso/view?id=${sig.id}`, "_blank", "width=800,height=900")}>
+              {!isLoading && documents.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-slate-400 text-sm font-medium">No documents found.</td>
+                </tr>
+              )}
+              {!isLoading && documents
+                .filter(sig => filter === 'ALL' || sig.status === filter)
+                .map((sig: any) => (
+                <tr key={sig.id} className="group hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => window.location.href = `/api/documenso/view?id=${sig.id}`}>
                   <td className="py-5 px-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500">

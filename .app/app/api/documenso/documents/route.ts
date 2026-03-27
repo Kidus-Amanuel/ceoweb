@@ -27,15 +27,13 @@ export async function GET(request: Request) {
 
     if (response.ok) {
       const data = await response.json();
-      // Ensure we filter for this tenant if needed, or if API token is already scoped via teams.
       return NextResponse.json(data);
     } else {
-      // Mock response if documenso isn't properly connected in dev
+      // Return empty array and the status if call fails
       return NextResponse.json({
-        documents: [
-          { id: '1', title: 'HR Contract - Mock', recipient: 'dev@dev.com', status: 'PENDING', date: new Date().toISOString() },
-          { id: '2', title: 'Terms - Updated Mock', recipient: 'user@user.com', status: 'COMPLETED', date: new Date().toISOString() }
-        ]
+        documents: [],
+        error: `Documenso API returned ${response.status}`,
+        debug_url: `${documensoUrl}/api/v1/documents`
       });
     }
 

@@ -21,17 +21,14 @@ import {
   Layers,
   Sparkles,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils/cn";
 
-const PLANS = [
-  {
-    id: "050e9763-fb4a-4794-9af7-b08cc89682a1",
-    name: "Starter",
-    price: "29",
+const UI_PLAN_METADATA: Record<string, any> = {
+  Starter: {
     description: "Perfect for small teams getting started.",
     features: [
       "Human Resources (HR)",
@@ -40,14 +37,10 @@ const PLANS = [
       "Up to 5 users",
       "Basic Reporting",
     ],
-    modules: ["hr", "crm", "trade"],
-    variant: "default" as const,
+    variant: "default",
     icon: Zap,
   },
-  {
-    id: "6c444c61-199f-4ab6-bbce-bd42cb23be9a",
-    name: "Business",
-    price: "99",
+  Business: {
     description: "Expanded modules for growing companies.",
     features: [
       "Everything in Starter",
@@ -56,15 +49,11 @@ const PLANS = [
       "Up to 20 users",
       "Advanced Permissions",
     ],
-    modules: ["hr", "crm", "inventory", "finance", "trade"],
-    variant: "primary" as const,
+    variant: "primary",
     popular: true,
     icon: Rocket,
   },
-  {
-    id: "c3e2be9c-aa31-4758-8041-42d8011f0560",
-    name: "Enterprise",
-    price: "499",
+  Enterprise: {
     description: "The complete package for large organizations.",
     features: [
       "Everything in Business",
@@ -74,28 +63,52 @@ const PLANS = [
       "Priority Support",
       "Custom Fields Support",
     ],
-    modules: [
-      "hr",
-      "crm",
-      "inventory",
-      "finance",
-      "trade",
-      "fleet",
-      "projects",
-    ],
-    variant: "secondary" as const,
+    variant: "secondary",
     icon: ShieldCheck,
   },
-];
+};
 
 export default function BillingPage() {
   const { selectedCompany } = useCompanies();
   const { roleInfo, refreshUser } = useUser();
   const router = useRouter();
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
+  const [dbPlans, setDbPlans] = useState<any[]>([]);
+  const [fetchingPlans, setFetchingPlans] = useState(true);
 
-  const currentPlanId =
-    roleInfo?.plan_id || "050e9763-fb4a-4794-9af7-b08cc89682a1"; // Default to Starter if not set
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const response = await axios.get("/api/billing/plans");
+        setDbPlans(response.data.plans || []);
+      } catch (error) {
+        console.error("Failed to fetch plans:", error);
+        toast.error("Failed to load plans. Please refresh.");
+      } finally {
+        setFetchingPlans(false);
+      }
+    };
+
+    fetchPlans();
+  }, []);
+
+  const plans = useMemo(() => {
+    return dbPlans.map((plan) => {
+      const metadata = UI_PLAN_METADATA[plan.name] || {
+        description: "Custom plan for your organization.",
+        features: ["Standard features"],
+        variant: "default",
+        icon: Zap,
+      };
+      return {
+        ...plan,
+        ...metadata,
+        price: plan.price_monthly.toString().split(".")[0], // Format price for display
+      };
+    });
+  }, [dbPlans]);
+
+  const currentPlanId = roleInfo?.plan_id;
   const currentPlanName = roleInfo?.plan_name || "Starter";
 
   const handleUpgrade = async (planId: string, planName: string) => {
@@ -117,7 +130,7 @@ export default function BillingPage() {
       });
 
       if (response.data.success) {
-        toast.success(`Succesfully upgraded to ${planName} plan!`);
+        toast.success(`Successfully upgraded to ${planName} plan!`);
         // Refresh local user state so modules update immediately
         await refreshUser();
         // Redirect to dashboard
@@ -200,104 +213,113 @@ export default function BillingPage() {
 
       {/* Plans Selection */}
       <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-        {PLANS.map((plan) => {
-          const isCurrent = plan.id === currentPlanId;
-          const isUpgrade = !isCurrent; // Simplified, assuming higher index = higher plan
+        {fetchingPlans ? (
+          <div className="col-span-3 flex flex-col items-center justify-center py-20 space-y-4">
+            <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-slate-500 font-medium animate-pulse">
+              Loading available plans...
+            </p>
+          </div>
+        ) : (
+          plans.map((plan) => {
+            const isCurrent = plan.id === currentPlanId;
+            const isUpgrade = !isCurrent; // Simplified, assuming higher index = higher plan
 
-          return (
-            <Card
-              key={plan.id}
-              className={cn(
-                "relative flex flex-col transition-all duration-300 border-2 rounded-3xl overflow-hidden",
-                isCurrent
-                  ? "border-emerald-500 bg-emerald-50/10 shadow-emerald-500/5"
-                  : "border-slate-100 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-500/5",
-                plan.popular && !isCurrent
-                  ? "border-indigo-100 ring-2 ring-indigo-500/10"
-                  : "",
-              )}
-            >
-              {plan.popular && !isCurrent && (
-                <div className="absolute top-0 right-0 p-4">
-                  <Badge className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-none py-1 px-3 text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-indigo-600/20">
-                    Recommended
-                  </Badge>
-                </div>
-              )}
+            return (
+              <Card
+                key={plan.id}
+                className={cn(
+                  "relative flex flex-col transition-all duration-300 border-2 rounded-3xl overflow-hidden",
+                  isCurrent
+                    ? "border-emerald-500 bg-emerald-50/10 shadow-emerald-500/5"
+                    : "border-slate-100 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-500/5",
+                  plan.popular && !isCurrent
+                    ? "border-indigo-100 ring-2 ring-indigo-500/10"
+                    : "",
+                )}
+              >
+                {plan.popular && !isCurrent && (
+                  <div className="absolute top-0 right-0 p-4">
+                    <Badge className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-none py-1 px-3 text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-indigo-600/20">
+                      Recommended
+                    </Badge>
+                  </div>
+                )}
 
-              <CardHeader className="pt-8 px-8">
-                <div
-                  className={cn(
-                    "w-12 h-12 rounded-2xl flex items-center justify-center mb-6 shadow-sm border",
-                    plan.name === "Business"
-                      ? "bg-indigo-600 border-indigo-500 text-white"
-                      : "bg-slate-50 border-slate-100 text-slate-900",
-                  )}
-                >
-                  <plan.icon className="w-6 h-6" />
-                </div>
-                <CardTitle className="text-2xl font-black tracking-tight">
-                  {plan.name}
-                </CardTitle>
-                <CardDescription className="text-slate-500 font-medium leading-relaxed min-h-[48px]">
-                  {plan.description}
-                </CardDescription>
-              </CardHeader>
+                <CardHeader className="pt-8 px-8">
+                  <div
+                    className={cn(
+                      "w-12 h-12 rounded-2xl flex items-center justify-center mb-6 shadow-sm border",
+                      plan.name === "Business"
+                        ? "bg-indigo-600 border-indigo-500 text-white"
+                        : "bg-slate-50 border-slate-100 text-slate-900",
+                    )}
+                  >
+                    <plan.icon className="w-6 h-6" />
+                  </div>
+                  <CardTitle className="text-2xl font-black tracking-tight">
+                    {plan.name}
+                  </CardTitle>
+                  <CardDescription className="text-slate-500 font-medium leading-relaxed min-h-[48px]">
+                    {plan.description}
+                  </CardDescription>
+                </CardHeader>
 
-              <CardContent className="flex-1 px-8 space-y-8">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-black tracking-tighter text-slate-900">
-                    ${plan.price}
-                  </span>
-                  <span className="text-slate-400 font-black uppercase text-[10px] tracking-widest">
-                    / month
-                  </span>
-                </div>
+                <CardContent className="flex-1 px-8 space-y-8">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-black tracking-tighter text-slate-900">
+                      ${plan.price}
+                    </span>
+                    <span className="text-slate-400 font-black uppercase text-[10px] tracking-widest">
+                      / month
+                    </span>
+                  </div>
 
-                <div className="space-y-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    What&apos;s included:
-                  </p>
-                  <ul className="space-y-3">
-                    {plan.features.map((feature) => (
-                      <li
-                        key={feature}
-                        className="flex items-start gap-3 text-sm text-slate-600 group"
-                      >
-                        <div className="mt-0.5 w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                          <Check className="w-3 h-3 text-indigo-600" />
-                        </div>
-                        <span className="font-semibold">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </CardContent>
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      What&apos;s included:
+                    </p>
+                    <ul className="space-y-3">
+                      {plan.features.map((feature: string) => (
+                        <li
+                          key={feature}
+                          className="flex items-start gap-3 text-sm text-slate-600 group"
+                        >
+                          <div className="mt-0.5 w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                            <Check className="w-3 h-3 text-indigo-600" />
+                          </div>
+                          <span className="font-semibold">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </CardContent>
 
-              <CardFooter className="pb-8 px-8">
-                <Button
-                  className={cn(
-                    "w-full h-12 rounded-xl text-sm font-black uppercase tracking-widest transition-all duration-300",
-                    isCurrent
-                      ? "bg-slate-100 text-slate-400 cursor-default hover:bg-slate-100"
-                      : plan.name === "Business"
-                        ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/20"
-                        : "bg-slate-900 text-white hover:bg-slate-950",
-                  )}
-                  onClick={() => handleUpgrade(plan.id, plan.name)}
-                  disabled={loadingPlanId !== null || isCurrent}
-                  loading={loadingPlanId === plan.id}
-                >
-                  {isCurrent
-                    ? "Current Plan"
-                    : isUpgrade
-                      ? `Upgrade to ${plan.name}`
-                      : "Select Plan"}
-                </Button>
-              </CardFooter>
-            </Card>
-          );
-        })}
+                <CardFooter className="pb-8 px-8">
+                  <Button
+                    className={cn(
+                      "w-full h-12 rounded-xl text-sm font-black uppercase tracking-widest transition-all duration-300",
+                      isCurrent
+                        ? "bg-slate-100 text-slate-400 cursor-default hover:bg-slate-100"
+                        : plan.name === "Business"
+                          ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/20"
+                          : "bg-slate-900 text-white hover:bg-slate-950",
+                    )}
+                    onClick={() => handleUpgrade(plan.id, plan.name)}
+                    disabled={loadingPlanId !== null || isCurrent}
+                    loading={loadingPlanId === plan.id}
+                  >
+                    {isCurrent
+                      ? "Current Plan"
+                      : isUpgrade
+                        ? `Upgrade to ${plan.name}`
+                        : "Select Plan"}
+                  </Button>
+                </CardFooter>
+              </Card>
+            );
+          })
+        )}
       </div>
 
       <div className="mt-20 text-center max-w-xl mx-auto p-12 rounded-3xl bg-slate-50 border border-slate-100 border-dashed">
