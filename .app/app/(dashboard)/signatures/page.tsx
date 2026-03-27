@@ -13,17 +13,45 @@ import {
   MoreVertical,
   ExternalLink
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 const MOCK_SIGNATURES = [
   { id: '1', title: 'HR Contract - Abel', recipient: 'abel@example.com', status: 'PENDING', date: '2026-03-26' },
-  { id: '2', title: 'Partnership Agreement - XYZ', recipient: 'ceo@xyztrading.com', status: 'COMPLETED', date: '2026-03-24' },
-  { id: '3', title: 'Terms of Service Update', recipient: 'legal@firm.com', status: 'DRAFT', date: '2026-03-25' },
 ];
 
 export default function SignaturesPage() {
   const [filter, setFilter] = useState('ALL');
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Poll for document updates every 15s to keep ERP UI synced with Documenso
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        const res = await fetch("/api/documenso/documents");
+        if (res.ok) {
+          const data = await res.json();
+          setDocuments(data.documents || MOCK_SIGNATURES);
+        } else {
+          setDocuments(MOCK_SIGNATURES);
+        }
+      } catch (e) {
+        setDocuments(MOCK_SIGNATURES);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchDocuments();
+    const interval = setInterval(fetchDocuments, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleCreateAgreement = () => {
+    // Call our ERP bridging endpoint which will seamlessly redirect us
+    window.location.href = "/api/documenso/sso-redirect";
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
@@ -45,16 +73,19 @@ export default function SignaturesPage() {
           
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => window.open("https://documentsign.onrender.com/t/personal_mxtbdheonrmwhfbs/documents", "_blank")}
+              onClick={() => window.open("/api/documenso/sso-redirect", "_blank")}
               className="flex items-center gap-2 px-6 py-4 rounded-2xl border border-slate-200 bg-white/50 text-slate-700 hover:bg-white hover:border-amber-300 transition-all font-bold tracking-tight shadow-sm"
             >
               <ExternalLink className="w-4 h-4 text-amber-500" />
               Manage Archive
             </button>
             
-            <button className="group flex items-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-2xl shadow-2xl shadow-slate-900/20 hover:scale-[1.02] active:scale-95 transition-all">
+            <button 
+              onClick={handleCreateAgreement} 
+              className="group flex items-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-2xl shadow-2xl shadow-slate-900/20 hover:scale-[1.02] active:scale-95 transition-all"
+            >
               <Plus className="w-5 h-5 text-amber-400 group-hover:rotate-90 transition-transform" />
-              <span className="font-bold tracking-tight">Send New Agreement</span>
+              <span className="font-bold tracking-tight">Create Agreement</span>
             </button>
           </div>
         </div>
@@ -124,8 +155,13 @@ export default function SignaturesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {MOCK_SIGNATURES.map((sig) => (
-                <tr key={sig.id} className="group hover:bg-slate-50/50 transition-colors">
+              {isLoading && (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-slate-400 text-sm font-medium">Loading documents from Documenso...</td>
+                </tr>
+              )}
+              {!isLoading && documents.map((sig: any) => (
+                <tr key={sig.id} className="group hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => window.open(`/api/documenso/view?id=${sig.id}`, "_blank", "width=800,height=900")}>
                   <td className="py-5 px-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500">
@@ -134,11 +170,11 @@ export default function SignaturesPage() {
                       <span className="font-bold text-slate-700">{sig.title}</span>
                     </div>
                   </td>
-                  <td className="py-5 px-4 text-sm text-slate-500">{sig.recipient}</td>
+                  <td className="py-5 px-4 text-sm text-slate-500">{sig.recipient || 'Multiple recipients'}</td>
                   <td className="py-5 px-4">
                     <StatusBadge status={sig.status} />
                   </td>
-                  <td className="py-5 px-4 text-sm text-slate-400 font-medium">{sig.date}</td>
+                  <td className="py-5 px-4 text-sm text-slate-400 font-medium">{sig.date ? new Date(sig.date).toLocaleDateString() : 'N/A'}</td>
                   <td className="py-5 px-4 text-right">
                     <button className="p-2 rounded-lg hover:bg-white hover:shadow-sm text-slate-400 hover:text-amber-600 transition-all">
                       <ExternalLink className="w-4 h-4" />
