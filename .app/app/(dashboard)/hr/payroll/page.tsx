@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { useRouter } from "next/navigation";
 import { type VirtualColumn } from "@/components/shared/table/EditableTable";
 import { EditableTable } from "@/components/shared/table/EditableTable";
 import {
@@ -18,6 +19,7 @@ import {
   Settings2,
   X,
   ArrowRight,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/shared/ui/button/Button";
 import { Badge } from "@/components/shared/ui/badge/Badge";
@@ -32,6 +34,7 @@ import {
   useUpdateHrColumn,
   useDeleteHrColumn,
 } from "@/hooks/use-hr";
+import { useHRRealtime } from "@/hooks/use-hr-realtime";
 import { toast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { type ColumnFieldType } from "@/components/shared/table/CustomColumnEditorContent";
@@ -39,10 +42,14 @@ import { FleetTableSkeleton } from "@/components/shared/ui/skeleton/FleetTableSk
 
 export default function PayrollPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
 
-  // 1. State
+  // 1. Live Sync
+  useHRRealtime(companyId, ["payroll_runs"]);
+
+  // 2. State
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
 
@@ -116,14 +123,13 @@ export default function PayrollPage() {
   const columns = useMemo(
     () => [
       {
-        header: t("hr.col_payroll_period"),
+        header: t("hr.col_payroll_period_start"),
         accessorKey: "period_start",
-        meta: { type: "text" as ColumnFieldType },
+        meta: { type: "date" as ColumnFieldType },
         cell: ({ row }: any) => {
-          const start = row.original.period_start;
-          const end = row.original.period_end;
-          const month = start
-            ? new Date(start).toLocaleDateString("en-US", {
+          const val = row.original.period_start;
+          const month = val
+            ? new Date(val).toLocaleDateString("en-US", {
                 month: "long",
                 year: "numeric",
               })
@@ -138,13 +144,25 @@ export default function PayrollPage() {
                 <span className="font-black text-slate-800 leading-tight tracking-tight group-hover:text-indigo-600 transition-colors">
                   {month}
                 </span>
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                  {start} <ArrowRight className="w-2 h-2" /> {end}
-                </div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                  Start: {val || "---"}
+                </span>
               </div>
             </div>
           );
         },
+      },
+      {
+        header: t("hr.col_payroll_period_end"),
+        accessorKey: "period_end",
+        meta: { type: "date" as ColumnFieldType },
+        cell: ({ row }: any) => (
+          <div className="flex flex-col">
+            <span className="font-bold text-slate-700 text-xs">
+              {row.original.period_end || "---"}
+            </span>
+          </div>
+        ),
       },
       {
         header: t("hr.col_status"),
@@ -220,6 +238,33 @@ export default function PayrollPage() {
   );
 
   // 5. Table Handlers
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleExecuteBatch = async () => {
+    if (!selectedRowId) return;
+    setIsProcessing(true);
+    toast.info(`${t("hr.status_processing")} batch...`);
+    try {
+      const res = await fetch(`/api/hr/payroll-generate?run_id=${selectedRowId}`, {
+        method: "POST",
+      }).then((r) => r.json());
+
+      if (res.error) throw new Error(res.error);
+
+      toast.success(
+        `Success: ${res.count} payslips generated for $${res.totalCost.toLocaleString()}`
+      );
+      
+      // Refresh the page data
+      window.location.reload(); 
+    } catch (err: any) {
+      toast.error(`Processing error: ${err.message}`);
+      console.error("[PayrollPage] Execution Error:", err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleUpdate = async (id: string, updates: any) => {
     try {
       const existing = runs.find((r) => r.id === id);
@@ -385,14 +430,21 @@ export default function PayrollPage() {
               <div className="flex items-center gap-3">
                 <Button
                   size="sm"
-                  className="h-10 px-6 rounded-xl gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] tracking-widest uppercase shadow-lg shadow-indigo-600/20"
-                  onClick={() =>
-                    toast.success(
-                      `Processing batch ${selectedRowId.slice(0, 8)}`,
-                    )
-                  }
+                  disabled={isProcessing || selectedRun?.status === "completed"}
+                  className="h-10 px-6 rounded-xl gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] tracking-widest uppercase shadow-lg shadow-indigo-600/20 disabled:opacity-50"
+                  onClick={handleExecuteBatch}
                 >
-                  <RefreshCw className="w-3.5 h-3.5" /> {t("hr.execute_batch")}
+                  <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? "animate-spin" : ""}`} /> 
+                  {isProcessing ? t("hr.status_processing") : t("hr.execute_batch")}
+                </Button>
+                <div className="h-8 w-px bg-indigo-200/50 mx-1" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 px-4 rounded-xl gap-2 border-indigo-200 text-indigo-600 font-black text-[9px] tracking-widest uppercase hover:bg-indigo-50"
+                  onClick={() => router.push(`/hr/payroll/${selectedRowId}`)}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> {t("hr.open_ledger")}
                 </Button>
                 <div className="h-8 w-px bg-indigo-200/50 mx-1" />
                 <Button
@@ -436,7 +488,7 @@ export default function PayrollPage() {
       </div>
 
       {/* ── Footer ── */}
-      <div className="px-6 py-2.5 bg-slate-50/50 border border-slate-200/50 rounded-2xl mx-1 flex items-center justify-between">
+      <div className="px-6 py-2.5 bg-slate-50/50 border border-slate-200/50 rounded-2xl mx-1 mt-auto flex items-center justify-between">
         <div className="flex items-center gap-5">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.6)]" />

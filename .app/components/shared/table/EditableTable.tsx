@@ -72,6 +72,7 @@ interface EditableTableProps<
   hasMoreRows?: boolean;
   isFetchingMoreRows?: boolean;
   multiSelect?: boolean;
+  enableSelection?: boolean;
 }
 
 type FileEditingCell = {
@@ -111,6 +112,7 @@ export function EditableTable<
   hasMoreRows = false,
   isFetchingMoreRows = false,
   multiSelect = true,
+  enableSelection = true,
 }: EditableTableProps<T>) {
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -237,7 +239,7 @@ export function EditableTable<
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     enableGlobalFilter: true,
-    enableRowSelection: true,
+    enableRowSelection: enableSelection,
     enableMultiRowSelection: multiSelect,
     globalFilterFn: "auto",
   });
@@ -544,6 +546,7 @@ export function EditableTable<
               isEmailColumn={isEmailColumn}
               isPhoneColumn={isPhoneColumn}
               showDeleteColumn={onDelete !== undefined}
+              enableSelection={enableSelection}
             />
           </Table>
         </div>

@@ -78,6 +78,7 @@ interface EditableTableBodyProps<T extends { id: string }> {
   isEmailColumn: (columnId: string, type: unknown) => boolean;
   isPhoneColumn: (columnId: string, type: unknown) => boolean;
   showDeleteColumn: boolean;
+  enableSelection?: boolean;
 }
 
 /**
@@ -122,6 +123,7 @@ export function EditableTableBody<
   isEmailColumn,
   isPhoneColumn,
   showDeleteColumn,
+  enableSelection = true,
 }: EditableTableBodyProps<T>) {
   return (
     <UITableBody>
@@ -150,6 +152,7 @@ export function EditableTableBody<
             getColumnSizeClasses={getColumnSizeClasses}
             isEmailColumn={isEmailColumn}
             isPhoneColumn={isPhoneColumn}
+            enableSelection={enableSelection}
           />
         ))}
       </AnimatePresence>

@@ -57,6 +57,7 @@ interface TableRowProps<T extends { id: string }> {
   ) => string;
   isEmailColumn: (columnId: string, type: unknown) => boolean;
   isPhoneColumn: (columnId: string, type: unknown) => boolean;
+  enableSelection?: boolean;
 }
 
 /**
@@ -90,6 +91,7 @@ function TableRowComponent<
   getColumnSizeClasses,
   isEmailColumn,
   isPhoneColumn,
+  enableSelection = true,
 }: TableRowProps<T>) {
   return (
     <motion.tr
@@ -106,19 +108,21 @@ function TableRowComponent<
       )}
     >
       {/* Selection checkbox column */}
-      <TableCell className="w-10 min-w-10 px-2 py-1.5 border-b border-r border-slate-200 align-middle relative">
-        {isSelected && (
-          <span className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500" />
-        )}
-        <div className="flex items-center justify-start">
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={(value) => row.toggleSelected(value === true)}
-            onClick={(event) => event.stopPropagation()}
-            className="cursor-pointer size-4"
-          />
-        </div>
-      </TableCell>
+      {enableSelection && (
+        <TableCell className="w-10 min-w-10 px-2 py-1.5 border-b border-r border-slate-200 align-middle relative">
+          {isSelected && (
+            <span className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500" />
+          )}
+          <div className="flex items-center justify-start">
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={(value) => row.toggleSelected(value === true)}
+              onClick={(event) => event.stopPropagation()}
+              className="cursor-pointer size-4"
+            />
+          </div>
+        </TableCell>
+      )}
 
       {/* Data cells */}
       {row.getVisibleCells().map((cell, i) => {

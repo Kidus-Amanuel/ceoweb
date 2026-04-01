@@ -10,7 +10,8 @@ export type HRTables =
   | "positions" 
   | "attendance" 
   | "leave_types" 
-  | "payroll_runs";
+  | "payroll_runs"
+  | "payslips";
 
 export function useHRRealtime(companyId: string | undefined, tablesToWatch: HRTables[] = []) {
   const qc = useQueryClient();
@@ -22,46 +23,51 @@ export function useHRRealtime(companyId: string | undefined, tablesToWatch: HRTa
     const watchedTables = tablesKey.split(",") as HRTables[];
     const supabase = createClient();
 
-    const channel = supabase
-      .channel(`hr-master-${companyId}`)
-      .on(
+    let channel = supabase.channel(`hr-master-${companyId}-${tablesKey}`);
+
+    // Subscribe to EACH table individually with the company filter
+    watchedTables.forEach((table) => {
+      channel = channel.on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
+          table: table,
           filter: `company_id=eq.${companyId}`,
         },
-        (payload) => {
-          const table = payload.table as HRTables;
-          
-          if (watchedTables.includes(table)) {
-            switch (table) {
-              case "employees":
-                qc.invalidateQueries({ queryKey: hrKeys.employees(companyId) });
-                break;
-              case "departments":
-                qc.invalidateQueries({ queryKey: hrKeys.departments(companyId) });
-                break;
-              case "positions":
-                qc.invalidateQueries({ queryKey: hrKeys.positions(companyId) });
-                break;
-              case "attendance":
-                qc.invalidateQueries({ queryKey: hrKeys.attendance(companyId) });
-                break;
-              case "leaves":
-                qc.invalidateQueries({ queryKey: hrKeys.leaves(companyId) });
-                break;
-              case "leave_types":
-                qc.invalidateQueries({ queryKey: hrKeys.leaveTypes(companyId) });
-                break;
-              case "payroll_runs":
-                qc.invalidateQueries({ queryKey: hrKeys.payrollRuns(companyId) });
-                break;
-            }
+        () => {
+          // Trigger a query invalidation for the specific entity
+          switch (table) {
+            case "employees":
+              qc.invalidateQueries({ queryKey: hrKeys.employees(companyId) });
+              break;
+            case "departments":
+              qc.invalidateQueries({ queryKey: hrKeys.departments(companyId) });
+              break;
+            case "positions":
+              qc.invalidateQueries({ queryKey: hrKeys.positions(companyId) });
+              break;
+            case "attendance":
+              qc.invalidateQueries({ queryKey: hrKeys.attendance(companyId) });
+              break;
+            case "leaves":
+              qc.invalidateQueries({ queryKey: hrKeys.leaves(companyId) });
+              break;
+            case "leave_types":
+              qc.invalidateQueries({ queryKey: hrKeys.leaveTypes(companyId) });
+              break;
+            case "payroll_runs":
+              qc.invalidateQueries({ queryKey: hrKeys.payrollRuns(companyId) });
+              break;
+            case "payslips":
+              qc.invalidateQueries({ queryKey: ["payslips", companyId] });
+              break;
           }
         }
-      )
-      .subscribe();
+      );
+    });
+
+    channel.subscribe();
 
     return () => {
       supabase.removeChannel(channel);
