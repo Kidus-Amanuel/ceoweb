@@ -52,6 +52,7 @@ import {
 } from "@/components/shared/ui/sheet/Sheet";
 import { Checkbox } from "@/components/shared/ui/checkbox/Checkbox";
 import { ScrollArea } from "@/components/shared/ui/scroll-area/ScrollArea";
+import { PrivilegeMatrix } from "@/components/hr/positions/PrivilegeMatrix";
 
 const MODULES = [
   { id: "hr", name: "Human Resources" },
@@ -617,109 +618,17 @@ export default function RolesPage() {
         </div>
       </div>
 
-      {/* Permission Editor Sheet */}
       <Sheet open={isPermSheetOpen} onOpenChange={setIsPermSheetOpen}>
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-xl p-0 border-l border-indigo-100 bg-white/95 backdrop-blur-2xl"
-        >
-          <div className="h-full flex flex-col">
-            <SheetHeader className="px-8 py-6 bg-slate-50/50 border-b border-slate-100">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20">
-                  <ShieldAlert className="w-6 h-6" />
-                </div>
-                <div>
-                  <SheetTitle className="text-xl font-black text-slate-900 tracking-tight">
-                    Privilege Matrix
-                  </SheetTitle>
-                  <SheetDescription className="text-xs font-medium text-slate-500">
-                    Configure granular access for{" "}
-                    <span className="text-indigo-600 font-bold">
-                      {selectedRole?.name}
-                    </span>
-                  </SheetDescription>
-                </div>
-              </div>
-            </SheetHeader>
-
-            <ScrollArea className="flex-1 px-8 py-6">
-              <div className="space-y-8">
-                {allowedModules.map((mod) => (
-                  <div key={mod.id} className="space-y-4">
-                    <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                      <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-900 flex items-center gap-2">
-                        <Layers className="w-3 h-3 text-indigo-500" />{" "}
-                        {mod.name}
-                      </h3>
-                      <Badge
-                        variant="outline"
-                        className="text-[8px] bg-slate-50 text-slate-400 border-none px-0"
-                      >
-                        ENTITY_SCOPE
-                      </Badge>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {ACTIONS.map((act) => {
-                        const isChecked = !!tempPermissions.find(
-                          (p) => p.module === mod.id && p.action === act,
-                        );
-                        return (
-                          <div
-                            key={`${mod.id}-${act}`}
-                            className={`flex items-center gap-3 p-3 rounded-2xl border-2 transition-all cursor-pointer group ${isChecked ? "bg-indigo-50/50 border-indigo-200" : "bg-white border-slate-100 hover:border-slate-200"}`}
-                            onClick={() => togglePermission(mod.id, act)}
-                          >
-                            <Checkbox
-                              id={`${mod.id}-${act}`}
-                              checked={isChecked}
-                              onCheckedChange={() =>
-                                togglePermission(mod.id, act)
-                              }
-                              className="border-indigo-200 data-[state=checked]:bg-indigo-600"
-                            />
-                            <label
-                              className={`text-[10px] font-black uppercase tracking-wider cursor-pointer ${isChecked ? "text-indigo-700" : "text-slate-500 group-hover:text-slate-900"}`}
-                            >
-                              {act}
-                            </label>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-
-            <SheetFooter className="px-8 py-6 bg-slate-50 border-t border-slate-100 mt-auto">
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                    MODS: {tempPermissions.length} SELECTED
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    className="rounded-xl px-6 text-[10px] font-black uppercase tracking-widest"
-                    onClick={() => setIsPermSheetOpen(false)}
-                  >
-                    ABORT
-                  </Button>
-                  <Button
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-8 gap-2 font-black text-[10px] tracking-widest shadow-xl shadow-indigo-600/20"
-                    onClick={handlePermissionSave}
-                    loading={updatePerms.isPending}
-                  >
-                    <Save className="w-4 h-4" /> SYNC PRIVILEGES
-                  </Button>
-                </div>
-              </div>
-            </SheetFooter>
-          </div>
-        </SheetContent>
+        <PrivilegeMatrix
+          selectedRoleName={selectedRole?.name}
+          allowedModules={allowedModules}
+          actions={ACTIONS}
+          tempPermissions={tempPermissions}
+          togglePermission={togglePermission}
+          onSave={handlePermissionSave}
+          onClose={() => setIsPermSheetOpen(false)}
+          isLoading={updatePerms.isPending}
+        />
       </Sheet>
     </div>
   );

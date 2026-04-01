@@ -23,7 +23,7 @@ export interface HRColumnDefinition {
 
 export type HRMetadata = Partial<Record<HREntityType, HRColumnDefinition[]>>;
 
-type ServiceResult<T> = {
+export type ServiceResult<T> = {
   data?: T;
   error?: string;
 };

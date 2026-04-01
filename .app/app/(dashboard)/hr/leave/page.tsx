@@ -35,11 +35,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FleetTableSkeleton } from "@/components/shared/ui/skeleton/FleetTableSkeleton";
 import { calculateDays } from "@/utils/table-utils";
 import { type ColumnFieldType } from "@/components/shared/table/CustomColumnEditorContent";
+import { HRPayloadMapper } from "@/utils/hr-payload-mapper";
+import { useHRRealtime } from "@/hooks/use-hr-realtime";
 
 export default function LeaveRequestsPage() {
   const { t } = useTranslation();
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
+  
+  // Realtime HR engine
+  useHRRealtime(companyId, ["leaves", "employees", "leave_types"]);
 
   // 1. Pagination & State
   const [page, setPage] = useState(1);
@@ -256,41 +261,10 @@ export default function LeaveRequestsPage() {
 
   const handleUpdate = async (id: string, updatedFields: any) => {
     try {
-      const payload: any = { id };
-      const customData = updatedFields.customValues || {};
-      const standardKeys = [
-        "employee_id",
-        "leave_type_id",
-        "start_date",
-        "end_date",
-        "days_taken",
-        "status",
-        "reason",
-      ];
+      const rawTargetItem = leaves.find((x) => x.id === id);
+      const updatePayload = HRPayloadMapper.buildUpdatePayload("leaves", id, updatedFields, rawTargetItem);
 
-      Object.keys(updatedFields).forEach((key) => {
-        if (standardKeys.includes(key)) {
-          payload[key] = updatedFields[key];
-        }
-      });
-
-      if (payload.start_date || payload.end_date) {
-        const existing = leaves.find((l) => l.id === id);
-        payload.days_taken = calculateDays(
-          payload.start_date || existing?.start_date,
-          payload.end_date || existing?.end_date,
-        );
-      }
-
-      const existing = leaves.find((x) => x.id === id);
-      const mergedCustom = {
-        ...(existing?.custom_fields || {}),
-        ...customData,
-      };
-      if (Object.keys(mergedCustom).length > 0)
-        payload.custom_fields = mergedCustom;
-
-      await updateLeave.mutateAsync(payload);
+      await updateLeave.mutateAsync(updatePayload);
     } catch (err) {
       console.error("[LeaveRequestsPage] Update error:", err);
     }
@@ -298,24 +272,8 @@ export default function LeaveRequestsPage() {
 
   const handleAdd = async (newItem: any) => {
     try {
-      const customData = newItem.customValues || {};
-      const payload: any = { company_id: companyId, custom_fields: customData };
-      const standardKeys = [
-        "employee_id",
-        "leave_type_id",
-        "start_date",
-        "end_date",
-        "days_taken",
-        "status",
-        "reason",
-      ];
-
-      Object.keys(newItem).forEach((key) => {
-        if (standardKeys.includes(key)) payload[key] = newItem[key];
-      });
-
-      payload.days_taken = calculateDays(newItem.start_date, newItem.end_date);
-      payload.status = payload.status || "pending";
+      if (!companyId) return;
+      const payload = HRPayloadMapper.buildAddPayload("leaves", newItem, companyId, newItem.employee_id);
 
       await addLeave.mutateAsync(payload);
     } catch (err) {

@@ -125,6 +125,7 @@ export default function AttendancePage() {
         (a) => a.status === "present" || a.status === "on_time",
       ).length,
       late: todayRecs.filter((a) => a.status === "late").length,
+      totalHours: todayRecs.reduce((acc, a) => acc + (Number(a.hours_worked) || 0), 0)
     };
   }, [attendance, employees]);
 
@@ -181,34 +182,34 @@ export default function AttendancePage() {
       {
         header: t("hr.col_entry_log"),
         accessorKey: "check_in",
-        meta: { type: "text" as ColumnFieldType },
-        cell: ({ row }: any) => (
-          <div className="flex items-center gap-2 text-emerald-600 font-mono text-[11px] bg-emerald-50/50 px-2 py-1 rounded-lg border border-emerald-100/50 w-fit">
-            <Clock className="w-3 h-3 text-emerald-400" />
-            {row.original.check_in
-              ? new Date(row.original.check_in).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "--:--"}
-          </div>
-        ),
+        meta: { type: "time" as ColumnFieldType },
+        cell: ({ row }: any) => {
+          const val = row.original.check_in;
+          if (!val) return <span className="text-slate-300 font-mono text-[10px]">--:--</span>;
+          const date = new Date(val);
+          return (
+            <div className="flex items-center gap-2 text-emerald-600 font-mono text-[11px] bg-emerald-50/50 px-2 py-1 rounded-lg border border-emerald-100/50 w-fit">
+              <Clock className="w-3 h-3 text-emerald-400" />
+              {date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
+            </div>
+          );
+        }
       },
       {
         header: t("hr.col_exit_log"),
         accessorKey: "check_out",
-        meta: { type: "text" as ColumnFieldType },
-        cell: ({ row }: any) => (
-          <div className="flex items-center gap-2 text-rose-500 font-mono text-[11px] bg-rose-50/50 px-2 py-1 rounded-lg border border-rose-100/50 w-fit">
-            <Clock className="w-3 h-3 text-rose-400" />
-            {row.original.check_out
-              ? new Date(row.original.check_out).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "--:--"}
-          </div>
-        ),
+        meta: { type: "time" as ColumnFieldType },
+        cell: ({ row }: any) => {
+          const val = row.original.check_out;
+          if (!val) return <span className="text-slate-300 font-mono text-[10px]">--:--</span>;
+          const date = new Date(val);
+          return (
+            <div className="flex items-center gap-2 text-rose-500 font-mono text-[11px] bg-rose-50/50 px-2 py-1 rounded-lg border border-rose-100/50 w-fit">
+              <Clock className="w-3 h-3 text-rose-400" />
+              {date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
+            </div>
+          );
+        }
       },
       {
         header: t("hr.col_hours"),
@@ -218,7 +219,7 @@ export default function AttendancePage() {
           <div className="flex items-center gap-2">
             <div className="h-1.5 w-12 bg-slate-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-indigo-500"
+                className="h-full bg-indigo-500 transition-all duration-1000"
                 style={{
                   width: `${Math.min(100, (Number(row.original.hours_worked) || 0) * 10)}%`,
                 }}
@@ -264,31 +265,55 @@ export default function AttendancePage() {
     [t, employees],
   );
 
+  // Helper: Combine Date and Time string into TIMESTAMPTZ ISO
+  const formatDateTime = (dateStr: string, timeStr: string | null) => {
+    if (!timeStr) return null;
+    // If it's already an ISO string, just return it
+    if (timeStr.includes("T")) return timeStr;
+    // timeStr is usually "HH:mm"
+    return `${dateStr}T${timeStr}:00Z`;
+  };
+
+  // Helper: Calculate diff in hours
+  const calculateHours = (inTime: string | null, outTime: string | null) => {
+    if (!inTime || !outTime) return 0;
+    const start = new Date(inTime);
+    const end = new Date(outTime);
+    const diff = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+    return Math.max(0, parseFloat(diff.toFixed(2)));
+  };
+
   const handleUpdate = async (id: string, updatedFields: any) => {
     try {
-      const payload: any = { id };
-      const customData = updatedFields.customValues || {};
-      const standardKeys = [
-        "employee_id",
-        "date",
-        "check_in",
-        "check_out",
-        "hours_worked",
-        "status",
-        "notes",
-      ];
+      const existing = attendance.find((x) => x.id === id);
+      if (!existing) return;
 
+      const payload: any = { id };
+      const date = updatedFields.date || existing.date;
+      
+      // Merge values
+      const mergedFields = { ...existing, ...updatedFields };
+
+      // Process Times
+      payload.date = date;
+      payload.check_in = formatDateTime(date, mergedFields.check_in);
+      payload.check_out = formatDateTime(date, mergedFields.check_out);
+      
+      // Auto-calculate Hours
+      payload.hours_worked = calculateHours(payload.check_in, payload.check_out);
+
+      const standardKeys = ["employee_id", "status", "notes"];
       Object.keys(updatedFields).forEach((key) => {
         if (standardKeys.includes(key)) payload[key] = updatedFields[key];
       });
 
-      const existing = attendance.find((x) => x.id === id);
-      const mergedCustom = {
-        ...(existing?.custom_fields || {}),
-        ...customData,
-      };
-      if (Object.keys(mergedCustom).length > 0)
-        payload.custom_fields = mergedCustom;
+      // Handle custom fields
+      if (updatedFields.customValues) {
+        payload.custom_fields = {
+          ...(existing.custom_fields || {}),
+          ...updatedFields.customValues
+        };
+      }
 
       await updateAtt.mutateAsync(payload);
     } catch (err) {
@@ -298,21 +323,19 @@ export default function AttendancePage() {
 
   const handleAdd = async (newItem: any) => {
     try {
-      const customData = newItem.customValues || {};
-      const payload: any = { company_id: companyId, custom_fields: customData };
-      const standardKeys = [
-        "employee_id",
-        "date",
-        "check_in",
-        "check_out",
-        "hours_worked",
-        "status",
-        "notes",
-      ];
+      const date = newItem.date || new Date().toISOString().split("T")[0];
+      const payload: any = { 
+        company_id: companyId,
+        employee_id: newItem.employee_id,
+        date: date,
+        status: newItem.status || "present",
+        notes: newItem.notes || "",
+        custom_fields: newItem.customValues || {}
+      };
 
-      Object.keys(newItem).forEach((key) => {
-        if (standardKeys.includes(key)) payload[key] = newItem[key];
-      });
+      payload.check_in = formatDateTime(date, newItem.check_in);
+      payload.check_out = formatDateTime(date, newItem.check_out);
+      payload.hours_worked = calculateHours(payload.check_in, payload.check_out);
 
       await addAtt.mutateAsync(payload);
     } catch (err) {
@@ -394,6 +417,12 @@ export default function AttendancePage() {
                     {t("hr.stat_present")}{" "}
                     <span className="text-emerald-700 text-xs font-black">
                       {stats.present}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2 text-indigo-500">
+                    {t("hr.col_hours")}{" "}
+                    <span className="text-indigo-700 text-xs font-black leading-none">
+                      {stats.totalHours.toFixed(1)} {t("hr.hrs_label")}
                     </span>
                   </span>
                   <span className="flex items-center gap-2 text-amber-500">

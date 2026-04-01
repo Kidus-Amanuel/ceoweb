@@ -47,7 +47,7 @@ export const hrUpdateCustomFieldInputSchema =
 export const hrDeleteCustomFieldInputSchema =
   deleteCustomFieldSchema(hrEntityTypeSchema);
 
-// Standard Record Schemas (Partial definitions for common updates)
+// Standard Record Schemas
 export const employeeStandardSchema = z.object({
   first_name: z.string().min(1),
   last_name: z.string().min(1),
@@ -58,6 +58,19 @@ export const employeeStandardSchema = z.object({
   status: optionalInput(z.string()),
   hire_date: optionalInput(z.string()),
   basic_salary: optionalInput(z.coerce.number().nonnegative()),
+});
+
+export const departmentStandardSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  manager_id: optionalInput(z.string().uuid().nullable()),
+  budget: optionalInput(z.coerce.number().nonnegative()),
+});
+
+export const positionStandardSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  department_id: optionalInput(z.string().uuid().nullable()),
+  salary_range_min: optionalInput(z.coerce.number().nonnegative()),
+  salary_range_max: optionalInput(z.coerce.number().nonnegative()),
 });
 
 export const leaveTypeStandardSchema = z.object({
@@ -75,7 +88,7 @@ export const leaveStandardSchema = z.object({
   days_taken: z.coerce.number(),
   reason: optionalInput(z.string()),
   status: z
-    .enum(["pending", "approved", "rejected"])
+    .enum(["pending", "approved", "rejected", "cancelled"])
     .optional()
     .default("pending"),
 });
@@ -84,3 +97,41 @@ export const leaveStandardSchema = z.object({
 export type HRTable = z.infer<typeof hrTableSchema>;
 export type HREntityType = z.infer<typeof hrEntityTypeSchema>;
 export type HRCustomFieldType = z.infer<typeof hrCustomFieldTypeSchema>;
+
+// Employee Input Schemas
+export const hrCreateEmployeeInputSchema = hrCompanyScopeSchema.merge(employeeStandardSchema).extend({
+  custom_fields: hrCustomDataSchema.optional(),
+});
+
+export const hrUpdateEmployeeInputSchema = hrCompanyScopeSchema.merge(employeeStandardSchema.partial()).extend({
+  id: z.string().uuid("Invalid employee id"),
+  custom_fields: hrCustomDataSchema.optional(),
+});
+
+// Leave Input Schemas
+export const hrCreateLeaveInputSchema = hrCompanyScopeSchema.merge(leaveStandardSchema).extend({
+  custom_fields: hrCustomDataSchema.optional(),
+});
+
+export const hrUpdateLeaveInputSchema = hrCompanyScopeSchema.merge(leaveStandardSchema.partial()).extend({
+  id: z.string().uuid("Invalid leave id"),
+  custom_fields: hrCustomDataSchema.optional(),
+});
+
+// Department Input Schemas
+export const hrCreateDepartmentInputSchema = hrCompanyScopeSchema.merge(departmentStandardSchema).extend({
+  custom_fields: hrCustomDataSchema.optional(),
+});
+
+export const hrUpdateDepartmentInputSchema = hrCompanyScopeSchema.merge(departmentStandardSchema.partial()).extend({
+  id: z.string().uuid("Invalid department id"),
+  custom_fields: hrCustomDataSchema.optional(),
+});
+
+// Export inferred types
+export type HrCreateEmployeeInput = z.infer<typeof hrCreateEmployeeInputSchema>;
+export type HrUpdateEmployeeInput = z.infer<typeof hrUpdateEmployeeInputSchema>;
+export type HrCreateLeaveInput = z.infer<typeof hrCreateLeaveInputSchema>;
+export type HrUpdateLeaveInput = z.infer<typeof hrUpdateLeaveInputSchema>;
+export type HrCreateDepartmentInput = z.infer<typeof hrCreateDepartmentInputSchema>;
+export type HrUpdateDepartmentInput = z.infer<typeof hrUpdateDepartmentInputSchema>;

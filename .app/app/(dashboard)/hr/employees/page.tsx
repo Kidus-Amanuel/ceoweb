@@ -46,6 +46,8 @@ import {
   useAddEmployee,
   useUpdateEmployee,
   useDeleteEmployee,
+} from "@/hooks/use-hr-employees";
+import {
   useDepartments,
   usePositions,
   useHrColumnDefs,
@@ -66,12 +68,18 @@ import { FleetTableSkeleton } from "@/components/shared/ui/skeleton/FleetTableSk
 import { motion, AnimatePresence } from "framer-motion";
 import { calculateDays } from "@/utils/table-utils";
 import { type ColumnFieldType } from "@/components/shared/table/CustomColumnEditorContent";
+import { EmployeesFooter } from "@/components/hr/employees/EmployeesFooter";
+import { HRPayloadMapper } from "@/utils/hr-payload-mapper";
+import { useHRRealtime } from "@/hooks/use-hr-realtime";
 
 export default function EmployeesPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { selectedCompany } = useCompanies();
   const companyId = selectedCompany?.id;
+
+  // Global HR Module real-time socket connections for all HR tables
+  useHRRealtime(companyId, ["employees", "departments", "leaves", "positions", "leave_types", "payroll_runs", "attendance"]);
 
   // 1. Navigation & Search State
   const [view, setView] = useState<"list" | "leaves" | "types">("list");
@@ -429,74 +437,12 @@ export default function EmployeesPage() {
 
   const handleUpdate = async (id: string, updatedFields: any) => {
     try {
-      const updatePayload: any = { id };
-      const customData = updatedFields.customValues || {};
-
-      // Determine standard keys based on view
-      const standardKeys =
-        view === "list"
-          ? [
-              "first_name",
-              "last_name",
-              "email",
-              "employee_code",
-              "department_id",
-              "position_id",
-              "status",
-              "basic_salary",
-              "hourly_rate",
-              "hire_date",
-              "termination_date",
-              "job_title",
-              "user_id",
-            ]
-          : view === "leaves"
-            ? [
-                "leave_type_id",
-                "start_date",
-                "end_date",
-                "days_taken",
-                "reason",
-                "status",
-              ]
-            : ["name", "paid", "days_per_year", "carry_over"];
-
-      // 1. Map standard fields
-      Object.keys(updatedFields).forEach((key) => {
-        if (standardKeys.includes(key)) {
-          let val = updatedFields[key];
-          // Handle currency objects from SmartEditor (extract amount for numeric DB columns)
-          if (val && typeof val === "object" && "amount" in val) {
-            val = (val as any).amount;
-          }
-          updatePayload[key] = val;
-        }
-      });
-
-      // Special handling for leave days calculation
-      if (
-        view === "leaves" &&
-        (updatePayload.start_date || updatePayload.end_date)
-      ) {
-        const existing = leaves.find((l) => l.id === id);
-        updatePayload.days_taken = calculateDays(
-          updatePayload.start_date || existing?.start_date,
-          updatePayload.end_date || existing?.end_date,
-        );
-      }
-
-      // 2. Map custom fields
-      const existing = (
+      const rawTargetItem = (
         view === "list" ? employees : view === "leaves" ? leaves : leaveTypes
-      ).find((x) => x.id === id);
-      const mergedCustom = {
-        ...(existing?.custom_fields || {}),
-        ...customData,
-      };
-      if (Object.keys(mergedCustom).length > 0)
-        updatePayload.custom_fields = mergedCustom;
+      ).find((x: any) => x.id === id);
 
-      // 3. Dispatch
+      const updatePayload = HRPayloadMapper.buildUpdatePayload(view, id, updatedFields, rawTargetItem);
+
       if (view === "list") await updateEmp.mutateAsync(updatePayload);
       else if (view === "leaves") await updateLeave.mutateAsync(updatePayload);
       else await updateType.mutateAsync(updatePayload);
@@ -507,73 +453,13 @@ export default function EmployeesPage() {
 
   const handleAdd = async (newItem: any) => {
     try {
-      const customData = newItem.customValues || {};
-      const payload: any = { company_id: companyId };
+      if (!companyId) return;
+      
+      const payload = HRPayloadMapper.buildAddPayload(view, newItem, companyId, activeEmployeeId);
 
-      const standardKeys =
-        view === "list"
-          ? [
-              "first_name",
-              "last_name",
-              "email",
-              "employee_code",
-              "department_id",
-              "position_id",
-              "status",
-              "basic_salary",
-              "hourly_rate",
-              "hire_date",
-              "termination_date",
-              "job_title",
-              "user_id",
-            ]
-          : view === "leaves"
-            ? [
-                "leave_type_id",
-                "start_date",
-                "end_date",
-                "days_taken",
-                "reason",
-                "status",
-              ]
-            : ["name", "paid", "days_per_year", "carry_over"];
-
-      // 1. Map standard fields
-      Object.keys(newItem).forEach((key) => {
-        if (standardKeys.includes(key)) {
-          let val = newItem[key];
-          // Handle currency objects from SmartEditor
-          if (val && typeof val === "object" && "amount" in val) {
-            val = (val as any).amount;
-          }
-          payload[key] = val;
-        }
-      });
-
-      // 2. Add custom fields
-      payload.custom_fields = customData;
-
-      // 3. Dispatch
-      if (view === "list") {
-        payload.employee_code =
-          payload.employee_code ||
-          `EMP-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-        await addEmp.mutateAsync(payload);
-      } else if (view === "leaves") {
-        const days_taken = calculateDays(payload.start_date, payload.end_date);
-        await addLeave.mutateAsync({
-          ...payload,
-          days_taken,
-          employee_id: activeEmployeeId,
-          status: payload.status || "pending",
-        });
-      } else {
-        await addType.mutateAsync({
-          ...payload,
-          paid: payload.paid ?? true,
-          carry_over: payload.carry_over ?? false,
-        });
-      }
+      if (view === "list") await addEmp.mutateAsync(payload);
+      else if (view === "leaves") await addLeave.mutateAsync(payload);
+      else await addType.mutateAsync(payload);
     } catch (err) {
       console.error("[EmployeesPage] Add error:", err);
     }
@@ -948,28 +834,7 @@ export default function EmployeesPage() {
         </div>
 
         {/* Footer Audit Trace */}
-        <div className="px-6 py-2.5 bg-slate-50/50 border-t border-slate-200/50 flex items-center justify-between select-none">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 group cursor-help">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                System Active
-              </span>
-            </div>
-            <div className="flex items-center gap-2 group cursor-help">
-              <Settings2 className="w-3 h-3 text-slate-400 group-hover:rotate-90 transition-transform duration-500" />
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                Metadata Entity: {entityType.toUpperCase()}
-              </span>
-            </div>
-          </div>
-          <Badge
-            variant="outline"
-            className="text-[8px] font-black text-slate-300 border-slate-200 uppercase tracking-widest italic px-3 py-0.5 rounded-full"
-          >
-            CEO-ERP Interlink v4.0.2 / SECURE
-          </Badge>
-        </div>
+        <EmployeesFooter entityType={entityType} />
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ import {
   getSemanticOptionTone,
   getTypeIcon,
 } from "@/utils/table-utils";
-import { Paperclip } from "lucide-react";
+import { Paperclip, Clock } from "lucide-react";
 import { truncateFileName } from "@/utils/table-helpers";
 
 export interface SmartEditorProps {
@@ -648,6 +648,43 @@ export const SmartEditor = ({
           }}
           className={`${baseInputClass} min-w-[110px]`}
         />
+      </div>
+    );
+  }
+
+  if (type === "time") {
+    const handleNow = () => {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      const nextTime = `${hh}:${mm}`;
+      onChange(nextTime);
+      if (!isAddMode) onCommit?.(nextTime);
+    };
+
+    return (
+      <div className="flex h-full w-full items-center gap-1.5 px-0.5">
+        <Input
+          ref={(node) => setEditorRef(node)}
+          type="time"
+          value={String(value ?? "")}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => !isAddMode && onCommit?.()}
+          onKeyDown={(e) => {
+            if (handleGridNavigation(e)) return;
+            if (e.key === "Enter") onCommit?.();
+            if (e.key === "Escape") onCancel?.();
+          }}
+          className={cn(baseInputClass, "w-[90px]")}
+        />
+        <button
+          type="button"
+          onClick={handleNow}
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-amber-200 bg-amber-50/50 text-amber-600 hover:bg-amber-100 hover:text-amber-700 transition-all duration-200 shadow-sm shrink-0"
+          title="Set to current time"
+        >
+          <Clock className="w-3.5 h-3.5" />
+        </button>
       </div>
     );
   }

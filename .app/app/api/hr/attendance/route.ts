@@ -39,7 +39,7 @@ export async function GET(req: Request) {
 
     const { data, error, count } = await query
       .order("date", { ascending: false })
-      .order("clock_in", { ascending: false })
+      .order("check_in", { ascending: false })
       .range(from, to);
 
     if (error) throw error;
@@ -66,22 +66,44 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    // If no clock_in is provided, assume it's a "Now" clock-in
+    // If no check_in is provided, assume it's a "Now" clock-in
     const payload = {
       ...body,
       company_id: companyId,
       date: body.date || new Date().toISOString().split("T")[0],
-      clock_in:
-        body.clock_in || new Date().toISOString().split("T")[1].substring(0, 8),
+      check_in:
+        body.check_in || new Date().toISOString(),
     };
 
     const { data, error } = await supabase
       .from("attendance")
       .insert(payload)
-      .select()
+      .select(`
+        *,
+        employee:employees (first_name, last_name)
+      `)
       .single();
 
     if (error) throw error;
+
+    // 1. Manual Notification for Attendance Check-in
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && data.employee) {
+        await supabase.from("notifications").insert({
+          company_id: companyId,
+          actor_id: user.id,
+          category: "hr",
+          scope: "company",
+          title: "Attendance Logged",
+          content: `${data.employee.first_name} ${data.employee.last_name} check-in logged at ${new Date(data.check_in).toLocaleTimeString()}.`,
+          metadata: { attendance_id: data.id, type: "attendance_entry" }
+        });
+      }
+    } catch (e) {
+      console.warn("[Attendance API] Notification fallback failed:", e);
+    }
+
     return NextResponse.json(data);
   } catch (error: any) {
     console.error("[Attendance API] POST Error:", error);
@@ -111,10 +133,35 @@ export async function PATCH(req: Request) {
       })
       .eq("id", id)
       .eq("company_id", companyId)
-      .select()
+      .select(`
+        *,
+        employee:employees (first_name, last_name)
+      `)
       .single();
 
     if (error) throw error;
+
+    // 2. Manual Notification for Attendance Activity
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && data.employee) {
+        let action = "Activity Updated";
+        if (body.check_out && !updates.check_out) action = "Check-out Logged";
+
+        await supabase.from("notifications").insert({
+          company_id: companyId,
+          actor_id: user.id,
+          category: "hr",
+          scope: "company",
+          title: "Attendance " + action,
+          content: `Attendance record updated for ${data.employee.first_name} ${data.employee.last_name}.`,
+          metadata: { attendance_id: data.id, type: "attendance_update" }
+        });
+      }
+    } catch (e) {
+      console.warn("[Attendance API] Notification fallback failed:", e);
+    }
+
     return NextResponse.json(data);
   } catch (error: any) {
     console.error("[Attendance API] PATCH Error:", error);
@@ -135,6 +182,8 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { supabase, companyId } = auth;
 
+    const { data: attData } = await supabase.from('attendance').select('*, employee:employees(first_name, last_name)').eq('id', id).single();
+
     const { error } = await supabase
       .from("attendance")
       .update({ deleted_at: new Date().toISOString() })
@@ -142,9 +191,27 @@ export async function DELETE(req: Request) {
       .eq("company_id", companyId);
 
     if (error) throw error;
+
+    // 3. Manual Notification for Attendance Purge
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && attData?.employee) {
+        await supabase.from("notifications").insert({
+          company_id: companyId,
+          actor_id: user.id,
+          category: "hr",
+          scope: "company",
+          title: "Attendance Record Purged",
+          content: `Log record for ${attData.employee.first_name} ${attData.employee.last_name} on ${new Date(attData.date).toLocaleDateString()} was removed.`,
+          metadata: { type: "attendance_deleted" }
+        });
+      }
+    } catch (e) {
+      console.warn("[Attendance API] Notification fallback failed:", e);
+    }
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("[Attendance API] DELETE Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

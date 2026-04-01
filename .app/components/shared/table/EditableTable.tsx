@@ -309,7 +309,7 @@ export function EditableTable<
     if (type === "email") return "min-w-fit";
     if (type === "phone") return "min-w-fit";
     if (type === "number" || type === "currency") return "min-w-fit";
-    if (type === "date" || type === "datetime") return "min-w-fit";
+    if (type === "date" || type === "datetime" || type === "time") return "min-w-fit";
     if (type === "select" || type === "status" || type === "boolean")
       return "min-w-[110px]";
     return isVirtual ? "min-w-[110px]" : "min-w-[110px] ";
